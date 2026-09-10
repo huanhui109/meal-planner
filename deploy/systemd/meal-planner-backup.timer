@@ -1,0 +1,11 @@
+# /etc/systemd/system/meal-planner-backup.timer
+[Unit]
+Description=每天 03:30 备份 MySQL (保留 14 天)
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

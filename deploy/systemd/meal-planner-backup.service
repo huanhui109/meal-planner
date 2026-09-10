@@ -1,0 +1,11 @@
+# /etc/systemd/system/meal-planner-backup.service
+[Unit]
+Description=AI 每周营养菜谱工具 - MySQL 备份
+
+[Service]
+Type=oneshot
+User=meal
+Group=meal
+WorkingDirectory=/srv/meal-planner
+EnvironmentFile=/srv/meal-planner/.env
+ExecStart=/srv/meal-planner/.venv/bin/python scripts/backup_db.py

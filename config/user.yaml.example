@@ -1,0 +1,52 @@
+# config/user.yaml.example
+# 复制此文件为 config/user.yaml 并按需修改
+
+household:
+  member_count: 3
+  meals_per_day: 2  # 午、晚
+  kitchen_equipments: [灶台, 蒸锅, 空气炸锅, 微波炉]
+  weekday_cook_minutes: 30
+  weekend_cook_minutes: 60
+
+diet_preference:
+  cuisines: [粤菜, 江浙, 轻食]
+  spice_level: 1
+  flavor_preference: 清淡
+  staple_preference: 杂粮
+
+allergy_restriction:
+  allergens: []
+  avoid_ingredients: [香菜, 动物内脏]
+  dietary_restrictions: ""
+
+health_goal:
+  goal_type: 减脂
+  daily_calories: 1800
+  macro:
+    protein_pct: 30
+    carb_pct: 40
+    fat_pct: 30
+
+budget:
+  weekday_daily_budget: 35
+  weekend_daily_budget: 80
+  weekly_cap: 350
+  min_meal_budget: 8
+
+schedule:
+  off_work_time: "18:30"
+  menu_push_time: "08:00"
+  weekly_report_time: "SUN 20:00"
+
+llm:
+  primary: glm-4
+  fallback: [qwen-max, deepseek-chat]
+  local_model: qwen2.5-7b-instruct-4bit
+  monthly_budget_cny: 50
+
+platforms:
+  xiaoxiang:
+    enabled: true
+    scrape_time: "09:00"
+  meituan:
+    enabled: false

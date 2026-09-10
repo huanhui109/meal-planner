@@ -1,0 +1,104 @@
+# AI 每周营养菜谱工具 - 默认配置
+# 优先级: 环境变量 (前缀 APP__, 分隔符 __) > .env > 本文件 > 代码默认值
+# 示例: APP__DATABASE__URL="mysql+asyncmy://user:pwd@127.0.0.1:3306/meal_planner?charset=utf8mb4"
+# 注意: 本文件不得写入任何密钥, 密钥一律放 .env
+
+app:
+  name: "AI 每周营养菜谱工具"
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+  base_url: "http://127.0.0.1:8000"
+  # 前后端同源部署时无需配置; 仅跨域调试时填写, JSON 数组或 YAML 列表
+  cors_origins: []
+
+database:
+  url: "mysql+aiomysql://meal_planner:change-me@127.0.0.1:3306/meal_planner?charset=utf8mb4"
+  echo: false
+  pool_size: 10
+  max_overflow: 20
+  pool_recycle: 1800
+  pool_timeout: 30
+
+auth:
+  jwt_secret: ""            # 必填, 从 APP__AUTH__JWT_SECRET 注入, 至少 32 字符
+  jwt_algorithm: "HS256"
+  access_token_minutes: 120
+  refresh_token_days: 30
+  cookie_secure: true       # 本地 http 调试可设为 false
+  cookie_domain: ""
+  refresh_cookie_name: "mp_refresh"
+  access_cookie_name: "mp_access"
+  # 本地开发专用: 开启后可用 POST /api/auth/dev-login 免飞书登录。
+  # 生产环境必须保持 false, 否则任何人都能凭用户名登录。
+  dev_login_enabled: false
+
+menu:
+  daily_generation_limit: 3     # 每用户每日生成次数上限
+  generation_concurrency: 2     # 同时在跑的生成任务数
+  task_timeout_seconds: 900     # running 超过该时长视为僵尸任务
+  history_weeks: 4              # 多样性比对的历史周数
+  diversity_min_score: 0.7
+  budget_tolerance: 0.05        # 允许超预算 5%
+
+scheduler:
+  db_url: "mysql+aiomysql://meal_planner:change-me@127.0.0.1:3306/meal_planner?charset=utf8mb4"
+  daily_menu_push: "08:00"
+  evening_check: "17:30"
+  weekly_generation: "SUN 20:00"
+  daily_scrape: "09:00"
+  expiry_check: "10:00"
+
+llm:
+  # 主选: 智谱 GLM-4, api_key 由 GLM4_API_KEY 注入
+  primary:
+    name: "glm-4"
+    api_base: "https://open.bigmodel.cn/api/paas/v4"
+    api_key: ""
+    model: "glm-4"
+    max_tokens: 6000
+  # 降级链: 通义千问 QWEN_API_KEY -> DeepSeek DEEPSEEK_API_KEY
+  fallbacks:
+    - name: "qwen-max"
+      api_base: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+      api_key: ""
+      model: "qwen-max"
+      max_tokens: 6000
+    - name: "deepseek-chat"
+      api_base: "https://api.deepseek.com/v1"
+      api_key: ""
+      model: "deepseek-chat"
+      max_tokens: 6000
+  # 本地推理仅作为可选兜底, 默认关闭
+  local:
+    enabled: false
+    model_path: "qwen2.5-7b-instruct-4bit"
+    server_port: 8080
+  monthly_budget_cny: 50.0
+  rate_limit_qps: 5
+  # 本地演示: 开启后不调用任何外部模型, 返回固定的一周菜单 (生产必须 false)
+  demo_mode: false
+
+feishu:
+  app_id: ""
+  app_secret: ""
+  verification_token: ""
+  encrypt_key: ""
+  default_chat_id: ""
+  # 飞书网页应用登录回调, 必须与飞书后台配置完全一致且为 HTTPS
+  redirect_uri: "https://meal.example.com/api/auth/feishu/callback"
+  login_success_redirect: "/"
+
+platforms:
+  xiaoxiang:
+    enabled: true
+    base_url: "https://h5.waimai.meituan.com"
+  meituan_waimai:
+    enabled: false
+    base_url: "https://wm.waimai.meituan.com"
+
+scraping:
+  headless: true
+  timeout: 30000
+  retry_count: 2
+  retry_delay: 5

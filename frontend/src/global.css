@@ -1,0 +1,714 @@
+/* Vibe Camp 配色覆盖 Ant Design 默认主题 */
+:root {
+  --vibe-primary: #f7663c;
+  --vibe-primary-dark: #f1481e;
+  --vibe-bg: #f3f0eb;
+  --vibe-card: #ffffff;
+  --vibe-text: #211d1a;
+  --vibe-text-secondary: #5c5650;
+  --vibe-text-muted: #b4aba2;
+  --vibe-border: #d7d1c9;
+  --vibe-input-bg: #ece7e1;
+  --vibe-success: #3ccf8e;
+  --vibe-warning: #f4b366;
+  --vibe-danger: #ef4444;
+  --vibe-radius: 18px;
+}
+
+/* 全局基础样式 */
+body {
+  font-family: 'Geist', ui-sans-serif, sans-serif, system-ui;
+  background: var(--vibe-bg) !important;
+  color: var(--vibe-text) !important;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 覆盖 Ant Design 主题变量 */
+.ant-layout {
+  background: var(--vibe-bg) !important;
+}
+
+.ant-layout-sider {
+  background: var(--vibe-card) !important;
+  border-right: 1px solid var(--vibe-border) !important;
+}
+
+.ant-layout-content {
+  background: var(--vibe-bg) !important;
+}
+
+.ant-menu {
+  background: transparent !important;
+  border: none !important;
+}
+
+.ant-menu-item {
+  color: var(--vibe-text-secondary) !important;
+  border-radius: 12px !important;
+  margin: 4px 8px !important;
+  height: 44px !important;
+  line-height: 44px !important;
+}
+
+.ant-menu-item-selected {
+  background: rgba(247, 102, 60, 0.1) !important;
+  color: var(--vibe-primary) !important;
+}
+
+.ant-menu-item:hover {
+  background: rgba(247, 102, 60, 0.06) !important;
+}
+
+/* 按钮 */
+.ant-btn-primary {
+  background: var(--vibe-primary) !important;
+  border-color: var(--vibe-primary) !important;
+  border-radius: 12px !important;
+  height: 44px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+.ant-btn-primary:hover {
+  background: var(--vibe-primary-dark) !important;
+  border-color: var(--vibe-primary-dark) !important;
+}
+
+.ant-btn-default {
+  border-radius: 12px !important;
+  border-color: var(--vibe-border) !important;
+  color: var(--vibe-text) !important;
+}
+
+/* 输入框 */
+.ant-input,
+.ant-input-number,
+.ant-select-selector {
+  border-radius: 12px !important;
+  border-color: var(--vibe-border) !important;
+  background: var(--vibe-input-bg) !important;
+}
+
+.ant-input:focus,
+.ant-input-number:focus,
+.ant-input-focused {
+  border-color: var(--vibe-primary) !important;
+  box-shadow: 0 0 0 2px rgba(247, 102, 60, 0.15) !important;
+}
+
+/* 卡片 */
+.ant-card {
+  border-radius: var(--vibe-radius) !important;
+  border: none !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Tab 切换 */
+.ant-tabs-tab {
+  color: var(--vibe-text-secondary) !important;
+  font-weight: 500 !important;
+}
+
+.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--vibe-primary) !important;
+}
+
+.ant-tabs-ink-bar {
+  background: var(--vibe-primary) !important;
+}
+
+/* 统计卡片 */
+.ant-statistic-title {
+  color: var(--vibe-text-muted) !important;
+  font-size: 13px !important;
+}
+
+.ant-statistic-content-value {
+  color: var(--vibe-text) !important;
+  font-weight: 700 !important;
+}
+
+/* Form */
+.ant-form-item-label > label {
+  color: var(--vibe-text) !important;
+  font-weight: 500 !important;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--vibe-border);
+  border-radius: 3px;
+}
+
+/* ===== 布局: 窄屏底部 TabBar + 宽屏左侧导航 ===== */
+.app-shell {
+  min-height: 100vh;
+  background: var(--vibe-bg);
+  display: flex;
+}
+
+.app-sidebar {
+  display: none;
+  width: 232px;
+  flex-direction: column;
+  background: var(--vibe-card);
+  border-right: 1px solid var(--vibe-border);
+  padding: 20px 12px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px 18px;
+}
+
+.app-brand-mark {
+  font-size: 26px;
+}
+
+.app-brand-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.app-brand-sub {
+  font-size: 12px;
+  color: var(--vibe-text-muted);
+}
+
+.app-side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.app-side-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  color: var(--vibe-text-secondary);
+  font-size: 14px;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.app-side-item:hover {
+  background: rgba(247, 102, 60, 0.06);
+  color: var(--vibe-primary);
+}
+
+.app-side-item.is-active {
+  background: rgba(247, 102, 60, 0.1);
+  color: var(--vibe-primary);
+  font-weight: 600;
+}
+
+.app-side-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 10px 0;
+  border-top: 1px solid var(--vibe-border);
+}
+
+.app-side-user {
+  flex: 1;
+  font-size: 13px;
+  color: var(--vibe-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-side-logout {
+  color: var(--vibe-text-muted);
+  cursor: pointer;
+}
+
+.app-side-logout:hover {
+  color: var(--vibe-danger);
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-topbar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--vibe-card);
+  border-bottom: 1px solid var(--vibe-border);
+}
+
+.app-topbar-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.app-content {
+  flex: 1;
+  padding-bottom: 76px;
+}
+
+.app-tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: var(--vibe-card);
+  border-top: 1px solid var(--vibe-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 1000;
+}
+
+.app-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  color: var(--vibe-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.app-tab .anticon {
+  font-size: 18px;
+}
+
+.app-tab.is-active {
+  color: var(--vibe-primary);
+}
+
+.app-loading {
+  padding: 24px;
+}
+
+@media (min-width: 1024px) {
+  .app-sidebar {
+    display: flex;
+  }
+
+  .app-topbar {
+    display: flex;
+  }
+
+  .app-tabbar {
+    display: none;
+  }
+
+  .app-content {
+    padding-bottom: 24px;
+  }
+}
+
+/* ===== 页面通用 ===== */
+.page {
+  padding: 16px;
+  max-width: 1120px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--vibe-card);
+  border-radius: var(--vibe-radius);
+  padding: 18px 22px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.page-header-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--vibe-text);
+}
+
+.page-header-sub {
+  font-size: 13px;
+  color: var(--vibe-text-muted);
+  margin-top: 4px;
+}
+
+.page-header-extra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.page-alert {
+  border-radius: 14px !important;
+}
+
+.page-footnote {
+  font-size: 12px;
+  color: var(--vibe-text-muted);
+  text-align: center;
+  padding: 4px 0 12px;
+}
+
+.card {
+  background: var(--vibe-card);
+  border-radius: var(--vibe-radius);
+  padding: 20px 22px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.card-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.card-title-sub {
+  font-size: 13px;
+  color: var(--vibe-text-muted);
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .stat-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.stat-card {
+  padding: 18px 20px;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--vibe-text-muted);
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 6px 0 4px;
+  color: var(--vibe-text);
+}
+
+.stat-unit {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vibe-text-muted);
+  margin-left: 6px;
+}
+
+.stat-hint {
+  font-size: 12px;
+  color: var(--vibe-text-secondary);
+}
+
+.stat-hint.danger {
+  color: var(--vibe-danger);
+}
+
+.alert-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* ===== 菜单 ===== */
+.day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.day-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--vibe-border);
+  margin-bottom: 12px;
+}
+
+.day-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.day-card-date {
+  font-size: 12px;
+  color: var(--vibe-text-muted);
+  font-weight: 400;
+}
+
+.day-card-cost {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vibe-text-secondary);
+}
+
+.meal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.meal-row,
+.meal-block {
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--vibe-border);
+}
+
+.meal-list > .meal-block:last-child,
+.meal-list > .meal-row:last-child {
+  border-bottom: none;
+}
+
+.meal-block-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.meal-row-name,
+.meal-block-name {
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.meal-badge {
+  display: inline-block;
+  background: rgba(247, 102, 60, 0.1);
+  color: var(--vibe-primary);
+  border-radius: 8px;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.meal-row-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--vibe-text-muted);
+  margin-top: 6px;
+}
+
+.meal-actions {
+  flex-shrink: 0;
+}
+
+.tag-soft {
+  background: var(--vibe-input-bg) !important;
+  border-color: var(--vibe-border) !important;
+  color: var(--vibe-text-secondary) !important;
+}
+
+.ingredient-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 4px 16px;
+}
+
+.ingredient-list li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--vibe-text-secondary);
+}
+
+.ingredient-amount {
+  color: var(--vibe-text-muted);
+}
+
+.recipe-steps {
+  font-size: 13px;
+  color: var(--vibe-text-secondary);
+  background: var(--vibe-input-bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  line-height: 1.6;
+}
+
+/* ===== 采购清单 ===== */
+.shopping-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.shopping-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px dashed var(--vibe-border);
+}
+
+.shopping-list li:last-child {
+  border-bottom: none;
+}
+
+.shopping-list li.is-have .shopping-name {
+  color: var(--vibe-text-muted);
+  text-decoration: line-through;
+}
+
+.shopping-name {
+  font-size: 14px;
+}
+
+.shopping-amount {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.shopping-deficit {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vibe-primary);
+}
+
+.shopping-stock {
+  font-size: 12px;
+  color: var(--vibe-text-muted);
+}
+
+/* ===== 库存 ===== */
+.inventory-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.inventory-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border-bottom: 1px dashed var(--vibe-border);
+}
+
+.inventory-list li.is-expiring {
+  background: rgba(244, 179, 102, 0.12);
+}
+
+.inventory-name {
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inventory-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--vibe-text-muted);
+  margin-top: 4px;
+}
+
+.inventory-qty {
+  font-weight: 600;
+  color: var(--vibe-text-secondary);
+}
+
+.form-hint {
+  font-size: 12px;
+  color: var(--vibe-text-muted);
+  margin-bottom: 12px;
+}
+
+/* ===== 登录页 ===== */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--vibe-bg);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--vibe-card);
+  border-radius: 22px;
+  padding: 36px 28px 28px;
+  text-align: center;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+}
+
+.login-emoji {
+  font-size: 46px;
+  margin-bottom: 8px;
+}
+
+.login-hint {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--vibe-text-muted);
+}
+
+.login-dev {
+  text-align: left;
+}
