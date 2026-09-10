@@ -82,6 +82,38 @@ make ci             # ruff + pytest + 前端构建
 
 > 库名必须以 `_test` 结尾，conftest 会拒绝清空非测试库。
 
+## V2.0 上线增量（本次要做的）
+
+1. 拉代码后装新依赖（新增 `pillow`，拍照识别前缩放图片用）：
+
+   ```bash
+   make install-backend        # 或 .venv/bin/pip install -e ".[dev]"
+   ```
+
+2. 升级表结构（新增 `activity_log` 表、`budget.takeout_reference_price`、
+   `consumption_record.ingredient_id/unit`）：
+
+   ```bash
+   make migrate                # alembic upgrade head
+   ```
+
+3. 按需补配置（都可以不配，不配就走降级路径）：
+
+   | 配置 | 不配会怎样 |
+   |------|-----------|
+   | `APP__LLM__VISION__ENABLED=true` + 可用的 `ZHIPU_API_KEY` | 冰箱页的「拍照识别」置灰，只能手动添加入库 |
+   | `APP__PLATFORMS__XIAOXIANG__MINIAPP_APP_ID` | 补单只会复制清单，不跳小程序 |
+   | `APP__PLATFORMS__XIAOXIANG__MIN_ORDER_AMOUNT` | 默认 20 元起送价；填 0 表示不算起送 |
+
+4. 重启后端：`sudo systemctl restart meal-planner-api`。
+
+5. 冒烟检查：
+
+   ```bash
+   curl -s https://<你的域名>/api/health
+   # 登录后 /api/today 应返回 200 且 order/timeline/takeout 字段齐全
+   ```
+
 ## 常见问题
 
 **Q: 服务启动报 “APP__AUTH__JWT_SECRET 未配置或长度不足”**
