@@ -82,3 +82,9 @@ export const unlockMenuItem = (menuId: number, itemId: number) =>
 /** 标记已做并扣减库存 */
 export const markItemCooked = (menuId: number, itemId: number) =>
   unwrap<ConsumeResult>(apiClient.put(`/menus/${menuId}/items/${itemId}/cooked`))
+
+/** 撤销「标记已做」: 库存还原, 消耗流水删除 */
+export const undoMarkCooked = (menuId: number, itemId: number) =>
+  unwrap<{ item_id: number; restored: Array<{ ingredient_name: string; quantity: number; unit: string }>; skipped: number }>(
+    apiClient.delete(`/menus/${menuId}/items/${itemId}/cooked`),
+  )

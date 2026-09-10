@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { message } from 'antd'
+import { ChipSelect, Field, FormCard, NumberInput } from '../../components/ui/form'
 import { usePreferenceStore } from '../../stores/usePreferenceStore'
 
 const EQUIPMENT_OPTIONS = [
@@ -33,10 +34,10 @@ const HouseholdForm: React.FC = () => {
   }, [summary])
 
   const toggleEquipment = (eq: string) => {
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
       kitchen_equipments: prev.kitchen_equipments.includes(eq)
-        ? prev.kitchen_equipments.filter(e => e !== eq)
+        ? prev.kitchen_equipments.filter((item) => item !== eq)
         : [...prev.kitchen_equipments, eq],
     }))
   }
@@ -53,84 +54,60 @@ const HouseholdForm: React.FC = () => {
     }
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '12px 16px',
-    borderRadius: '12px',
-    border: '1px solid #d7d1c9',
-    background: '#ece7e1',
-    fontSize: '15px',
-    color: '#211d1a',
-    outline: 'none',
-    boxSizing: 'border-box',
-  }
-
   return (
-    <div style={{ background: '#fff', borderRadius: '18px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
-      <div style={{ fontSize: '17px', fontWeight: 600, color: '#211d1a', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span>👨‍👩‍👧‍👦</span> 家庭信息
+    <FormCard
+      title="家庭与厨房"
+      subtitle="决定每餐分量和能用的厨具"
+      saving={loading}
+      saveLabel="保存家庭信息"
+      onSave={handleSave}
+    >
+      <div className="field-grid">
+        <Field label="家庭人数">
+          <NumberInput
+            value={form.member_count}
+            min={1}
+            max={20}
+            onChange={(value) => setForm((prev) => ({ ...prev, member_count: value || 1 }))}
+          />
+        </Field>
+        <Field label="每日餐次">
+          <NumberInput
+            value={form.meals_per_day}
+            min={1}
+            max={5}
+            onChange={(value) => setForm((prev) => ({ ...prev, meals_per_day: value || 2 }))}
+          />
+        </Field>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <div>
-          <label style={{ fontSize: '13px', color: '#5c5650', marginBottom: '6px', display: 'block' }}>家庭人数</label>
-          <input type="number" value={form.member_count} min={1} max={20}
-            onChange={e => setForm(prev => ({ ...prev, member_count: parseInt(e.target.value) || 1 }))}
-            style={inputStyle} />
-        </div>
-        <div>
-          <label style={{ fontSize: '13px', color: '#5c5650', marginBottom: '6px', display: 'block' }}>每日餐次</label>
-          <input type="number" value={form.meals_per_day} min={1} max={5}
-            onChange={e => setForm(prev => ({ ...prev, meals_per_day: parseInt(e.target.value) || 2 }))}
-            style={inputStyle} />
-        </div>
-        <div>
-          <label style={{ fontSize: '13px', color: '#5c5650', marginBottom: '6px', display: 'block' }}>厨房设备</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {EQUIPMENT_OPTIONS.map(eq => (
-              <span key={eq} onClick={() => toggleEquipment(eq)} style={{
-                padding: '6px 14px',
-                borderRadius: '20px',
-                fontSize: '13px',
-                cursor: 'pointer',
-                border: form.kitchen_equipments.includes(eq) ? '1px solid #f7663c' : '1px solid #d7d1c9',
-                background: form.kitchen_equipments.includes(eq) ? 'rgba(247,102,60,0.1)' : '#ece7e1',
-                color: form.kitchen_equipments.includes(eq) ? '#f7663c' : '#5c5650',
-                transition: 'all 0.2s',
-              }}>
-                {eq}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <div>
-            <label style={{ fontSize: '13px', color: '#5c5650', marginBottom: '6px', display: 'block' }}>工作日做饭(分钟)</label>
-            <input type="number" value={form.weekday_cook_minutes} min={5} max={180}
-              onChange={e => setForm(prev => ({ ...prev, weekday_cook_minutes: parseInt(e.target.value) || 30 }))}
-              style={inputStyle} />
-          </div>
-          <div>
-            <label style={{ fontSize: '13px', color: '#5c5650', marginBottom: '6px', display: 'block' }}>周末做饭(分钟)</label>
-            <input type="number" value={form.weekend_cook_minutes} min={5} max={300}
-              onChange={e => setForm(prev => ({ ...prev, weekend_cook_minutes: parseInt(e.target.value) || 60 }))}
-              style={inputStyle} />
-          </div>
-        </div>
-      </div>
+      <Field label="厨房设备" hint="没有的设备不会排进菜单, 例如没烤箱就不会出现烘焙菜">
+        <ChipSelect
+          options={EQUIPMENT_OPTIONS.map((item) => ({ value: item, label: item }))}
+          selected={form.kitchen_equipments}
+          onToggle={toggleEquipment}
+        />
+      </Field>
 
-      <button onClick={handleSave} disabled={loading}
-        style={{
-          width: '100%', marginTop: '20px',
-          background: loading ? '#b4aba2' : '#f7663c',
-          color: '#fff', border: 'none', borderRadius: '14px',
-          padding: '14px', fontSize: '16px', fontWeight: 600,
-          cursor: loading ? 'not-allowed' : 'pointer',
-          boxShadow: loading ? 'none' : '0 4px 16px rgba(247,102,60,0.3)',
-        }}>
-        {loading ? '保存中...' : '保存家庭信息'}
-      </button>
-    </div>
+      <div className="field-grid">
+        <Field label="工作日做饭 (分钟)">
+          <NumberInput
+            value={form.weekday_cook_minutes}
+            min={5}
+            max={180}
+            onChange={(value) => setForm((prev) => ({ ...prev, weekday_cook_minutes: value || 30 }))}
+          />
+        </Field>
+        <Field label="周末做饭 (分钟)">
+          <NumberInput
+            value={form.weekend_cook_minutes}
+            min={5}
+            max={300}
+            onChange={(value) => setForm((prev) => ({ ...prev, weekend_cook_minutes: value || 60 }))}
+          />
+        </Field>
+      </div>
+    </FormCard>
   )
 }
 

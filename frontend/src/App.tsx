@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Skeleton, message } from 'antd'
 import MainLayout from './components/Layout'
 import { fetchCurrentUser } from './api/auth'
 import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
+import Today from './pages/Today'
 import WeeklyView from './pages/Menus/WeeklyView'
 import ShoppingList from './pages/Menus/ShoppingList'
 import Inventory from './pages/Inventory'
 import Preferences from './pages/Preferences'
+import MePanel from './pages/Me'
 import type { CurrentUser } from './types'
 
 type AuthState = 'loading' | 'authenticated' | 'anonymous'
@@ -52,14 +53,27 @@ function RequireAuth({ children }: { children: (user: CurrentUser) => React.Reac
   return <MainLayout user={user}>{children(user)}</MainLayout>
 }
 
+/** /me 的直连入口: 点分组走前端路由, 不整页刷新 */
+function MeRoute({ user }: { user: CurrentUser }) {
+  const navigate = useNavigate()
+  return <MePanel user={user} onNavigate={navigate} />
+}
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        {/* /me 是「我的」面板的直连入口 (抽屉从头像打开, 这条给刷新/直达用) */}
+        <Route
+          path="/me"
+          element={
+            <RequireAuth>{(user) => <MeRoute user={user} />}</RequireAuth>
+          }
+        />
         <Route
           path="/"
-          element={<RequireAuth>{(user) => <Dashboard user={user} />}</RequireAuth>}
+          element={<RequireAuth>{(user) => <Today user={user} />}</RequireAuth>}
         />
         <Route
           path="/menus"

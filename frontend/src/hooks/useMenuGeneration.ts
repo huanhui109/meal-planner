@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { generateMenu, getGenerationTask, currentWeekStart } from '../api/menu'
+/**
+ * 生成任务的页面级用法
+ *
+ * 真正的状态在 useGenerationStore (全局), 这里只是把 store 包成页面习惯的
+ * 形状, 并注册"生成成功"回调。页面切走轮询不会停, 回来还能接着看进度。
+ */
+import { useEffect } from 'react'
+import { useGenerationStore } from '../stores/useGenerationStore'
 import type { GenerationStatus } from '../types'
-
-const POLL_INTERVAL_MS = 2500
 
 interface UseMenuGenerationResult {
   start: (weekStart?: string, force?: boolean) => Promise<void>
@@ -14,86 +18,19 @@ interface UseMenuGenerationResult {
   reset: () => void
 }
 
-/** 提交生成任务并轮询状态, 成功或失败后回调 */
 export function useMenuGeneration(onFinished?: (menuId: number) => void): UseMenuGenerationResult {
-  const [submitting, setSubmitting] = useState(false)
-  const [status, setStatus] = useState<GenerationStatus | null>(null)
-  const [error, setError] = useState('')
-  const [reused, setReused] = useState(false)
-  const timer = useRef<number | null>(null)
-  const finishedRef = useRef(onFinished)
+  const submitting = useGenerationStore((state) => state.submitting)
+  const status = useGenerationStore((state) => state.status)
+  const error = useGenerationStore((state) => state.error)
+  const reused = useGenerationStore((state) => state.reused)
+  const start = useGenerationStore((state) => state.start)
+  const reset = useGenerationStore((state) => state.reset)
+  const onFinishedChange = useGenerationStore((state) => state.onFinished)
 
   useEffect(() => {
-    finishedRef.current = onFinished
-  }, [onFinished])
-
-  useEffect(
-    () => () => {
-      if (timer.current) window.clearTimeout(timer.current)
-    },
-    [],
-  )
-
-  const poll = useCallback((taskId: number) => {
-    timer.current = window.setTimeout(async () => {
-      try {
-        const task = await getGenerationTask(taskId)
-        setStatus(task.status)
-        if (task.status === 'succeeded' && task.menu_id) {
-          setSubmitting(false)
-          finishedRef.current?.(task.menu_id)
-          return
-        }
-        if (task.status === 'failed') {
-          setSubmitting(false)
-          setError(task.error || '生成失败, 请重试')
-          return
-        }
-        poll(taskId)
-      } catch (err) {
-        setSubmitting(false)
-        setError((err as Error).message)
-      }
-    }, POLL_INTERVAL_MS)
-  }, [])
-
-  const start = useCallback(
-    async (weekStart?: string, force = false) => {
-      setSubmitting(true)
-      setError('')
-      setReused(false)
-      setStatus('pending')
-      try {
-        const result = await generateMenu(weekStart || currentWeekStart(), force)
-        if (result.reused && result.menu_id) {
-          setReused(true)
-          setStatus('succeeded')
-          setSubmitting(false)
-          finishedRef.current?.(result.menu_id)
-          return
-        }
-        if (result.task_id) {
-          poll(result.task_id)
-          return
-        }
-        setSubmitting(false)
-        setError('服务端未返回任务编号')
-      } catch (err) {
-        setSubmitting(false)
-        setStatus(null)
-        setError((err as Error).message)
-      }
-    },
-    [poll],
-  )
-
-  const reset = useCallback(() => {
-    if (timer.current) window.clearTimeout(timer.current)
-    setSubmitting(false)
-    setStatus(null)
-    setError('')
-    setReused(false)
-  }, [])
+    if (!onFinished) return undefined
+    return onFinishedChange(onFinished)
+  }, [onFinished, onFinishedChange])
 
   return {
     start,

@@ -1,27 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { Alert, Collapse, Form, Input, InputNumber, Modal, message } from 'antd'
+import { CheckCircleOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons'
 import {
-  Alert,
-  Button,
-  Collapse,
-  Empty,
-  Form,
-  Input,
-  InputNumber,
-  Modal,
-  Skeleton,
-  Space,
-  Tag,
-  message,
-} from 'antd'
-import {
-  CheckCircleOutlined,
-  LockOutlined,
-  ShoppingCartOutlined,
-  SwapOutlined,
-  UnlockOutlined,
-} from '@ant-design/icons'
-import PageHeader from '../../components/PageHeader'
+  Bar,
+  Card,
+  Chip,
+  DayStrip,
+  EmptyState,
+  LoadingStack,
+  PageHead,
+  PillButton,
+} from '../../components/ui'
 import {
   confirmMenu,
   currentWeekStart,
@@ -29,20 +18,38 @@ import {
   lockMenuItem,
   markItemCooked,
   replaceMenuItem,
+  undoMarkCooked,
   unlockMenuItem,
 } from '../../api/menu'
+import { getAutomationStatus } from '../../api/automation'
 import { useMenuGeneration } from '../../hooks/useMenuGeneration'
-import type { MealDetail, MenuDetail, MenuDay } from '../../types'
-
-const WEEKDAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+import { toastWithUndo } from '../../lib/undo'
+import {
+  DAY_TYPE_LABELS,
+  MENU_STATUS_LABELS,
+  WEEKDAY_LABELS,
+  formatAmount,
+  formatDateRange,
+  formatKcal,
+  formatMinutes,
+  formatMoney,
+  formatMonthDay,
+  formatProgress,
+  mealLabel,
+  todayIso,
+} from '@shared/index'
+import type { MealDetail, MenuDetail } from '../../types'
 
 const WeeklyView: React.FC = () => {
-  const navigate = useNavigate()
   const [menu, setMenu] = useState<MenuDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [busyItemId, setBusyItemId] = useState<number | null>(null)
   const [replaceTarget, setReplaceTarget] = useState<MealDetail | null>(null)
   const [replacing, setReplacing] = useState(false)
+  const [selectedDate, setSelectedDate] = useState('')
+  const [confirming, setConfirming] = useState(false)
+  /** 周生成时间文案来自调度配置, 拉不到就用默认说法, 不影响页面 */
+  const [weeklyGeneration, setWeeklyGeneration] = useState('每周日 20:00')
   const [form] = Form.useForm()
 
   const menuId = menu?.id
@@ -50,7 +57,14 @@ const WeeklyView: React.FC = () => {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      setMenu(await getCurrentMenu())
+      const data = await getCurrentMenu()
+      setMenu(data)
+      setSelectedDate((prev) => {
+        if (prev && data.days.some((day) => day.date === prev)) return prev
+        const today = todayIso()
+        if (data.days.some((day) => day.date === today)) return today
+        return data.days[0]?.date ?? ''
+      })
     } catch {
       setMenu(null)
     } finally {
@@ -62,10 +76,25 @@ const WeeklyView: React.FC = () => {
     load()
   }, [load])
 
+  useEffect(() => {
+    getAutomationStatus()
+      .then((status) => {
+        if (status.reminders.weekly_generation) {
+          setWeeklyGeneration(status.reminders.weekly_generation)
+        }
+      })
+      .catch(() => undefined)
+  }, [])
+
   const generation = useMenuGeneration(() => {
     message.success('菜单已生成')
     load()
   })
+
+  const selectedDay = useMemo(
+    () => menu?.days.find((day) => day.date === selectedDate) ?? menu?.days[0] ?? null,
+    [menu, selectedDate],
+  )
 
   const withItem = async (itemId: number, action: () => Promise<void>, successText: string) => {
     setBusyItemId(itemId)
@@ -88,7 +117,7 @@ const WeeklyView: React.FC = () => {
         if (meal.is_locked) await unlockMenuItem(menuId, meal.id)
         else await lockMenuItem(menuId, meal.id)
       },
-      meal.is_locked ? '已解锁' : '已锁定, 重生成时不会改动',
+      meal.is_locked ? '已解锁' : '已锁定, 重新生成时不会改动这一餐',
     )
 
   const handleCooked = async (meal: MealDetail) => {
@@ -96,14 +125,20 @@ const WeeklyView: React.FC = () => {
     setBusyItemId(meal.id)
     try {
       const result = await markItemCooked(menuId, meal.id)
-      if (result.missing.length > 0) {
-        message.warning(`已扣减库存, 但有 ${result.missing.length} 项食材不足`)
-      } else if (result.consumed.length > 0) {
-        message.success(`已扣减 ${result.consumed.length} 项库存`)
-      } else {
-        message.success('已标记完成 (该菜品没有可扣减的库存)')
-      }
       setMenu(await getCurrentMenu())
+      toastWithUndo({
+        key: `cook-${meal.id}`,
+        text:
+          result.missing.length > 0
+            ? `已扣减库存, ${result.missing.length} 项食材不足`
+            : result.consumed.length > 0
+              ? `已扣减 ${result.consumed.length} 项库存`
+              : '已标记完成',
+        onUndo: async () => {
+          await undoMarkCooked(menuId, meal.id)
+          setMenu(await getCurrentMenu())
+        },
+      })
     } catch (err) {
       message.error((err as Error).message)
     } finally {
@@ -113,19 +148,39 @@ const WeeklyView: React.FC = () => {
 
   const submitReplace = async () => {
     if (!menuId || !replaceTarget) return
+    const target = replaceTarget
+    const previous = target.recipe
     try {
       const values = await form.validateFields()
       setReplacing(true)
-      const updated = await replaceMenuItem(menuId, replaceTarget.id, {
+      const updated = await replaceMenuItem(menuId, target.id, {
         recipe_name: values.recipe_name,
         calories: values.calories ?? 0,
         cook_minutes: values.cook_minutes ?? 20,
         steps: values.steps ?? '',
       })
       setMenu(updated)
-      message.success('已替换这一餐')
       setReplaceTarget(null)
       form.resetFields()
+      // 换一道也做成可撤销: 弹层里再放一个「换回上一道」会挤, 放 Toast 更顺手
+      if (previous) {
+        toastWithUndo({
+          key: `replace-${target.id}`,
+          text: `已换成「${values.recipe_name}」`,
+          onUndo: async () => {
+            setMenu(
+              await replaceMenuItem(menuId, target.id, {
+                recipe_name: previous.name,
+                calories: previous.calories ?? 0,
+                cook_minutes: previous.cook_minutes ?? 20,
+                steps: previous.steps ?? '',
+              }),
+            )
+          },
+        })
+      } else {
+        message.success('已替换这一餐')
+      }
     } catch (err) {
       if (err instanceof Error) message.error(err.message)
     } finally {
@@ -135,107 +190,175 @@ const WeeklyView: React.FC = () => {
 
   const handleConfirm = async () => {
     if (!menuId) return
+    setConfirming(true)
     try {
       await confirmMenu(menuId)
       message.success('已确认本周菜单')
       setMenu(await getCurrentMenu())
     } catch (err) {
       message.error((err as Error).message)
+    } finally {
+      setConfirming(false)
     }
   }
 
   if (loading) {
     return (
       <div className="page">
-        <Skeleton active paragraph={{ rows: 6 }} />
+        <PageHead title="本周菜单" />
+        <LoadingStack rows={6} />
       </div>
     )
   }
 
-  if (!menu) {
+  if (!menu || !selectedDay) {
     return (
       <div className="page">
-        <PageHeader title="本周菜单" subtitle="还没有生成菜单" />
-        {generation.error && <Alert type="error" showIcon message={generation.error} className="page-alert" />}
-        <div className="card">
-          <Empty description="本周还没有菜单">
-            <Space>
-              <Button onClick={() => navigate('/preferences')}>先完善偏好</Button>
-              <Button type="primary" loading={generation.running} onClick={() => generation.start()}>
-                生成菜单
-              </Button>
-            </Space>
-          </Empty>
-        </div>
+        <PageHead title="本周菜单" subtitle="还没有菜单, 先生成一份再回来调整" />
+        {generation.error && <Alert type="error" showIcon message={generation.error} closable />}
+        <Card>
+          <EmptyState
+            title="这周还没有菜单"
+            description="AI 会按你的偏好排好 7 天, 生成后可以逐餐替换、锁定和标记已做"
+            actionLabel="生成菜单"
+            loading={generation.submitting}
+            onAction={() => generation.start()}
+          />
+        </Card>
       </div>
     )
   }
 
-  const weekEnd = menu.days.length > 0 ? menu.days[menu.days.length - 1].date : menu.week_start_date
+  const weekEnd = menu.days[menu.days.length - 1]?.date ?? menu.week_start_date
+  const cookedToday = selectedDay.meals.filter((meal) => meal.is_cooked).length
 
   return (
     <div className="page">
-      <PageHeader
+      <PageHead
         title="本周菜单"
-        subtitle={`${menu.week_start_date} ~ ${weekEnd} · 预估 ¥${menu.totals.estimated_cost.toFixed(0)}`}
+        subtitle={`${formatDateRange(menu.week_start_date, weekEnd)} · ${MENU_STATUS_LABELS[menu.status] ?? menu.status} · 预估 ${formatMoney(
+          menu.totals.estimated_cost,
+        )} · 进度 ${formatProgress(menu.totals.cooked_count, menu.totals.meal_count)}`}
         extra={
-          <Space wrap>
-            <Button icon={<ShoppingCartOutlined />} onClick={() => navigate('/shopping')}>
-              采购清单
-            </Button>
-            <Button
-              loading={generation.running}
-              onClick={() => generation.start(currentWeekStart(), true)}
-            >
-              重新生成
-            </Button>
+          <>
             {menu.status === 'draft' && (
-              <Button type="primary" onClick={handleConfirm}>
+              <PillButton variant="gray" size="sm" loading={confirming} onClick={handleConfirm}>
                 确认菜单
-              </Button>
+              </PillButton>
             )}
-          </Space>
+          </>
         }
       />
 
-      {generation.error && <Alert type="error" showIcon message={generation.error} className="page-alert" closable />}
+      {generation.error && <Alert type="error" showIcon message={generation.error} closable />}
       {generation.running && (
         <Alert
           type="info"
           showIcon
-          className="page-alert"
-          message="AI 正在生成菜单, 通常需要 1-2 分钟, 可以离开本页"
-        />
-      )}
-      {menu.totals.unpriced_items > 0 && (
-        <Alert
-          type="warning"
-          showIcon
-          className="page-alert"
-          message={`${menu.totals.unpriced_items} 项食材缺少参考单价, 预估成本可能偏低`}
+          message="AI 正在生成菜单, 通常 1-2 分钟, 可以先去其他页面"
         />
       )}
 
-      <div className="day-list">
-        {menu.days.map((day) => (
-          <DayCard
-            key={day.date}
-            day={day}
-            busyItemId={busyItemId}
-            onLockToggle={handleLockToggle}
-            onCooked={handleCooked}
-            onReplace={setReplaceTarget}
-          />
-        ))}
+      <WeekSummary
+        menu={menu}
+        generatedLabel={weeklyGeneration}
+        onRegenerate={() => generation.start(currentWeekStart(), true)}
+        regenerating={generation.submitting}
+      />
+
+      <DayStrip
+        days={menu.days.map((day) => ({
+          date: day.date,
+          weekday: day.weekday,
+          isToday: day.date === todayIso(),
+        }))}
+        selected={selectedDay.date}
+        onSelect={setSelectedDate}
+      />
+
+      <Card>
+        <div className="card-head">
+          <div>
+            <div className="card-title">
+              {WEEKDAY_LABELS[selectedDay.weekday]} · {formatMonthDay(selectedDay.date)}
+            </div>
+            <div className="card-sub">
+              {DAY_TYPE_LABELS[selectedDay.day_type] ?? ''} · {selectedDay.meals.length} 餐 · 已做{' '}
+              {cookedToday}/{selectedDay.meals.length} · ≈
+              {formatMoney(selectedDay.estimated_cost)}
+            </div>
+          </div>
+        </div>
+
+        {selectedDay.meals.length === 0 ? (
+          <EmptyState title="这一天没有排餐" description="可以重新生成, 或到偏好里调整每日餐次" />
+        ) : (
+          <div className="meal-list">
+            {selectedDay.meals.map((meal) => (
+              <MealBlock
+                key={meal.id}
+                meal={meal}
+                busy={busyItemId === meal.id}
+                onLockToggle={handleLockToggle}
+                onCooked={handleCooked}
+                onReplace={(target) => {
+                  setReplaceTarget(target)
+                  form.setFieldsValue({
+                    recipe_name: '',
+                    calories: target.recipe?.calories ?? 350,
+                    cook_minutes: target.recipe?.cook_minutes ?? 20,
+                    steps: '',
+                  })
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <div className="section-title">整周</div>
+      <Card tight>
+        <div className="set-group">
+          {menu.days.map((day) => (
+            <button
+              key={day.date}
+              type="button"
+              className="set-row"
+              style={{ width: '100%', border: 'none', background: 'none', textAlign: 'left' }}
+              onClick={() => setSelectedDate(day.date)}
+            >
+              <div className="set-icon">{day.weekday + 1}</div>
+              <div className="set-text">
+                <b>
+                  {WEEKDAY_LABELS[day.weekday]} {day.date.slice(5)}
+                  {day.date === todayIso() && <span className="chip chip--green" style={{ marginLeft: 6 }}>今天</span>}
+                </b>
+                <span>
+                  {day.meals.length === 0
+                    ? '没有排餐'
+                    : day.meals
+                        .map((meal) => meal.recipe?.name ?? '(未安排)')
+                        .join(' · ')}
+                </span>
+              </div>
+              <div className="set-value">≈{formatMoney(day.estimated_cost)}</div>
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      <div className="page-footnote">
+        换一道只影响这一餐; 锁定后的餐次在重新生成时会原样保留。
       </div>
 
       <Modal
-        title={`替换「${replaceTarget?.recipe?.name ?? ''}」`}
+        title="换一道菜"
         open={Boolean(replaceTarget)}
         onCancel={() => setReplaceTarget(null)}
         onOk={submitReplace}
         confirmLoading={replacing}
         okText="替换"
+        cancelText="取消"
       >
         <Form form={form} layout="vertical">
           <Form.Item
@@ -245,14 +368,14 @@ const WeeklyView: React.FC = () => {
           >
             <Input placeholder="例如: 番茄牛腩" />
           </Form.Item>
-          <Space style={{ width: '100%' }} size="large">
+          <div className="field-grid">
             <Form.Item name="calories" label="热量 (kcal)">
-              <InputNumber min={0} max={3000} placeholder="350" />
+              <InputNumber min={0} max={3000} placeholder="350" style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item name="cook_minutes" label="烹饪时间 (分钟)">
-              <InputNumber min={1} max={300} placeholder="20" />
+              <InputNumber min={1} max={300} placeholder="20" style={{ width: '100%' }} />
             </Form.Item>
-          </Space>
+          </div>
           <Form.Item name="steps" label="做法 (可选)">
             <Input.TextArea rows={3} placeholder="简要步骤" />
           </Form.Item>
@@ -262,107 +385,182 @@ const WeeklyView: React.FC = () => {
   )
 }
 
-interface DayCardProps {
-  day: MenuDay
-  busyItemId: number | null
+interface WeekSummaryProps {
+  menu: MenuDetail
+  generatedLabel: string
+  onRegenerate: () => void
+  regenerating: boolean
+}
+
+/** 周头: 日期 + 生成时间 + 预算进度 + 周均营养目标 + 重新生成 */
+const WeekSummary: React.FC<WeekSummaryProps> = ({
+  menu,
+  generatedLabel,
+  onRegenerate,
+  regenerating,
+}) => {
+  const budgetLimit = menu.budget.budget_limit ?? 0
+  const spent = menu.budget.total_estimated ?? 0
+  const percent = budgetLimit > 0 ? (spent / budgetLimit) * 100 : 0
+  const nutrition = menu.nutrition
+  const days = nutrition.daily ?? []
+  const avg = (pick: (day: (typeof days)[number]) => number) =>
+    days.length ? Math.round(days.reduce((sum, day) => sum + pick(day), 0) / days.length) : 0
+  const generatedAt = menu.created_at
+    ? `${menu.created_at.replace('T', ' ').slice(5, 16)}`
+    : generatedLabel
+  const atLabel = /^\d/.test(generatedAt) ? generatedAt : `于${generatedAt}`
+
+  return (
+    <Card className="week-summary">
+      <div className="card-head">
+        <div>
+          <div className="card-title">这周总览</div>
+          <div className="card-sub">
+            {formatDateRange(menu.week_start_date, menu.days[menu.days.length - 1]?.date ?? menu.week_start_date)}
+            {' · '}由 AI {atLabel} 生成
+          </div>
+        </div>
+        <Chip tone={menu.status === 'draft' ? 'warn' : 'green'}>
+          {MENU_STATUS_LABELS[menu.status] ?? menu.status}
+        </Chip>
+      </div>
+
+      <div className="week-grid">
+        <div className="week-stat">
+          <div className="stat-label">本周预算</div>
+          <div className="stat-value">
+            {formatMoney(spent)}
+            <span className="stat-unit">
+              {budgetLimit > 0 ? `/ ${formatMoney(budgetLimit)}` : '未设上限'}
+            </span>
+          </div>
+          <Bar percent={percent} tone={menu.budget.passed ? 'ok' : 'over'} />
+          <div className={`stat-hint ${menu.budget.passed ? '' : 'is-danger'}`}>
+            {menu.budget.passed
+              ? `还剩 ${formatMoney(Math.max(0, budgetLimit - spent))} 可以花`
+              : `超出 ${formatMoney(menu.budget.over_amount)}, 换掉一两道贵的菜就能压回来`}
+          </div>
+        </div>
+
+        <div className="week-stat">
+          <div className="stat-label">周均营养目标</div>
+          <div className="stat-value">
+            {Math.round(nutrition.weekly_avg_calories)}
+            <span className="stat-unit">
+              kcal / 日{nutrition.target_calories ? ` · 目标 ${nutrition.target_calories}` : ''}
+            </span>
+          </div>
+          <div className="macro-legend">
+            <div>
+              <span>蛋白</span>
+              <b>{avg((day) => day.protein_pct)}%</b>
+            </div>
+            <div>
+              <span>碳水</span>
+              <b>{avg((day) => day.carb_pct)}%</b>
+            </div>
+            <div>
+              <span>脂肪</span>
+              <b>{avg((day) => day.fat_pct)}%</b>
+            </div>
+          </div>
+          <div className={`stat-hint ${nutrition.passed ? '' : 'is-warn'}`}>
+            {nutrition.passed ? '整周热量与三大营养素都在目标区间内' : nutrition.issues[0] ?? '有偏离'}
+          </div>
+        </div>
+      </div>
+
+      <div className="stack-actions">
+        <PillButton variant="gray" block loading={regenerating} onClick={onRegenerate}>
+          重新生成 (锁定的餐次原样保留)
+        </PillButton>
+      </div>
+    </Card>
+  )
+}
+
+interface MealBlockProps {
+  meal: MealDetail
+  busy: boolean
   onLockToggle: (meal: MealDetail) => void
   onCooked: (meal: MealDetail) => void
   onReplace: (meal: MealDetail) => void
 }
 
-const DayCard: React.FC<DayCardProps> = ({ day, busyItemId, onLockToggle, onCooked, onReplace }) => (
-  <div className="card day-card">
-    <div className="day-card-head">
-      <div className="day-card-title">
-        {WEEKDAY_LABELS[day.weekday]}
-        <span className="day-card-date">{day.date.slice(5)}</span>
-        {day.day_type === 'weekend' && <Tag className="tag-soft">周末</Tag>}
+const MealBlock: React.FC<MealBlockProps> = ({
+  meal,
+  busy,
+  onLockToggle,
+  onCooked,
+  onReplace,
+}) => (
+  <div className="meal">
+    <div className="meal-head">
+      <div className="meal-tag">{mealLabel(meal.meal_type).slice(0, 1)}</div>
+      <div className="meal-info">
+        <div className="meal-name">
+          {meal.recipe?.name ?? '未安排'}
+          {meal.is_locked && <Chip>已锁定</Chip>}
+          {meal.is_cooked && <Chip tone="green">已做</Chip>}
+        </div>
+        <div className="meal-meta">
+          <span>{mealLabel(meal.meal_type)}</span>
+          {meal.recipe?.cook_minutes ? <span>{formatMinutes(meal.recipe.cook_minutes)}</span> : null}
+          {meal.recipe?.calories ? <span>{formatKcal(meal.recipe.calories)}</span> : null}
+          {meal.estimated_cost ? <span>≈{formatMoney(meal.estimated_cost)}</span> : null}
+        </div>
       </div>
-      <div className="day-card-cost">≈¥{day.estimated_cost.toFixed(1)}</div>
+      <div className="meal-actions">
+        <button type="button" className="pill pill--gray pill--sm" onClick={() => onReplace(meal)}>
+          换一道
+        </button>
+        <button
+          type="button"
+          className="pill pill--gray pill--sm"
+          disabled={busy}
+          onClick={() => onLockToggle(meal)}
+        >
+          {meal.is_locked ? <UnlockOutlined /> : <LockOutlined />}
+        </button>
+        <button
+          type="button"
+          className={`pill pill--sm ${meal.is_cooked ? 'pill--gray' : 'pill--ink'}`}
+          disabled={busy || meal.is_cooked}
+          onClick={() => onCooked(meal)}
+        >
+          {meal.is_cooked ? <CheckCircleOutlined /> : '做完了'}
+        </button>
+      </div>
     </div>
 
-    {day.meals.length === 0 ? (
-      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="这一天没有排餐" />
-    ) : (
-      <div className="meal-list">
-        {day.meals.map((meal) => (
-          <div key={meal.id} className="meal-block">
-            <div className="meal-block-head">
-              <div>
-                <div className="meal-block-name">
-                  <span className="meal-badge">{meal.meal_label}</span>
-                  {meal.recipe?.name ?? '未安排'}
-                  {meal.is_locked && <Tag className="tag-soft">已锁定</Tag>}
-                  {meal.is_cooked && <Tag color="green">已做</Tag>}
-                </div>
-                <div className="meal-row-meta">
-                  {meal.recipe?.cook_minutes ? <span>{meal.recipe.cook_minutes} 分钟</span> : null}
-                  {meal.recipe?.calories ? <span>{meal.recipe.calories} kcal</span> : null}
-                  {meal.estimated_cost ? <span>≈¥{meal.estimated_cost.toFixed(1)}</span> : null}
-                </div>
-              </div>
-              <Space size={4} wrap className="meal-actions">
-                <Button
-                  size="small"
-                  type="text"
-                  icon={<SwapOutlined />}
-                  onClick={() => onReplace(meal)}
-                >
-                  换一道
-                </Button>
-                <Button
-                  size="small"
-                  type="text"
-                  icon={meal.is_locked ? <UnlockOutlined /> : <LockOutlined />}
-                  loading={busyItemId === meal.id}
-                  onClick={() => onLockToggle(meal)}
-                >
-                  {meal.is_locked ? '解锁' : '锁定'}
-                </Button>
-                <Button
-                  size="small"
-                  type="text"
-                  icon={<CheckCircleOutlined />}
-                  disabled={meal.is_cooked}
-                  loading={busyItemId === meal.id}
-                  onClick={() => onCooked(meal)}
-                >
-                  {meal.is_cooked ? '已完成' : '标记已做'}
-                </Button>
-              </Space>
-            </div>
-
-            {meal.recipe && meal.recipe.ingredients.length > 0 && (
-              <Collapse
-                ghost
-                size="small"
-                items={[
-                  {
-                    key: meal.id,
-                    label: `食材 (${meal.recipe.ingredients.length})`,
-                    children: (
-                      <>
-                        <ul className="ingredient-list">
-                          {meal.recipe.ingredients.map((ingredient) => (
-                            <li key={`${meal.id}-${ingredient.name}`}>
-                              <span>{ingredient.name}</span>
-                              <span className="ingredient-amount">
-                                {ingredient.quantity != null
-                                  ? `${ingredient.quantity}${ingredient.unit}`
-                                  : '适量'}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                        {meal.recipe.steps && <div className="recipe-steps">{meal.recipe.steps}</div>}
-                      </>
-                    ),
-                  },
-                ]}
-              />
-            )}
-          </div>
-        ))}
+    {meal.recipe && meal.recipe.ingredients.length > 0 && (
+      <div className="meal-extra">
+        <Collapse
+          ghost
+          size="small"
+          items={[
+            {
+              key: meal.id,
+              label: `食材 (${meal.recipe.ingredients.length}) 与做法`,
+              children: (
+                <>
+                  <ul className="ingredient-list">
+                    {meal.recipe.ingredients.map((ingredient) => (
+                      <li key={`${meal.id}-${ingredient.name}`}>
+                        <span>{ingredient.name}</span>
+                        <span className="ingredient-amount">
+                          {formatAmount(ingredient.quantity, ingredient.unit)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {meal.recipe.steps && <div className="recipe-steps">{meal.recipe.steps}</div>}
+                </>
+              ),
+            },
+          ]}
+        />
       </div>
     )}
   </div>
