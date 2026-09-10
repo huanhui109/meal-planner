@@ -1,10 +1,10 @@
-# AI 每周营养菜谱工具 - 默认配置
+# 每周鲜 · AI 营养菜谱 - 默认配置
 # 优先级: 环境变量 (前缀 APP__, 分隔符 __) > .env > 本文件 > 代码默认值
 # 示例: APP__DATABASE__URL="mysql+asyncmy://user:pwd@127.0.0.1:3306/meal_planner?charset=utf8mb4"
 # 注意: 本文件不得写入任何密钥, 密钥一律放 .env
 
 app:
-  name: "AI 每周营养菜谱工具"
+  name: "每周鲜 · AI 营养菜谱"
   host: "0.0.0.0"
   port: 8000
   debug: false
@@ -31,10 +31,11 @@ auth:
   access_cookie_name: "mp_access"
   # 本地开发专用: 开启后可用 POST /api/auth/dev-login 免飞书登录。
   # 生产环境必须保持 false, 否则任何人都能凭用户名登录。
-  dev_login_enabled: false
+  dev_login: false
 
 menu:
-  daily_generation_limit: 3     # 每用户每日生成次数上限
+  daily_generation_limit: 3     # 每用户每日「首次生成」次数上限
+  daily_regenerate_limit: 10    # 每用户每日「重新生成同一周」次数上限 (不占用上面的额度)
   generation_concurrency: 2     # 同时在跑的生成任务数
   task_timeout_seconds: 900     # running 超过该时长视为僵尸任务
   history_weeks: 4              # 多样性比对的历史周数
@@ -42,6 +43,10 @@ menu:
   budget_tolerance: 0.05        # 允许超预算 5%
 
 scheduler:
+  # 定时推送默认关闭: 多 worker 部署时每个 worker 都会注册一遍任务, 会重复推送。
+  # 生产如需开启, 只让一个 worker 打开 (见 deploy/README.md)。
+  enabled: false
+  timezone: "Asia/Shanghai"
   db_url: "mysql+aiomysql://meal_planner:change-me@127.0.0.1:3306/meal_planner?charset=utf8mb4"
   daily_menu_push: "08:00"
   evening_check: "17:30"
@@ -74,10 +79,21 @@ llm:
     enabled: false
     model_path: "qwen2.5-7b-instruct-4bit"
     server_port: 8080
+  # 拍照识别 (冰箱入库): 复用 primary 的 Key 与 api_base, 只换 model
+  # 没配 Key 时接口返回 503, 前端置灰并引导手动添加; demo 模式返回固定识别结果
+  vision:
+    enabled: true
+    model: "glm-4v-flash"
+    api_base: ""
+    api_key: ""
+    max_image_mb: 6
+    max_edge_px: 1280
+    daily_limit: 20
+    max_tokens: 1500
   monthly_budget_cny: 50.0
   rate_limit_qps: 5
   # 本地演示: 开启后不调用任何外部模型, 返回固定的一周菜单 (生产必须 false)
-  demo_mode: false
+  demo: false
 
 feishu:
   app_id: ""
@@ -89,13 +105,29 @@ feishu:
   redirect_uri: "https://meal.example.com/api/auth/feishu/callback"
   login_success_redirect: "/"
 
+wechat:
+  # 微信小程序「一键登录」, 留空则前端不显示该入口
+  # 注意: 小程序 request 合法域名必须是已完成 ICP 备案的 HTTPS 域名
+  app_id: ""
+  app_secret: ""
+
 platforms:
+  # 补单出口: 本期不采集商品数据, 只生成"点一下去下单"的搜索链接
   xiaoxiang:
     enabled: true
     base_url: "https://h5.waimai.meituan.com"
+    search_template: "https://i.waimai.meituan.com/search/?keyword={keyword}"
+    # 配了小程序 AppID 后, 小程序端可直接 navigateToMiniProgram 打开
+    miniapp_app_id: ""
+    min_order_amount: 20.0
+    delivery_note: ""
   meituan_waimai:
-    enabled: false
+    enabled: true
     base_url: "https://wm.waimai.meituan.com"
+    search_template: "https://i.waimai.meituan.com/search/?keyword={keyword}"
+    miniapp_app_id: ""
+    min_order_amount: 0.0
+    delivery_note: ""
 
 scraping:
   headless: true

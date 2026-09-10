@@ -60,6 +60,7 @@ sudo -u meal vi .env          # 填 DB 密码 / JWT_SECRET / 飞书 / LLM Key
 | `GLM4_API_KEY` / `QWEN_API_KEY` / `DEEPSEEK_API_KEY` | 至少一个 |
 | `APP__APP__DEBUG` | 生产必须 `false` |
 | `APP__DATABASE__ECHO` | 生产必须 `false`（避免日志打印 SQL 与参数） |
+| `APP__SCHEDULER__ENABLED` | 定时推送开关，默认 `false`；需要飞书推送时再打开 |
 
 生成密钥：
 
@@ -78,7 +79,31 @@ sudo -u meal .venv/bin/python scripts/seed_data.py          # 导入 66 条食�
 
 `alembic upgrade head` 是唯一的建表方式，应用不会自动 `create_all`。
 
-## 3. 前端构建
+## 3. 定时推送（可选）
+
+飞书 Bot 的事件回调与指令配置见 `docs/feishu-setup.md` 第 7 节；这里只说服务端开关。
+
+```bash
+# .env
+APP__SCHEDULER__ENABLED=true
+APP__SCHEDULER__TIMEZONE=Asia/Shanghai
+```
+
+打开后 `systemd` 无需改动：`--workers 2` 的两个进程会各自尝试抢占 MySQL 调度锁
+（`GET_LOCK('meal_planner_scheduler', 0)`），**只有抢到的进程注册定时任务**，其余进程只在日志里
+留一行「调度锁已被其他进程持有」。持锁进程退出或重启时锁随连接自动释放，新的进程会重新抢占，
+因此不需要固定某个 worker，也不会有重复推送。
+
+想确认当前是哪个进程在跑定时任务：
+
+```bash
+sudo journalctl -u meal-planner-api | grep -E "调度器已启动|调度锁"
+# 期望只出现一次「调度器已启动 (时区 Asia/Shanghai): ...」
+```
+
+停用单个任务：把对应时间留空或写 `off`，例如 `APP__SCHEDULER__EVENING_CHECK=off`。
+
+## 4. 前端构建
 
 ```bash
 cd /srv/meal-planner/frontend
@@ -86,7 +111,7 @@ sudo -u meal npm ci
 sudo -u meal npm run build     # 产物在 frontend/dist, nginx 直接托管
 ```
 
-## 4. nginx
+## 5. nginx
 
 ```bash
 sudo cp deploy/nginx/meal_planner_proxy.conf /etc/nginx/snippets/
@@ -96,7 +121,7 @@ sudo sed -i 's/meal.example.com/真实域名/g' /etc/nginx/sites-available/meal-
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-## 5. HTTPS
+## 6. HTTPS
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
@@ -104,7 +129,7 @@ sudo certbot --nginx -d meal.example.com --redirect
 sudo systemctl status certbot.timer   # 到期前自动续期
 ```
 
-## 6. systemd
+## 7. systemd
 
 ```bash
 sudo cp deploy/systemd/meal-planner-api.service /etc/systemd/system/
@@ -115,7 +140,7 @@ sudo systemctl enable --now meal-planner-backup.timer
 sudo systemctl status meal-planner-api
 ```
 
-## 7. 验收检查
+## 8. 验收检查
 
 ```bash
 curl -sS https://meal.example.com/api/health
@@ -158,3 +183,4 @@ cd /srv/meal-planner/backend && sudo -u meal ../.venv/bin/python -m alembic upgr
 | 生成一直 pending | 检查 worker 是否启动（日志有「菜单生成 worker 已启动」）、LLM Key 是否可用 |
 | `/api/health` 返回 503 | `database` 字段为 `error`，MySQL 挂了或账号密码错 |
 | 429 生成次数已用尽 | 每用户每日 3 次配额，按 `menu_generation_task` 当日计数 |
+| 收到重复推送 | 正常不会发生：确认日志里「调度器已启动」只出现一次；若多个实例连的是不同库，锁不共享，需改成只在一个实例打开 `APP__SCHEDULER__ENABLED` |

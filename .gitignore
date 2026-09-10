@@ -16,6 +16,14 @@ env/
 node_modules/
 frontend/dist/
 frontend/.vite/
+miniapp/dist/
+miniapp/.temp/
+miniapp/.rn_temp/
+miniapp/.swc/
+miniapp/project.private.config.json
+
+# TypeScript 增量构建缓存
+*.tsbuildinfo
 
 # IDE
 .idea/
@@ -35,6 +43,9 @@ data/*.db-shm
 # 历史遗留的本地 SQLite 目录 (已改为 MySQL, 仅保留 gitignore 防止误提交)
 backend/data/
 logs/
+
+# 工具产生的临时目录
+.playwright-cli/
 
 # OS
 .DS_Store
