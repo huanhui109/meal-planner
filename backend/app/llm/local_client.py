@@ -1,9 +1,9 @@
 """mlx_lm 本地推理客户端"""
+
 from __future__ import annotations
 
-import json
 import logging
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import httpx
 

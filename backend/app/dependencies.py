@@ -1,4 +1,5 @@
 """FastAPI 依赖注入 - DB Session, 当前用户, Settings"""
+
 from __future__ import annotations
 
 from typing import AsyncGenerator
@@ -57,7 +58,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"服务端认证配置缺失: {exc}",
-        )
+        ) from exc
     if not payload or not payload.get("sub"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

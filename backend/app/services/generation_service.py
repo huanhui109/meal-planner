@@ -5,6 +5,7 @@
   * LLM 调用阶段不持有数据库连接 (长耗时不能占用连接池)。
   * 单次生成只调用一次 LLM; 多样性不达标时最多再生成一次并取更优结果。
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,17 +22,16 @@ from app.config import Settings, get_settings
 from app.database import async_session_factory, session_scope
 from app.llm.base import LLMClient
 from app.llm.fallback_chain import build_fallback_chain
-from app.models.budget import Budget
 from app.models.allergy_restriction import AllergyRestriction
+from app.models.budget import Budget
 from app.models.fridge_inventory import FridgeInventory
 from app.models.health_goal import HealthGoal
-from app.models.menu import GenerationStatus, Menu, MenuGenerationTask, MenuItem, MenuStatus
-from app.models.recipe import Recipe, RecipeIngredient
 from app.models.ingredient import Ingredient
-from app.schemas.recipe import DayGenerateItem, MealGenerateItem, WeekMenuGenerate
+from app.models.menu import GenerationStatus, Menu, MenuGenerationTask, MenuItem, MenuStatus
+from app.schemas.recipe import WeekMenuGenerate
 from app.services.budget_service import BudgetService
 from app.services.diversity_service import DiversityReport, DiversityService
-from app.services.menu_service import MenuService, week_start_of
+from app.services.menu_service import MenuService
 from app.services.nutrition_service import NutritionReport
 from app.services.preference_service import PreferenceService
 from app.services.pricing_service import CostEstimate
@@ -53,6 +53,7 @@ class GenerationError(Exception):
 @dataclass
 class GenerationContext:
     """LLM 调用前需要的数据 (只读, 不含 ORM 对象)"""
+
     user_id: int
     week_start: date
     pref_context: str
@@ -99,9 +100,7 @@ def find_allergen_hits(recipe_data, allergens: Sequence[str]) -> List[str]:
     """命中过敏源的菜谱: 菜名或任一食材名包含过敏源关键词"""
     if not allergens:
         return []
-    haystacks = [recipe_data.name or ""] + [
-        item.name or "" for item in (recipe_data.ingredients or [])
-    ]
+    haystacks = [recipe_data.name or ""] + [item.name or "" for item in (recipe_data.ingredients or [])]
     return [allergen for allergen in allergens if any(allergen in text for text in haystacks)]
 
 
@@ -121,27 +120,42 @@ async def create_generation_task(
     user_id: int,
     week_start: date,
     payload: Optional[dict] = None,
+    is_regeneration: bool = False,
 ) -> MenuGenerationTask:
-    """写入一条待处理任务"""
+    """写入一条待处理任务
+
+    is_regeneration 决定这条任务算在哪个配额里: 重新生成走更宽松的独立额度,
+    不会被"今日生成次数已用尽"挡住。
+    """
     task = MenuGenerationTask(
         user_id=user_id,
         week_start_date=week_start,
         status=GenerationStatus.PENDING,
         request_payload=json.dumps(payload or {}, ensure_ascii=False),
+        is_regeneration=is_regeneration,
     )
     db.add(task)
     await db.flush()
     return task
 
 
-async def count_today_tasks(db: AsyncSession, user_id: int) -> int:
-    """当日已创建的生成任务数 (含失败), 用于配额判断"""
+async def count_today_tasks(
+    db: AsyncSession,
+    user_id: int,
+    is_regeneration: bool = False,
+) -> int:
+    """当日已创建的生成任务数 (含失败), 用于配额判断
+
+    按 is_regeneration 分开计数: 首次生成与重新生成各自有独立额度,
+    否则用户把菜单改两下就会被"今日生成次数已用尽"挡住。
+    """
     today = date.today()
     start = datetime.combine(today, datetime.min.time())
     result = await db.execute(
         select(func.count(MenuGenerationTask.id)).where(
             MenuGenerationTask.user_id == user_id,
             MenuGenerationTask.created_at >= start,
+            MenuGenerationTask.is_regeneration.is_(is_regeneration),
         )
     )
     return int(result.scalar() or 0)
@@ -153,9 +167,7 @@ async def load_profile_snapshot(user_id: int) -> Dict[str, object]:
         goal = (
             await session.execute(select(HealthGoal).where(HealthGoal.user_id == user_id))
         ).scalar_one_or_none()
-        budget = (
-            await session.execute(select(Budget).where(Budget.user_id == user_id))
-        ).scalar_one_or_none()
+        budget = (await session.execute(select(Budget).where(Budget.user_id == user_id))).scalar_one_or_none()
         return {
             "target_calories": goal.daily_calories if goal else None,
             "weekly_cap": budget.weekly_cap if budget else None,
@@ -185,9 +197,7 @@ class MenuGenerationPipeline:
             )
             inventory = await self._inventory_lines(session, user_id)
             allergy = (
-                await session.execute(
-                    select(AllergyRestriction).where(AllergyRestriction.user_id == user_id)
-                )
+                await session.execute(select(AllergyRestriction).where(AllergyRestriction.user_id == user_id))
             ).scalar_one_or_none()
             allergens = _json_list(allergy.allergens if allergy else None)
             avoids = _json_list(allergy.avoid_ingredients if allergy else None)
@@ -205,7 +215,9 @@ class MenuGenerationPipeline:
 
     async def _inventory_lines(self, session: AsyncSession, user_id: int, limit: int = 30) -> List[str]:
         result = await session.execute(
-            select(Ingredient.name, FridgeInventory.quantity, FridgeInventory.unit, FridgeInventory.expiry_date)
+            select(
+                Ingredient.name, FridgeInventory.quantity, FridgeInventory.unit, FridgeInventory.expiry_date
+            )
             .join(Ingredient, Ingredient.id == FridgeInventory.ingredient_id)
             .where(FridgeInventory.user_id == user_id, FridgeInventory.quantity > 0)
             .order_by(
@@ -224,9 +236,10 @@ class MenuGenerationPipeline:
 
     def build_messages(self, ctx: GenerationContext) -> List[Dict[str, str]]:
         allergy_block, avoid_block = self._split_constraints(ctx)
-        constraints = "\n".join(
-            part for part in (allergy_block, avoid_block, self._cook_time_block(ctx)) if part
-        ) or "无特殊约束"
+        constraints = (
+            "\n".join(part for part in (allergy_block, avoid_block, self._cook_time_block(ctx)) if part)
+            or "无特殊约束"
+        )
         if ctx.history_names:
             constraints += f"\n近期已做过 (避免重复): {', '.join(ctx.history_names[:30])}"
 
@@ -255,21 +268,17 @@ class MenuGenerationPipeline:
     def _split_constraints(self, ctx: GenerationContext) -> Tuple[str, str]:
         """硬约束必须回显给模型 (过敏源是安全红线)"""
         allergy_block = (
-            f"过敏源绝对不能出现 (含任何别名与配料): {', '.join(ctx.allergens)}"
-            if ctx.allergens
-            else ""
+            f"过敏源绝对不能出现 (含任何别名与配料): {', '.join(ctx.allergens)}" if ctx.allergens else ""
         )
-        avoid_block = (
-            f"忌口食材尽量避免: {', '.join(ctx.avoid_ingredients)}"
-            if ctx.avoid_ingredients
-            else ""
-        )
+        avoid_block = f"忌口食材尽量避免: {', '.join(ctx.avoid_ingredients)}" if ctx.avoid_ingredients else ""
         return allergy_block, avoid_block
 
     def _cook_time_block(self, ctx: GenerationContext) -> str:
         return "工作日单菜烹饪时间不超过 30 分钟, 周末可放宽到 60 分钟"
 
-    async def call_llm(self, ctx: GenerationContext, avoid_names: Sequence[str] = ()) -> Tuple[WeekMenuGenerate, List[str]]:
+    async def call_llm(
+        self, ctx: GenerationContext, avoid_names: Sequence[str] = ()
+    ) -> Tuple[WeekMenuGenerate, List[str]]:
         messages = self.build_messages(ctx)
         if avoid_names:
             messages.append(
@@ -349,9 +358,7 @@ class MenuGenerationPipeline:
                             continue
                         hits = find_allergen_hits(recipe_data, ctx.allergens)
                         if hits:
-                            warnings.append(
-                                f"已剔除含过敏源({', '.join(hits)})的菜品: {recipe_data.name}"
-                            )
+                            warnings.append(f"已剔除含过敏源({', '.join(hits)})的菜品: {recipe_data.name}")
                             continue
                         recipe = await recipe_service.find_or_create_recipe(
                             name=recipe_data.name,
@@ -363,10 +370,13 @@ class MenuGenerationPipeline:
                             steps=recipe_data.steps,
                             ingredients=recipe_data.ingredients,
                         )
+                        # 必须传 recipe 对象而不是 recipe_id: MenuItem.recipe 是 lazy="selectin",
+                        # 只设 id 的话新建对象上该关系仍未加载, 后面 build_snapshots 访问
+                        # item.recipe 会触发懒加载, 在异步会话里直接抛 MissingGreenlet。
                         session.add(
                             MenuItem(
                                 menu=menu,
-                                recipe_id=recipe.id,
+                                recipe=recipe,
                                 meal_date=meal_date,
                                 meal_type=meal_type,
                                 estimated_cost=0,
@@ -376,6 +386,11 @@ class MenuGenerationPipeline:
             await session.flush()
             if meal_count == 0:
                 raise GenerationError("模型返回的菜单为空, 请重试")
+
+            # 新建的 Menu 在 flush 后 menu_items 仍是"未加载"状态 (selectin 只在查询时生效),
+            # 后面 recompute_costs / build_snapshots 一访问就会触发懒加载, 在异步会话里
+            # 直接抛 MissingGreenlet。这里显式把集合刷出来 (顺带把每个 item 的 recipe 也带出来)。
+            await session.refresh(menu, ["menu_items"])
 
             cost = await menu_service.recompute_costs(menu)
             nutrition = menu_service.nutrition_report(menu, _health_goal(ctx))
@@ -388,7 +403,9 @@ class MenuGenerationPipeline:
                 warnings.extend(nutrition.issues[:3])
             menu_id = menu.id
 
-        names = [r.name for day in week.week_menu for meal in (day.meals or {}).values() for r in meal.recipes]
+        names = [
+            r.name for day in week.week_menu for meal in (day.meals or {}).values() for r in meal.recipes
+        ]
         diversity = self.diversity_service.validate(
             names, ctx.history_names, self.settings.menu.diversity_min_score
         )
@@ -406,7 +423,9 @@ class MenuGenerationPipeline:
     async def run(self, user_id: int, week_start: date) -> GenerationOutcome:
         ctx = await self.prepare(user_id, week_start)
         week, _ = await self.call_llm(ctx)
-        names = [r.name for day in week.week_menu for meal in (day.meals or {}).values() for r in meal.recipes]
+        names = [
+            r.name for day in week.week_menu for meal in (day.meals or {}).values() for r in meal.recipes
+        ]
         first_report = self.diversity_service.validate(
             names, ctx.history_names, self.settings.menu.diversity_min_score
         )
@@ -415,7 +434,10 @@ class MenuGenerationPipeline:
             try:
                 second_week, _ = await self.call_llm(ctx, avoid_names=first_report.overlaps)
                 second_names = [
-                    r.name for day in second_week.week_menu for meal in (day.meals or {}).values() for r in meal.recipes
+                    r.name
+                    for day in second_week.week_menu
+                    for meal in (day.meals or {}).values()
+                    for r in meal.recipes
                 ]
                 second_report = self.diversity_service.validate(
                     second_names, ctx.history_names, self.settings.menu.diversity_min_score

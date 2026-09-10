@@ -2,6 +2,7 @@
 
 生成流程在 generation_service 中; 本服务只负责已有菜单的读写与校验。
 """
+
 from __future__ import annotations
 
 import logging
@@ -96,9 +97,7 @@ class MenuService:
 
     # ---------- 编辑 ----------
 
-    async def replace_item(
-        self, menu: Menu, item: MenuItem, request: MenuItemReplaceRequest
-    ) -> MenuItem:
+    async def replace_item(self, menu: Menu, item: MenuItem, request: MenuItemReplaceRequest) -> MenuItem:
         """替换某一餐的菜品 (用户手动指定新菜)"""
         recipe = await self.recipe_service.find_or_create_recipe(
             name=request.recipe_name,

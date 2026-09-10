@@ -5,8 +5,6 @@ import json
 from datetime import date, timedelta
 from typing import Optional
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.models.allergy_restriction import AllergyRestriction
 from app.models.budget import Budget
 from app.models.fridge_inventory import FridgeInventory
@@ -16,6 +14,7 @@ from app.models.ingredient import Ingredient
 from app.models.menu import Menu, MenuItem, MenuStatus
 from app.models.recipe import Recipe, RecipeIngredient
 from app.models.user import User
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def week_start_of(day: Optional[date] = None) -> date:

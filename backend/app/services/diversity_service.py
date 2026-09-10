@@ -1,4 +1,5 @@
 """F2.4 多样性控制 - 与近 N 周历史菜单比对"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -48,9 +49,7 @@ class DiversityService:
             issues=issues,
         )
 
-    def pick_better(
-        self, first: DiversityReport, second: Optional[DiversityReport]
-    ) -> DiversityReport:
+    def pick_better(self, first: DiversityReport, second: Optional[DiversityReport]) -> DiversityReport:
         """两次生成结果取多样性更优的一份"""
         if second is None:
             return first

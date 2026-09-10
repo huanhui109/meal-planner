@@ -1,4 +1,5 @@
 """商品模型 (小象超市/美团外卖) - 二期采集接入"""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -45,9 +46,7 @@ class Product(Base):
 
     mappings = relationship("ProductMapping", back_populates="product", cascade="all, delete-orphan")
 
-    __table_args__ = (
-        UniqueConstraint("source_platform", "sku_id", name="uq_product_platform_sku"),
-    )
+    __table_args__ = (UniqueConstraint("source_platform", "sku_id", name="uq_product_platform_sku"),)
 
 
 class ProductMapping(Base):
@@ -71,6 +70,4 @@ class ProductMapping(Base):
     product = relationship("Product", back_populates="mappings")
     ingredient = relationship("Ingredient")
 
-    __table_args__ = (
-        UniqueConstraint("ingredient_id", "product_id", name="uq_mapping_ingredient_product"),
-    )
+    __table_args__ = (UniqueConstraint("ingredient_id", "product_id", name="uq_mapping_ingredient_product"),)

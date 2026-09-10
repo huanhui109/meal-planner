@@ -1,6 +1,8 @@
 """集成测试: 认证矩阵、偏好空值与多用户数据隔离"""
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from tests.conftest import requires_mysql
@@ -12,7 +14,6 @@ from tests.factories import (
     make_user,
     week_start_of,
 )
-from datetime import date
 
 pytestmark = requires_mysql
 
@@ -112,8 +113,10 @@ async def test_inventory_is_isolated_per_user(api_client, db_session, auth_heade
     mine = await api_client.get("/api/inventory", headers=auth_headers(owner_id))
     theirs = await api_client.get("/api/inventory", headers=auth_headers(other_id))
 
-    assert len(mine.json()["data"]) == 1
-    assert theirs.json()["data"] == []
+    assert mine.json()["data"]["total"] == 1
+    assert mine.json()["data"]["items"][0]["ingredient_name"] == "菠菜"
+    assert theirs.json()["data"]["total"] == 0
+    assert theirs.json()["data"]["items"] == []
 
 
 async def test_current_menu_returns_full_structure(api_client, db_session, auth_headers):

@@ -7,6 +7,7 @@
   "适量"    -> quantity=None, unit=标准单位
   ""        -> quantity=None, unit=标准单位
 """
+
 from __future__ import annotations
 
 import re
@@ -21,18 +22,25 @@ UNIT_PATTERN = re.compile(r"^\s*([A-Za-z\u4e00-\u9fff]{1,10})")
 VAGUE_WORDS = ("适量", "少许", "少量", "若干", "按需", "酌情", "一些", "随意")
 
 UNIT_ALIASES = {
-    "克": "g", "公克": "g",
-    "千克": "kg", "公斤": "kg",
-    "毫升": "ml", "升": "l",
-    "只": "个", "枚": "个",
+    "克": "g",
+    "公克": "g",
+    "千克": "kg",
+    "公斤": "kg",
+    "毫升": "ml",
+    "升": "l",
+    "只": "个",
+    "枚": "个",
     "棵": "颗",
-    "汤匙": "勺", "茶匙": "小勺", "匙": "勺",
+    "汤匙": "勺",
+    "茶匙": "小勺",
+    "匙": "勺",
 }
 
 
 @dataclass(frozen=True)
 class NormalizedAmount:
     """归一化后的用量"""
+
     quantity: Optional[float]
     unit: str
     text: str
@@ -51,9 +59,7 @@ def normalize_unit(raw_unit: str, fallback: str = "") -> str:
     return unit[:MAX_UNIT_LENGTH]
 
 
-def normalize_amount(
-    raw_text: Optional[Union[str, float, int]], standard_unit: str = ""
-) -> NormalizedAmount:
+def normalize_amount(raw_text: Optional[Union[str, float, int]], standard_unit: str = "") -> NormalizedAmount:
     """把一条用量文本归一化"""
     if isinstance(raw_text, (int, float)) and not isinstance(raw_text, bool):
         unit = normalize_unit(standard_unit)
@@ -72,7 +78,7 @@ def normalize_amount(
     except ValueError:  # pragma: no cover - 正则已保证可解析
         return NormalizedAmount(None, fallback_unit, text[:50])
 
-    remainder = text[match.end():].strip()
+    remainder = text[match.end() :].strip()
     unit_match = UNIT_PATTERN.match(remainder)
     raw_unit = unit_match.group(1) if unit_match else ""
     if raw_unit in VAGUE_WORDS:

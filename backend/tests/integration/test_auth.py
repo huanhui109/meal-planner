@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from sqlalchemy import func, select
-
 from app.auth.feishu_oauth import get_feishu_oauth_client
 from app.models.user import User
+from sqlalchemy import func, select
+
 from tests.conftest import requires_mysql
 
 pytestmark = requires_mysql
@@ -173,7 +173,7 @@ async def test_dev_login_disabled_by_default(api_client, db_session):
 async def test_dev_login_creates_user_and_sets_cookies(api_client, db_session, monkeypatch):
     from app.config import get_settings
 
-    monkeypatch.setattr(get_settings().auth, "dev_login_enabled", True)
+    monkeypatch.setattr(get_settings().auth, "dev_login", True)
 
     providers = await api_client.get("/api/auth/providers")
     assert providers.json()["data"]["dev_login"] is True
@@ -195,7 +195,7 @@ async def test_dev_login_creates_user_and_sets_cookies(api_client, db_session, m
 async def test_dev_login_same_name_reuses_user(api_client, db_session, monkeypatch):
     from app.config import get_settings
 
-    monkeypatch.setattr(get_settings().auth, "dev_login_enabled", True)
+    monkeypatch.setattr(get_settings().auth, "dev_login", True)
 
     await api_client.post("/api/auth/dev-login", json={"name": "甲"})
     await api_client.post("/api/auth/dev-login", json={"name": "乙"})
@@ -209,6 +209,6 @@ async def test_dev_login_same_name_reuses_user(api_client, db_session, monkeypat
 async def test_dev_login_requires_name(api_client, db_session, monkeypatch):
     from app.config import get_settings
 
-    monkeypatch.setattr(get_settings().auth, "dev_login_enabled", True)
+    monkeypatch.setattr(get_settings().auth, "dev_login", True)
     response = await api_client.post("/api/auth/dev-login", json={"name": ""})
     assert response.status_code == 422

@@ -1,10 +1,12 @@
 """F3.1 Playwright 商品采集服务"""
+
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
+
 
 # Playwright 采集器 - Sprint 7 实际实现
 class XiaoxiangScraper:

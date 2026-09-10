@@ -1,4 +1,5 @@
 """FastAPI 应用入口"""
+
 from __future__ import annotations
 
 import logging
@@ -13,6 +14,8 @@ from app.api.router import register_routes
 from app.auth.tokens import MIN_SECRET_LENGTH
 from app.config import get_settings
 from app.database import close_db, engine, init_db
+from app.scheduler.scheduler_lock import SchedulerLock
+from app.scheduler.scheduler_manager import SchedulerManager, set_current
 from app.services.generation_service import GenerationWorker
 from app.utils.logging import setup_logging
 
@@ -20,15 +23,16 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 generation_worker = GenerationWorker(settings)
+scheduler_manager = SchedulerManager(settings)
+set_current(scheduler_manager)
+scheduler_lock = SchedulerLock(engine)
 
 
 def _validate_auth_config() -> None:
     """密钥缺失时直接失败, 避免线上签发无效令牌"""
     secret = settings.auth.jwt_secret
     if not secret or len(secret) < MIN_SECRET_LENGTH:
-        raise RuntimeError(
-            f"APP__AUTH__JWT_SECRET 未配置或长度不足 {MIN_SECRET_LENGTH} 字符, 服务拒绝启动"
-        )
+        raise RuntimeError(f"APP__AUTH__JWT_SECRET 未配置或长度不足 {MIN_SECRET_LENGTH} 字符, 服务拒绝启动")
 
 
 @asynccontextmanager
@@ -36,23 +40,31 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     setup_logging(settings.app.debug)
     _validate_auth_config()
-    if settings.auth.dev_login_enabled:
+    if settings.auth.dev_login:
         logger.warning(
             "本地开发登录已开启 (APP__AUTH__DEV_LOGIN=true): 任何人凭昵称即可登录, 生产环境务必关闭"
         )
     await init_db()
     await generation_worker.start()
+    if settings.scheduler.enabled:
+        # 多 worker 部署时只有抢到锁的进程才注册定时任务, 否则用户会收到重复推送
+        if await scheduler_lock.acquire():
+            scheduler_manager.start()
+    else:
+        logger.info("定时推送未启用 (APP__SCHEDULER__ENABLED=false), 跳过调度器启动")
     logger.info("%s 已启动", settings.app.name)
     try:
         yield
     finally:
+        scheduler_manager.shutdown()
+        await scheduler_lock.release()
         await generation_worker.stop()
         await close_db()
 
 
 app = FastAPI(
-    title="AI 每周营养菜谱工具",
-    description="基于 AI 的每周营养菜谱自动生成工具, 支持飞书扫码登录与冰箱库存闭环",
+    title="每周鲜 · AI 营养菜谱",
+    description="把一周的饭交给 AI 安排好: 偏好即约束 → 生成周菜单 → 校验营养预算 → 补单 → 做饭扣库存",
     version="0.2.0",
     lifespan=lifespan,
 )

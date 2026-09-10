@@ -9,13 +9,13 @@ import json
 from datetime import date, timedelta
 from typing import Any, Dict, List
 
-from sqlalchemy import select
-
 from app.auth.feishu_oauth import get_feishu_oauth_client
 from app.llm.base import LLMClient
 from app.models.menu import MenuItem, MenuStatus
 from app.models.user import User
 from app.services import generation_service
+from sqlalchemy import select
+
 from tests.conftest import requires_mysql
 from tests.factories import make_ingredient, week_start_of
 

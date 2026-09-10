@@ -1,10 +1,10 @@
 """库存相关 Pydantic 模型"""
+
 from __future__ import annotations
 
-from datetime import date, datetime
-from typing import List, Optional
+from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict
 
 
 class InventoryCreate(BaseModel):
@@ -21,6 +21,7 @@ class InventoryUpdate(BaseModel):
 
 
 class InventoryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     ingredient_id: int
     ingredient_name: Optional[str] = None
@@ -29,9 +30,6 @@ class InventoryResponse(BaseModel):
     purchase_date: Optional[str] = None
     expiry_date: Optional[str] = None
     source: Optional[str] = None
-
-    class Config:
-        from_attributes = True
 
 
 class MissingIngredient(BaseModel):

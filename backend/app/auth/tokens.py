@@ -1,8 +1,9 @@
 """JWT 令牌签发/校验与 Cookie 读写"""
+
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Dict, Optional
 
 import jwt
@@ -32,15 +33,13 @@ def refresh_cookie_name() -> str:
 def _secret() -> str:
     secret = get_settings().auth.jwt_secret
     if not secret or len(secret) < MIN_SECRET_LENGTH:
-        raise TokenError(
-            f"JWT 密钥未配置或长度不足 {MIN_SECRET_LENGTH} 字符, 请设置 APP__AUTH__JWT_SECRET"
-        )
+        raise TokenError(f"JWT 密钥未配置或长度不足 {MIN_SECRET_LENGTH} 字符, 请设置 APP__AUTH__JWT_SECRET")
     return secret
 
 
 def _encode(payload: Dict[str, Any], expires: timedelta) -> str:
     settings = get_settings()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     body = {
         **payload,
         "iat": int(now.timestamp()),

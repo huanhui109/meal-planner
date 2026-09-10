@@ -1,9 +1,10 @@
 """F5 冰箱库存服务 - 入库, 扣减, 缺料比对"""
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Dict, List, Optional, Sequence
 
 from sqlalchemy import select
@@ -24,6 +25,7 @@ QUANTITY_EPSILON = 1e-6
 @dataclass
 class ConsumptionResult:
     """一次库存扣减的结果"""
+
     menu_item_id: int
     consumed: List[dict] = field(default_factory=list)
     missing: List[dict] = field(default_factory=list)
@@ -62,6 +64,32 @@ class InventoryService:
         )
         return list(result.scalars().all())
 
+    async def list_with_ingredient_names(
+        self, user_id: int, expiring_within_days: Optional[int] = None
+    ) -> List[tuple]:
+        """库存列表 (带食材名与品类), 供 Bot/定时任务复用
+
+        expiring_within_days 不为空时只返回该天数内到期的批次。
+        """
+        stmt = (
+            select(FridgeInventory, Ingredient.name, Ingredient.category)
+            .join(Ingredient, Ingredient.id == FridgeInventory.ingredient_id)
+            .where(FridgeInventory.user_id == user_id)
+            .order_by(
+                FridgeInventory.expiry_date.is_(None),
+                FridgeInventory.expiry_date.asc(),
+                FridgeInventory.id.asc(),
+            )
+        )
+        if expiring_within_days is not None:
+            deadline = date.today() + timedelta(days=expiring_within_days)
+            stmt = stmt.where(
+                FridgeInventory.expiry_date.is_not(None),
+                FridgeInventory.expiry_date <= deadline,
+            )
+        result = await self.db.execute(stmt)
+        return list(result.all())
+
     async def get_owned_item(self, menu_item_id: int, user_id: int) -> Optional[MenuItem]:
         """菜单项必须属于当前用户 (越权返回 None)"""
         result = await self.db.execute(
@@ -98,9 +126,7 @@ class InventoryService:
 
     async def delete_item(self, item_id: int, user_id: int) -> bool:
         result = await self.db.execute(
-            select(FridgeInventory).where(
-                FridgeInventory.id == item_id, FridgeInventory.user_id == user_id
-            )
+            select(FridgeInventory).where(FridgeInventory.id == item_id, FridgeInventory.user_id == user_id)
         )
         item = result.scalar_one_or_none()
         if not item:
@@ -127,7 +153,9 @@ class InventoryService:
         )
         return list(result.all())
 
-    async def _stock_rows(self, user_id: int, ingredient_ids: Sequence[int]) -> Dict[int, List[FridgeInventory]]:
+    async def _stock_rows(
+        self, user_id: int, ingredient_ids: Sequence[int]
+    ) -> Dict[int, List[FridgeInventory]]:
         grouped: Dict[int, List[FridgeInventory]] = {}
         if not ingredient_ids:
             return grouped
@@ -164,7 +192,13 @@ class InventoryService:
             if quantity is None:
                 if not stock.get(ingredient_id):
                     missing.append(
-                        {"ingredient_name": name, "required_quantity": None, "unit": unit, "in_stock_quantity": 0.0, "deficit": None}
+                        {
+                            "ingredient_name": name,
+                            "required_quantity": None,
+                            "unit": unit,
+                            "in_stock_quantity": 0.0,
+                            "deficit": None,
+                        }
                     )
                 continue
             deficit = round(quantity - available, 3)
@@ -226,6 +260,8 @@ class InventoryService:
                     ConsumptionRecord(
                         fridge_inventory_id=row.id,
                         menu_item_id=item.id,
+                        ingredient_id=ingredient_id,
+                        unit=row.unit,
                         quantity=round(take, 6),
                     )
                 )
@@ -255,3 +291,84 @@ class InventoryService:
         item.is_cooked = True
         await self.db.flush()
         return result
+
+    # ---------- 撤销扣减 ----------
+
+    async def restore_by_menu_item(self, menu_item_id: int, user_id: int) -> Optional[dict]:
+        """撤销一次「标记已做」: 库存加回去, 并删掉对应的消耗流水
+
+        批次行还在就加回原行; 已经被扣空删除的, 用流水里的 ingredient_id/unit
+        重新建一条 (保质期补不回来, 这是可接受的损失 —— 用户自己也会重设)。
+        """
+        item = await self.get_owned_item(menu_item_id, user_id)
+        if not item:
+            return None
+
+        rows = (
+            (
+                await self.db.execute(
+                    select(ConsumptionRecord).where(ConsumptionRecord.menu_item_id == item.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not rows:
+            item.is_cooked = False
+            await self.db.flush()
+            return {"item_id": item.id, "restored": [], "skipped": 0}
+
+        restored: List[dict] = []
+        skipped = 0
+        for record in rows:
+            batch = None
+            if record.fridge_inventory_id is not None:
+                batch = (
+                    await self.db.execute(
+                        select(FridgeInventory).where(
+                            FridgeInventory.id == record.fridge_inventory_id,
+                            FridgeInventory.user_id == user_id,
+                        )
+                    )
+                ).scalar_one_or_none()
+            if batch is not None:
+                batch.quantity = round(batch.quantity + record.quantity, 6)
+                name = await self._ingredient_name(batch.ingredient_id)
+                restored.append(
+                    {
+                        "ingredient_name": name,
+                        "inventory_id": batch.id,
+                        "quantity": round(record.quantity, 6),
+                        "unit": batch.unit,
+                    }
+                )
+            elif record.ingredient_id is not None and record.unit:
+                created = FridgeInventory(
+                    user_id=user_id,
+                    ingredient_id=record.ingredient_id,
+                    quantity=round(record.quantity, 6),
+                    unit=record.unit,
+                    source="restore",
+                )
+                self.db.add(created)
+                await self.db.flush()
+                name = await self._ingredient_name(record.ingredient_id)
+                restored.append(
+                    {
+                        "ingredient_name": name,
+                        "inventory_id": created.id,
+                        "quantity": round(record.quantity, 6),
+                        "unit": created.unit,
+                    }
+                )
+            else:
+                skipped += 1
+            await self.db.delete(record)
+
+        item.is_cooked = False
+        await self.db.flush()
+        return {"item_id": item.id, "restored": restored, "skipped": skipped}
+
+    async def _ingredient_name(self, ingredient_id: int) -> str:
+        result = await self.db.execute(select(Ingredient.name).where(Ingredient.id == ingredient_id))
+        return result.scalar_one_or_none() or f"食材#{ingredient_id}"

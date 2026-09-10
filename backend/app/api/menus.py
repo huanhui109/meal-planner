@@ -1,4 +1,5 @@
 """F2 菜单生成与管理 API"""
+
 from __future__ import annotations
 
 from datetime import date
@@ -12,14 +13,16 @@ from app.config import get_settings
 from app.dependencies import get_current_user, get_db
 from app.models.budget import Budget
 from app.models.health_goal import HealthGoal
-from app.models.menu import GenerationStatus, Menu, MenuGenerationTask, MenuItem
+from app.models.menu import Menu, MenuGenerationTask, MenuItem
 from app.models.user import User
 from app.schemas.common import SuccessResponse
 from app.schemas.menu import GenerateAcceptedResponse, GenerationTaskResponse
 from app.schemas.recipe import MenuGenerateRequest, MenuItemReplaceRequest
+from app.services.deeplink_service import PLATFORM_XIAOXIANG
 from app.services.generation_service import count_today_tasks, create_generation_task
 from app.services.inventory_service import InventoryService
 from app.services.menu_service import MenuService, week_start_of
+from app.services.order_service import OrderService
 from app.services.shopping_service import ShoppingService
 
 router = APIRouter(prefix="/menus", tags=["菜单管理"])
@@ -35,16 +38,12 @@ def _parse_week_start(request: MenuGenerateRequest) -> date:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="week_start 需为 YYYY-MM-DD 格式",
-        )
+        ) from None
 
 
 async def _load_profile(db: AsyncSession, user_id: int) -> Tuple[Optional[HealthGoal], Optional[Budget]]:
-    goal = (
-        await db.execute(select(HealthGoal).where(HealthGoal.user_id == user_id))
-    ).scalar_one_or_none()
-    budget = (
-        await db.execute(select(Budget).where(Budget.user_id == user_id))
-    ).scalar_one_or_none()
+    goal = (await db.execute(select(HealthGoal).where(HealthGoal.user_id == user_id))).scalar_one_or_none()
+    budget = (await db.execute(select(Budget).where(Budget.user_id == user_id))).scalar_one_or_none()
     return goal, budget
 
 
@@ -90,11 +89,15 @@ async def generate_menu(
                 ).model_dump(),
             )
 
-    used = await count_today_tasks(db, user.id)
-    if used >= settings.menu.daily_generation_limit:
+    # 首次生成和重新生成走各自的额度: 重生成是常规编辑动作, 不该被 3 次/天的探索额度卡住
+    is_regeneration = bool(request.force)
+    limit = settings.menu.daily_regenerate_limit if is_regeneration else settings.menu.daily_generation_limit
+    used = await count_today_tasks(db, user.id, is_regeneration)
+    if used >= limit:
+        action = "重新生成" if is_regeneration else "生成"
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"今日生成次数已用尽 ({used}/{settings.menu.daily_generation_limit}), 请明天再试",
+            detail=f"今日{action}次数已用尽 ({used}/{limit}), 请明天再试",
         )
 
     task = await create_generation_task(
@@ -102,6 +105,7 @@ async def generate_menu(
         user_id=user.id,
         week_start=week_start,
         payload={"week_start": str(week_start), "force": request.force},
+        is_regeneration=is_regeneration,
     )
     return SuccessResponse(
         code=0,
@@ -187,6 +191,19 @@ async def confirm_menu(
     menu = await _require_menu(db, menu_id, user.id)
     await MenuService(db).confirm(menu)
     return SuccessResponse(code=0, message="已确认菜单", data={"menu_id": menu.id, "status": menu.status})
+
+
+@router.get("/{menu_id}/order-suggestion", response_model=SuccessResponse)
+async def get_order_suggestion(
+    menu_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """补单建议 (采购页复用): 缺什么、大概多少钱、够不够起送价"""
+    await _require_menu(db, menu_id, user.id)
+    shopping = await ShoppingService(db).build(menu_id, user.id)
+    suggestion = OrderService().build_suggestion(shopping, platform=PLATFORM_XIAOXIANG)
+    return SuccessResponse(code=0, message="success", data=suggestion)
 
 
 @router.get("/{menu_id}/shopping-list", response_model=SuccessResponse)
@@ -278,4 +295,28 @@ async def mark_menu_item_cooked(
             "consumed": result.consumed,
             "missing": result.missing,
         },
+    )
+
+
+@router.delete("/{menu_id}/items/{item_id}/cooked", response_model=SuccessResponse)
+async def undo_menu_item_cooked(
+    menu_id: int,
+    item_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """撤销「标记已做」: 库存加回去, 并删掉这次产生的消耗流水
+
+    前端在标记后给 5 秒的撤销窗口 —— 误触是高频错误, 让用户自己回头改
+    比任何二次确认都省事。
+    """
+    menu = await _require_menu(db, menu_id, user.id)
+    item = await _require_item(db, menu, item_id)
+    result = await InventoryService(db).restore_by_menu_item(item.id, user.id)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="菜单项不存在")
+    return SuccessResponse(
+        code=0,
+        message="已撤销, 库存已还原",
+        data={"item_id": result["item_id"], "restored": result["restored"], "skipped": result["skipped"]},
     )

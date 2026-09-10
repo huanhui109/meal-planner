@@ -4,12 +4,12 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any, Dict, List
 
-from sqlalchemy import select
-
 from app.llm.base import LLMClient
 from app.models.menu import Menu, MenuItem, MenuStatus
 from app.models.recipe import Recipe
 from app.services.generation_service import MenuGenerationPipeline
+from sqlalchemy import select
+
 from tests.conftest import requires_mysql
 from tests.factories import (
     make_ingredient,
@@ -66,7 +66,12 @@ def _recipe(name: str, ingredient: str = "青菜") -> Dict[str, Any]:
 
 
 async def _items(db, menu_id: int) -> List[MenuItem]:
-    """重新开启事务读取最新数据 (生成流程使用独立 session)"""
+    """重新开启事务读取最新数据 (生成流程使用独立 session)
+
+    expire_all 不能省: commit() 之后再 rollback() 是空操作, identity map 里的旧对象
+    不会被过期, 于是 select 会把生成前缓存的旧对象原样返回, 断言就会看到陈旧数据。
+    """
+    db.expire_all()
     await db.rollback()
     result = await db.execute(
         select(MenuItem)
@@ -149,6 +154,8 @@ async def test_locked_item_survives_regeneration(db_session):
         week_start=WEEK_START,
     )
     user_id, menu_id = user.id, menu.id
+    await db_session.commit()
+
     items = await _items(db_session, menu_id)
     first_day_item_id = items[0].id
     items[0].is_locked = True
@@ -176,6 +183,7 @@ async def test_confirm_then_generate_still_reuses(api_client, db_session, auth_h
     user = await make_user(db_session, open_id="ou_edit_4")
     menu = Menu(user_id=user.id, week_start_date=WEEK_START, status=MenuStatus.CONFIRMED)
     db_session.add(menu)
+    await db_session.flush()
     user_id, menu_id = user.id, menu.id
     await db_session.commit()
 

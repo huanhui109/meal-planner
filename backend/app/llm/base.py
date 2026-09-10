@@ -1,8 +1,9 @@
 """LLM 抽象基类"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
 
 class LLMClient(ABC):
@@ -34,12 +35,13 @@ class LLMClient(ABC):
     ) -> Dict[str, Any]:
         """对话并解析 JSON 响应, 封装常用的 JSON 提取逻辑"""
         import json
+
         raw = await self.chat(messages, temperature, max_tokens)
         # 尝试提取 JSON 块
         text = raw.strip()
         if text.startswith("```"):
             lines = text.split("\n")
-            lines = [l for l in lines if not l.startswith("```")]
+            lines = [line for line in lines if not line.startswith("```")]
             text = "\n".join(lines)
         try:
             return json.loads(text)
@@ -49,9 +51,10 @@ class LLMClient(ABC):
             end = text.rfind("}") + 1
             if start >= 0 and end > start:
                 return json.loads(text[start:end])
-            raise ValueError(f"LLM 响应无法解析为 JSON: {text[:200]}")
+            raise ValueError(f"LLM 响应无法解析为 JSON: {text[:200]}") from None
 
 
 class AllLLMProvidersExhaustedError(Exception):
     """所有 LLM 提供商均不可用"""
+
     pass

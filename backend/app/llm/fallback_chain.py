@@ -1,4 +1,5 @@
 """LLM 多级降级链 - 直接尝试调用, 失败即降级 (不做额外探测请求)"""
+
 from __future__ import annotations
 
 import logging
@@ -61,7 +62,7 @@ NO_PROVIDER_MESSAGE = (
 
 def build_fallback_chain(settings) -> FallbackChain:
     """根据配置构建降级链: GLM-4 -> Qwen-Max -> DeepSeek -> 本地模型"""
-    if settings.llm.demo_mode:
+    if settings.llm.demo:
         from app.llm.demo_client import DemoLLMClient
 
         logger.warning("已启用本地演示 LLM (APP__LLM__DEMO=true), 生成结果固定且不联网")

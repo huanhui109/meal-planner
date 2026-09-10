@@ -1,4 +1,5 @@
 """F2.3 预算约束"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -34,9 +35,7 @@ class BudgetService:
             limit = entry.get("limit")
             spent = entry.get("estimated", 0.0)
             if limit and spent > limit * (1 + tolerance):
-                suggestions.append(
-                    f"{entry.get('date')} 预估 ¥{spent:.0f} 超出当日预算 ¥{limit:.0f}"
-                )
+                suggestions.append(f"{entry.get('date')} 预估 ¥{spent:.0f} 超出当日预算 ¥{limit:.0f}")
 
         if not budget_limit:
             return BudgetReport(

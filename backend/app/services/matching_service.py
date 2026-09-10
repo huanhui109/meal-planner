@@ -1,8 +1,9 @@
 """F3.2 食材-商品匹配服务"""
+
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,11 +26,14 @@ class MatchingService:
         result = await self.db.execute(
             select(ProductMapping)
             .join(Ingredient, ProductMapping.ingredient_id == Ingredient.id)
-            .where(Ingredient.name == ingredient_name, ProductMapping.user_confirmed == True)
+            .where(Ingredient.name == ingredient_name, ProductMapping.user_confirmed.is_(True))
         )
         confirmed = list(result.scalars().all())
         if confirmed:
-            return [{"product_id": m.product_id, "match_score": m.match_score, "confirmed": True} for m in confirmed]
+            return [
+                {"product_id": m.product_id, "match_score": m.match_score, "confirmed": True}
+                for m in confirmed
+            ]
 
         # 2. 模糊匹配 (Sprint 8 完善 AI 语义匹配)
         logger.info(f"No confirmed mapping for {ingredient_name}, returning empty")

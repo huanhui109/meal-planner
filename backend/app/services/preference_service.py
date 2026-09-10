@@ -1,26 +1,31 @@
 """F1 用户偏好管理 - 业务逻辑"""
+
 from __future__ import annotations
 
-import json
-from typing import Dict, Optional
+from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas.serializers import dumps_list, json_list
-from app.models.household import Household
-from app.models.diet_preference import DietPreference
 from app.models.allergy_restriction import AllergyRestriction
-from app.models.health_goal import HealthGoal
 from app.models.budget import Budget
+from app.models.diet_preference import DietPreference
+from app.models.health_goal import HealthGoal
+from app.models.household import Household
 from app.schemas.preference import (
-    HouseholdUpdate, HouseholdResponse,
-    DietPreferenceUpdate, DietPreferenceResponse,
-    AllergyUpdate, AllergyResponse,
-    HealthGoalUpdate, HealthGoalResponse,
-    BudgetUpdate, BudgetResponse,
+    AllergyResponse,
+    AllergyUpdate,
+    BudgetResponse,
+    BudgetUpdate,
+    DietPreferenceResponse,
+    DietPreferenceUpdate,
+    HealthGoalResponse,
+    HealthGoalUpdate,
+    HouseholdResponse,
+    HouseholdUpdate,
     UserPreferenceSummary,
 )
+from app.schemas.serializers import dumps_list, json_list
 
 
 class PreferenceService:
@@ -30,9 +35,7 @@ class PreferenceService:
     # --- Household ---
 
     async def get_household(self, user_id: int) -> Optional[Household]:
-        result = await self.db.execute(
-            select(Household).where(Household.user_id == user_id)
-        )
+        result = await self.db.execute(select(Household).where(Household.user_id == user_id))
         return result.scalar_one_or_none()
 
     async def update_household(self, user_id: int, data: HouseholdUpdate) -> Household:
@@ -59,9 +62,7 @@ class PreferenceService:
     # --- Diet Preference ---
 
     async def get_diet_preference(self, user_id: int) -> Optional[DietPreference]:
-        result = await self.db.execute(
-            select(DietPreference).where(DietPreference.user_id == user_id)
-        )
+        result = await self.db.execute(select(DietPreference).where(DietPreference.user_id == user_id))
         return result.scalar_one_or_none()
 
     async def update_diet_preference(self, user_id: int, data: DietPreferenceUpdate) -> DietPreference:
@@ -111,9 +112,7 @@ class PreferenceService:
     # --- Health Goal ---
 
     async def get_health_goal(self, user_id: int) -> Optional[HealthGoal]:
-        result = await self.db.execute(
-            select(HealthGoal).where(HealthGoal.user_id == user_id)
-        )
+        result = await self.db.execute(select(HealthGoal).where(HealthGoal.user_id == user_id))
         return result.scalar_one_or_none()
 
     async def update_health_goal(self, user_id: int, data: HealthGoalUpdate) -> HealthGoal:
@@ -145,9 +144,7 @@ class PreferenceService:
     # --- Budget ---
 
     async def get_budget(self, user_id: int) -> Optional[Budget]:
-        result = await self.db.execute(
-            select(Budget).where(Budget.user_id == user_id)
-        )
+        result = await self.db.execute(select(Budget).where(Budget.user_id == user_id))
         return result.scalar_one_or_none()
 
     async def update_budget(self, user_id: int, data: BudgetUpdate) -> Budget:
@@ -157,6 +154,7 @@ class PreferenceService:
             existing.weekend_daily_budget = data.weekend_daily_budget
             existing.weekly_cap = data.weekly_cap
             existing.min_meal_budget = data.min_meal_budget
+            existing.takeout_reference_price = data.takeout_reference_price
             return existing
         budget = Budget(
             user_id=user_id,
@@ -164,6 +162,7 @@ class PreferenceService:
             weekend_daily_budget=data.weekend_daily_budget,
             weekly_cap=data.weekly_cap,
             min_meal_budget=data.min_meal_budget,
+            takeout_reference_price=data.takeout_reference_price,
         )
         self.db.add(budget)
         await self.db.flush()
@@ -226,6 +225,8 @@ class PreferenceService:
             if health.daily_calories:
                 lines.append(f"每日目标热量: {health.daily_calories} kcal")
             if health.protein_pct:
-                lines.append(f"营养比例: 蛋白{health.protein_pct}%/碳水{health.carb_pct}%/脂肪{health.fat_pct}%")
+                lines.append(
+                    f"营养比例: 蛋白{health.protein_pct}%/碳水{health.carb_pct}%/脂肪{health.fat_pct}%"
+                )
 
         return "\n".join(lines)

@@ -4,12 +4,13 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any, Dict, List
 
-from sqlalchemy import func, select
-
+from app.config import get_settings
 from app.llm.base import LLMClient
 from app.models.menu import Menu, MenuGenerationTask, MenuItem, MenuStatus
 from app.models.recipe import Recipe, RecipeIngredient
 from app.services.generation_service import MenuGenerationPipeline
+from sqlalchemy import func, select
+
 from tests.conftest import requires_mysql
 from tests.factories import make_ingredient, make_preferences, make_user, week_start_of
 
@@ -197,10 +198,11 @@ async def test_amount_text_keeps_original_wording(db_session):
 
 
 async def test_generate_endpoint_enqueues_task_and_enforces_quota(api_client, db_session, auth_headers):
+    """首次生成: 每天 3 次, 第 4 次 429"""
     user = await make_user(db_session, open_id="ou_quota")
     await db_session.commit()
     headers = auth_headers(user.id)
-    body = {"week_start": "2026-01-05", "force": True}
+    body = {"week_start": "2026-01-05"}
 
     accepted = await api_client.post("/api/menus/generate", json=body, headers=headers)
     assert accepted.status_code == 202
@@ -223,9 +225,70 @@ async def test_generate_endpoint_enqueues_task_and_enforces_quota(api_client, db
 
     await db_session.rollback()
     total = (
-        await db_session.execute(select(func.count(MenuGenerationTask.id)))
+        await db_session.execute(
+            select(func.count(MenuGenerationTask.id)).where(
+                MenuGenerationTask.is_regeneration.is_(False)
+            )
+        )
     ).scalar_one()
     assert total == 3
+
+
+async def test_regeneration_uses_its_own_quota(api_client, db_session, auth_headers):
+    """重新生成有独立额度: 连换 4 次也不该被「首次生成 3 次」挡住
+
+    回归用例 —— 之前两者共用配额, 用户在同一周里换两次菜就被 429 卡住。
+    """
+    user = await make_user(db_session, open_id="ou_regen_quota")
+    await db_session.commit()
+    headers = auth_headers(user.id)
+    body = {"week_start": "2026-01-05", "force": True}
+    limit = get_settings().menu.daily_regenerate_limit
+
+    for _ in range(limit):
+        response = await api_client.post("/api/menus/generate", json=body, headers=headers)
+        assert response.status_code == 202
+
+    blocked = await api_client.post("/api/menus/generate", json=body, headers=headers)
+    assert blocked.status_code == 429
+    assert "重新生成" in blocked.json()["detail"]
+
+    await db_session.rollback()
+    regen_total = (
+        await db_session.execute(
+            select(func.count(MenuGenerationTask.id)).where(
+                MenuGenerationTask.is_regeneration.is_(True)
+            )
+        )
+    ).scalar_one()
+    assert regen_total == limit
+
+
+async def test_regeneration_does_not_consume_first_generation_quota(
+    api_client, db_session, auth_headers
+):
+    """重生成不占用首次生成额度: 换过菜单之后, 开新周菜单仍有完整 3 次"""
+    user = await make_user(db_session, open_id="ou_quota_split")
+    await db_session.commit()
+    headers = auth_headers(user.id)
+
+    for _ in range(3):
+        response = await api_client.post(
+            "/api/menus/generate",
+            json={"week_start": "2026-01-05", "force": True},
+            headers=headers,
+        )
+        assert response.status_code == 202
+
+    # 首次生成额度应该是满的 (3 次)
+    first_week = await api_client.post(
+        "/api/menus/generate", json={"week_start": "2026-01-12"}, headers=headers
+    )
+    assert first_week.status_code == 202
+    other_week = await api_client.post(
+        "/api/menus/generate", json={"week_start": "2026-01-19"}, headers=headers
+    )
+    assert other_week.status_code == 202
 
 
 async def test_generate_without_login_is_401(api_client, db_session):

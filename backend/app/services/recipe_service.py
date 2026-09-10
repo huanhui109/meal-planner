@@ -1,4 +1,5 @@
 """菜谱服务 - 菜谱与食材用量落库"""
+
 from __future__ import annotations
 
 import logging
@@ -50,17 +51,13 @@ class RecipeService:
         self, recipe: Recipe, ingredients: Sequence[IngredientItem]
     ) -> List[RecipeIngredient]:
         """整体覆盖菜谱用量 (LLM 重新生成时调用)"""
-        await self.db.execute(
-            delete(RecipeIngredient).where(RecipeIngredient.recipe_id == recipe.id)
-        )
+        await self.db.execute(delete(RecipeIngredient).where(RecipeIngredient.recipe_id == recipe.id))
         rows: List[RecipeIngredient] = []
         for item in ingredients:
             if not (item.name or "").strip():
                 continue
             amount = normalize_amount(item.quantity, item.unit or "")
-            ingredient = await self.get_or_create_ingredient(
-                item.name, amount.unit or (item.unit or "")
-            )
+            ingredient = await self.get_or_create_ingredient(item.name, amount.unit or (item.unit or ""))
             row = RecipeIngredient(
                 recipe_id=recipe.id,
                 ingredient_id=ingredient.id,

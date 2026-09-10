@@ -1,4 +1,5 @@
 """菜谱模型"""
+
 from __future__ import annotations
 
 from typing import Optional
@@ -23,7 +24,9 @@ class Recipe(Base, TimestampMixin):
     fat_g: Mapped[Optional[float]] = mapped_column(Float, nullable=True, comment="脂肪(g)")
     steps: Mapped[Optional[str]] = mapped_column(Text, nullable=True, comment="烹饪步骤")
     source: Mapped[Optional[str]] = mapped_column(
-        String(50), nullable=True, default="ai_generated",
+        String(50),
+        nullable=True,
+        default="ai_generated",
         comment="来源: ai_generated/user_created/template",
     )
 

@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import select
-
 from app.models.ingredient import Ingredient
 from app.models.recipe import Recipe, RecipeIngredient
+from sqlalchemy import select
+
 from tests.conftest import requires_mysql
 from tests.factories import make_ingredient, make_menu, make_recipe, make_stock, make_user, week_start_of
 

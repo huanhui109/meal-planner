@@ -1,4 +1,5 @@
 """商品管理服务"""
+
 from __future__ import annotations
 
 from typing import List, Optional
@@ -7,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product import Product
+
 
 class ProductService:
     def __init__(self, db: AsyncSession):
@@ -46,7 +48,7 @@ class ProductService:
 
     async def get_products(self, category: Optional[str] = None) -> List[Product]:
         """获取商品列表"""
-        query = select(Product).where(Product.is_active == True)
+        query = select(Product).where(Product.is_active.is_(True))
         if category:
             query = query.where(Product.category == category)
         result = await self.db.execute(query)

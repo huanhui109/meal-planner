@@ -1,7 +1,9 @@
 """F3.3 采购清单 - 菜单所需食材与冰箱库存的差集
 
-本期不接商超价格, 只回答"还差什么、差多少"。
+本期不接商超价格, 只回答"还差什么、差多少"; reference_price 是食材参考单价,
+补单卡片用它估算"大概要花多少钱", 不是商超实时价。
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,13 +39,22 @@ class ShoppingService:
                 Ingredient.name,
                 Ingredient.category,
                 Ingredient.standard_unit,
+                Ingredient.reference_price,
                 RecipeIngredient.quantity,
                 RecipeIngredient.unit,
             )
             .join(Ingredient, RecipeIngredient.ingredient_id == Ingredient.id)
             .where(RecipeIngredient.recipe_id.in_(recipe_ids))
         )
-        for ingredient_id, name, category, standard_unit, quantity, unit in result.all():
+        for (
+            ingredient_id,
+            name,
+            category,
+            standard_unit,
+            reference_price,
+            quantity,
+            unit,
+        ) in result.all():
             target = standard_unit or unit or ""
             entry = aggregated.setdefault(
                 ingredient_id,
@@ -53,6 +64,7 @@ class ShoppingService:
                     "category": category or "其他",
                     "unit": target,
                     "required_quantity": 0.0,
+                    "reference_price": reference_price,
                     "quantitative": True,
                 },
             )
@@ -71,8 +83,7 @@ class ShoppingService:
         if not ingredient_ids:
             return grouped
         result = await self.db.execute(
-            select(FridgeInventory.ingredient_id, FridgeInventory.quantity, FridgeInventory.unit)
-            .where(
+            select(FridgeInventory.ingredient_id, FridgeInventory.quantity, FridgeInventory.unit).where(
                 FridgeInventory.user_id == user_id,
                 FridgeInventory.ingredient_id.in_(ingredient_ids),
                 FridgeInventory.quantity > 0,

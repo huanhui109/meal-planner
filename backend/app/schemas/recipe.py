@@ -1,9 +1,10 @@
 """菜谱相关 Pydantic 模型"""
+
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict
 
 
 class IngredientItem(BaseModel):
@@ -38,6 +39,7 @@ class WeekMenuGenerate(BaseModel):
 
 
 class RecipeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: Optional[int] = None
     name: str
     cuisine: Optional[str] = None
@@ -50,11 +52,9 @@ class RecipeResponse(BaseModel):
     steps: Optional[str] = None
     source: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-
 
 class MenuItemResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     recipe_id: Optional[int] = None
     recipe: Optional[RecipeResponse] = None
@@ -65,11 +65,9 @@ class MenuItemResponse(BaseModel):
     cook_mode: str = "self"
     estimated_cost: Optional[float] = None
 
-    class Config:
-        from_attributes = True
-
 
 class MenuResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     user_id: int
     week_start_date: str
@@ -78,12 +76,10 @@ class MenuResponse(BaseModel):
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-
 
 class MenuGenerateRequest(BaseModel):
     """生成请求 - 兼容 week_start 与 week_start_date 两种字段名"""
+
     week_start: Optional[str] = None
     week_start_date: Optional[str] = None
     force: bool = False

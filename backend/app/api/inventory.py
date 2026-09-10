@@ -1,19 +1,27 @@
 """F5 库存管理 API"""
+
 from __future__ import annotations
 
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.dependencies import get_current_user, get_db
 from app.models.fridge_inventory import FridgeInventory
 from app.models.ingredient import Ingredient
 from app.models.user import User
 from app.schemas.common import SuccessResponse
 from app.schemas.inventory import InventoryCreate
+from app.services.activity_service import (
+    CHANNEL_VISION,
+    KIND_VISION_RECOGNIZE,
+    ActivityService,
+)
 from app.services.inventory_service import InventoryService
+from app.services.vision_service import VisionError, VisionService
 
 router = APIRouter(prefix="/inventory", tags=["库存管理"])
 
@@ -29,7 +37,7 @@ def _parse_date(raw: str | None) -> date | None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="expiry_date 需为 YYYY-MM-DD 格式",
-        )
+        ) from None
 
 
 def _serialize(item: FridgeInventory, ingredient_name: str, category: str | None) -> dict:
@@ -51,9 +59,7 @@ def _serialize(item: FridgeInventory, ingredient_name: str, category: str | None
 
 
 @router.get("", response_model=SuccessResponse)
-async def list_inventory(
-    db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
-):
+async def list_inventory(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """当前库存 (临期优先展示)"""
     result = await db.execute(
         select(FridgeInventory, Ingredient.name, Ingredient.category)
@@ -98,7 +104,9 @@ async def add_inventory_item(
     return SuccessResponse(
         code=0,
         message="添加成功",
-        data=_serialize(item, ingredient.name if ingredient else "", ingredient.category if ingredient else None),
+        data=_serialize(
+            item, ingredient.name if ingredient else "", ingredient.category if ingredient else None
+        ),
     )
 
 
@@ -126,5 +134,84 @@ async def list_expiring(
     items = []
     for item in rows:
         ingredient = await db.get(Ingredient, item.ingredient_id)
-        items.append(_serialize(item, ingredient.name if ingredient else "", ingredient.category if ingredient else None))
+        items.append(
+            _serialize(
+                item, ingredient.name if ingredient else "", ingredient.category if ingredient else None
+            )
+        )
     return SuccessResponse(code=0, message="success", data={"total": len(items), "items": items})
+
+
+@router.post("/recognize", response_model=SuccessResponse)
+async def recognize_inventory(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """拍照识别: 返回候选食材清单, 不落库; 用户确认后再逐条走 POST /inventory
+
+    没有配置视觉模型时返回 503 (而不是 500): 前端据此把按钮置灰并引导手动添加。
+    """
+    settings = get_settings()
+    service = VisionService(settings)
+    if not service.configured:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="服务端还没有配置视觉模型, 可以先手动添加食材",
+        )
+
+    activity = ActivityService(db)
+    limit = int(settings.llm.vision.daily_limit)
+    used = await activity.count_today(user.id, KIND_VISION_RECOGNIZE)
+    if limit > 0 and used >= limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"今天已经识别 {used} 次, 上限 {limit} 次, 明天再来或手动添加吧",
+        )
+
+    image = await file.read()
+    try:
+        result = await service.recognize(image, file.content_type or "")
+    except VisionError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    await _match_known_ingredients(db, result["items"])
+    await activity.log(
+        user.id,
+        channel=CHANNEL_VISION,
+        kind=KIND_VISION_RECOGNIZE,
+        title=f"拍照识别出 {len(result['items'])} 样食材",
+        detail=file.filename or None,
+    )
+    return SuccessResponse(
+        code=0,
+        message="识别完成",
+        data={
+            **result,
+            "used_today": used + 1,
+            "daily_limit": limit,
+        },
+    )
+
+
+async def _match_known_ingredients(db: AsyncSession, items: list) -> None:
+    """把识别出的名字对到食材库, 前端据此提示"新食材"与自动分类"""
+    names = [item["name"] for item in items if item.get("name")]
+    if not names:
+        return
+    result = await db.execute(
+        select(Ingredient.name, Ingredient.id, Ingredient.category, Ingredient.standard_unit).where(
+            Ingredient.name.in_(names)
+        )
+    )
+    known = {name: (ingredient_id, category, unit) for name, ingredient_id, category, unit in result.all()}
+    for item in items:
+        hit = known.get(item["name"])
+        if hit:
+            item["ingredient_id"] = hit[0]
+            item["known"] = True
+            item["category"] = hit[1] or item["category"]
+            item["unit"] = item["unit"] or hit[2] or ""
+        else:
+            item["ingredient_id"] = None
+            item["known"] = False

@@ -1,14 +1,15 @@
 """用户偏好 Pydantic 数据模型"""
+
 from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.serializers import json_list
 
-
 # === Household ===
+
 
 class HouseholdUpdate(BaseModel):
     member_count: int = Field(default=1, ge=1, le=20, description="家庭人数")
@@ -19,6 +20,7 @@ class HouseholdUpdate(BaseModel):
 
 
 class HouseholdResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     member_count: int
     meals_per_day: int
@@ -31,11 +33,9 @@ class HouseholdResponse(BaseModel):
     def _parse_equipments(cls, value):
         return json_list(value)
 
-    class Config:
-        from_attributes = True
-
 
 # === Diet Preference ===
+
 
 class DietPreferenceUpdate(BaseModel):
     cuisines: List[str] = Field(default_factory=list, min_length=1, max_length=5, description="偏好菜系")
@@ -45,6 +45,7 @@ class DietPreferenceUpdate(BaseModel):
 
 
 class DietPreferenceResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     cuisines: List[str] = Field(default_factory=list)
     spice_level: int
@@ -56,11 +57,9 @@ class DietPreferenceResponse(BaseModel):
     def _parse_cuisines(cls, value):
         return json_list(value)
 
-    class Config:
-        from_attributes = True
-
 
 # === Allergy Restriction ===
+
 
 class AllergyUpdate(BaseModel):
     allergens: List[str] = Field(default_factory=list, description="过敏源列表")
@@ -69,6 +68,7 @@ class AllergyUpdate(BaseModel):
 
 
 class AllergyResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     allergens: List[str] = Field(default_factory=list)
     avoid_ingredients: List[str] = Field(default_factory=list)
@@ -79,11 +79,9 @@ class AllergyResponse(BaseModel):
     def _parse_lists(cls, value):
         return json_list(value)
 
-    class Config:
-        from_attributes = True
-
 
 # === Health Goal ===
+
 
 class HealthGoalUpdate(BaseModel):
     goal_type: Optional[str] = Field(default=None, description="目标类型")
@@ -94,6 +92,7 @@ class HealthGoalUpdate(BaseModel):
 
 
 class HealthGoalResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     goal_type: Optional[str] = None
     daily_calories: Optional[int] = None
@@ -101,34 +100,36 @@ class HealthGoalResponse(BaseModel):
     carb_pct: Optional[int] = None
     fat_pct: Optional[int] = None
 
-    class Config:
-        from_attributes = True
-
 
 # === Budget ===
+
 
 class BudgetUpdate(BaseModel):
     weekday_daily_budget: float = Field(default=35.0, ge=5.0, le=500.0, description="工作日每日预算")
     weekend_daily_budget: float = Field(default=80.0, ge=5.0, le=1000.0, description="周末每日预算")
     weekly_cap: Optional[float] = Field(default=None, ge=0, description="周预算上限")
     min_meal_budget: Optional[float] = Field(default=8.0, ge=0, description="单餐预算下限")
+    takeout_reference_price: float = Field(
+        default=26.0, ge=0, le=500, description="一顿外卖的参考价(元), 今日页自做 vs 外卖用"
+    )
 
 
 class BudgetResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     weekday_daily_budget: float
     weekend_daily_budget: float
     weekly_cap: Optional[float] = None
     min_meal_budget: Optional[float] = None
-
-    class Config:
-        from_attributes = True
+    takeout_reference_price: float = 26.0
 
 
 # === Summary ===
 
+
 class UserPreferenceSummary(BaseModel):
     """用户全部偏好聚合"""
+
     household: Optional[HouseholdResponse] = None
     diet_preference: Optional[DietPreferenceResponse] = None
     allergy_restriction: Optional[AllergyResponse] = None

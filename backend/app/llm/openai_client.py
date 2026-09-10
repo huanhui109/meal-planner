@@ -1,8 +1,9 @@
 """OpenAI 兼容客户端 - 支持 GLM-4/Qwen-Max/DeepSeek"""
+
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Dict, List
 
 from openai import AsyncOpenAI
 

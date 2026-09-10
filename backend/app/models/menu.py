@@ -1,4 +1,5 @@
 """菜单与菜单生成任务模型"""
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -23,9 +24,10 @@ from app.models.base import Base, TimestampMixin
 
 class MenuStatus:
     """菜单状态机取值"""
-    DRAFT = "draft"          # 生成完成, 可编辑
+
+    DRAFT = "draft"  # 生成完成, 可编辑
     CONFIRMED = "confirmed"  # 用户确认本周菜单
-    ACTIVE = "active"        # 已进入执行期
+    ACTIVE = "active"  # 已进入执行期
     COMPLETED = "completed"  # 本周结束
 
     EDITABLE = (DRAFT, CONFIRMED)
@@ -34,6 +36,7 @@ class MenuStatus:
 
 class GenerationStatus:
     """生成任务状态取值"""
+
     PENDING = "pending"
     RUNNING = "running"
     SUCCEEDED = "succeeded"
@@ -51,7 +54,9 @@ class Menu(Base, TimestampMixin):
     )
     week_start_date: Mapped[date] = mapped_column(Date, nullable=False, comment="周起始日期(周一)")
     status: Mapped[str] = mapped_column(
-        String(20), nullable=False, default=MenuStatus.DRAFT,
+        String(20),
+        nullable=False,
+        default=MenuStatus.DRAFT,
         comment="状态: draft/confirmed/active/completed",
     )
 
@@ -75,7 +80,9 @@ class MenuItem(Base):
     )
     meal_date: Mapped[date] = mapped_column(Date, nullable=False, comment="用餐日期")
     meal_type: Mapped[str] = mapped_column(String(20), nullable=False, comment="餐次: lunch/dinner")
-    is_locked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, comment="锁定后不参与重生成")
+    is_locked: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, comment="锁定后不参与重生成"
+    )
     is_cooked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, comment="是否已做")
     cook_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="self", comment="self/takeout")
     estimated_cost: Mapped[Optional[float]] = mapped_column(Float, nullable=True, comment="预估成本(元)")
@@ -86,13 +93,12 @@ class MenuItem(Base):
     menu = relationship("Menu", back_populates="menu_items")
     recipe = relationship("Recipe", lazy="selectin")
 
-    __table_args__ = (
-        Index("ix_menu_item_menu_date", "menu_id", "meal_date"),
-    )
+    __table_args__ = (Index("ix_menu_item_menu_date", "menu_id", "meal_date"),)
 
 
 class MenuGenerationTask(Base, TimestampMixin):
     """菜单生成任务 - 由后台 worker 领取执行"""
+
     __tablename__ = "menu_generation_task"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -100,7 +106,9 @@ class MenuGenerationTask(Base, TimestampMixin):
         Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False, comment="所属用户"
     )
     status: Mapped[str] = mapped_column(
-        String(20), nullable=False, default=GenerationStatus.PENDING,
+        String(20),
+        nullable=False,
+        default=GenerationStatus.PENDING,
         comment="状态: pending/running/succeeded/failed",
     )
     menu_id: Mapped[Optional[int]] = mapped_column(
@@ -110,10 +118,18 @@ class MenuGenerationTask(Base, TimestampMixin):
     request_payload: Mapped[Optional[str]] = mapped_column(Text, nullable=True, comment="请求参数 JSON")
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True, comment="失败原因")
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="已尝试次数")
+    is_regeneration: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("0"),
+        comment="是否为重新生成 (走独立配额, 不占用首次生成额度)",
+    )
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     __table_args__ = (
         Index("ix_menu_task_status_created", "status", "created_at"),
         Index("ix_menu_task_user_created", "user_id", "created_at"),
+        Index("ix_menu_task_user_regen", "user_id", "is_regeneration", "created_at"),
     )

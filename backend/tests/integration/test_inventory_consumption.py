@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from sqlalchemy import select
-
 from app.models.fridge_inventory import ConsumptionRecord, FridgeInventory
 from app.models.menu import MenuItem
+from sqlalchemy import select
+
 from tests.conftest import requires_mysql
 from tests.factories import make_ingredient, make_menu, make_recipe, make_stock, make_user, week_start_of
 
@@ -25,6 +25,7 @@ async def _prepare(db, open_id: str, recipe_name: str, needed: float, stock: flo
 
 
 async def _first_item_id(db, menu_id: int) -> int:
+    db.expire_all()
     await db.rollback()
     result = await db.execute(select(MenuItem).where(MenuItem.menu_id == menu_id))
     return result.scalars().first().id

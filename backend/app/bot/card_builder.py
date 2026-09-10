@@ -1,4 +1,5 @@
 """飞书消息卡片构建器"""
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -24,24 +25,34 @@ class CardBuilder:
                 if r.get("calories"):
                     line += f" ({r['calories']}kcal)"
                 lines.append(line)
-            elements.append({
-                "tag": "div",
-                "text": {"tag": "lark_md", "content": "\n".join(lines)},
-            })
+            elements.append(
+                {
+                    "tag": "div",
+                    "text": {"tag": "lark_md", "content": "\n".join(lines)},
+                }
+            )
 
         if total_calories:
-            elements.append({
-                "tag": "div",
-                "text": {"tag": "lark_md", "content": f"**总计: {total_calories} kcal**"},
-            })
+            elements.append(
+                {
+                    "tag": "div",
+                    "text": {"tag": "lark_md", "content": f"**总计: {total_calories} kcal**"},
+                }
+            )
 
-        elements.append({
-            "tag": "action",
-            "actions": [
-                {"tag": "button", "text": {"tag": "plain_text", "content": "查看完整菜单"}, "type": "default"},
-                {"tag": "button", "text": {"tag": "plain_text", "content": "重新生成"}, "type": "danger"},
-            ],
-        })
+        elements.append(
+            {
+                "tag": "action",
+                "actions": [
+                    {
+                        "tag": "button",
+                        "text": {"tag": "plain_text", "content": "查看完整菜单"},
+                        "type": "default",
+                    },
+                    {"tag": "button", "text": {"tag": "plain_text", "content": "重新生成"}, "type": "danger"},
+                ],
+            }
+        )
 
         return {
             "config": {"wide_screen_mode": True},
@@ -81,8 +92,16 @@ class CardBuilder:
                 {
                     "tag": "action",
                     "actions": [
-                        {"tag": "button", "text": {"tag": "plain_text", "content": "一键下单"}, "type": "primary"},
-                        {"tag": "button", "text": {"tag": "plain_text", "content": "调整菜单"}, "type": "default"},
+                        {
+                            "tag": "button",
+                            "text": {"tag": "plain_text", "content": "一键下单"},
+                            "type": "primary",
+                        },
+                        {
+                            "tag": "button",
+                            "text": {"tag": "plain_text", "content": "调整菜单"},
+                            "type": "default",
+                        },
                     ],
                 },
             ],
@@ -100,7 +119,10 @@ class CardBuilder:
         return {
             "config": {"wide_screen_mode": True},
             "header": {
-                "title": {"tag": "plain_text", "content": "临期食材提醒" if urgency == "warning" else "紧急: 即将过期"},
+                "title": {
+                    "tag": "plain_text",
+                    "content": "临期食材提醒" if urgency == "warning" else "紧急: 即将过期",
+                },
                 "template": template,
             },
             "elements": [

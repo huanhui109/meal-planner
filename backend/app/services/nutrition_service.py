@@ -1,4 +1,5 @@
 """F2.2 营养均衡校验 - 基于快照对象计算, 不触碰 ORM 懒加载"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ KCAL_PER_GRAM_FAT = 9.0
 @dataclass
 class MealSnapshot:
     """一餐的营养快照"""
+
     meal_date: date
     meal_type: str
     calories: Optional[float] = None
@@ -27,6 +29,7 @@ class MealSnapshot:
 @dataclass
 class DayNutrition:
     """单日营养汇总"""
+
     date: str
     calories: float
     protein_g: float
@@ -79,18 +82,16 @@ class NutritionService:
             protein = sum(m.protein_g or 0 for m in day_meals)
             carb = sum(m.carb_g or 0 for m in day_meals)
             fat = sum(m.fat_g or 0 for m in day_meals)
-            macro_kcal = (
-                protein * KCAL_PER_GRAM_PROTEIN
-                + carb * KCAL_PER_GRAM_CARB
-                + fat * KCAL_PER_GRAM_FAT
-            )
+            macro_kcal = protein * KCAL_PER_GRAM_PROTEIN + carb * KCAL_PER_GRAM_CARB + fat * KCAL_PER_GRAM_FAT
             detail = DayNutrition(
                 date=str(day),
                 calories=round(calories, 1),
                 protein_g=round(protein, 1),
                 carb_g=round(carb, 1),
                 fat_g=round(fat, 1),
-                protein_pct=round(protein * KCAL_PER_GRAM_PROTEIN / macro_kcal * 100, 1) if macro_kcal else 0.0,
+                protein_pct=round(protein * KCAL_PER_GRAM_PROTEIN / macro_kcal * 100, 1)
+                if macro_kcal
+                else 0.0,
                 carb_pct=round(carb * KCAL_PER_GRAM_CARB / macro_kcal * 100, 1) if macro_kcal else 0.0,
                 fat_pct=round(fat * KCAL_PER_GRAM_FAT / macro_kcal * 100, 1) if macro_kcal else 0.0,
                 meal_count=len(day_meals),

@@ -1,4 +1,5 @@
 """F1 用户偏好管理 API - 所有读写都限定在当前登录用户"""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
@@ -8,16 +9,16 @@ from app.dependencies import get_current_user, get_db
 from app.models.user import User
 from app.schemas.common import SuccessResponse
 from app.schemas.preference import (
-    AllergyUpdate,
     AllergyResponse,
-    BudgetUpdate,
+    AllergyUpdate,
     BudgetResponse,
-    DietPreferenceUpdate,
+    BudgetUpdate,
     DietPreferenceResponse,
-    HealthGoalUpdate,
+    DietPreferenceUpdate,
     HealthGoalResponse,
-    HouseholdUpdate,
+    HealthGoalUpdate,
     HouseholdResponse,
+    HouseholdUpdate,
 )
 from app.services.preference_service import PreferenceService
 
@@ -33,9 +34,7 @@ RESPONSE_SCHEMAS = {
 
 
 @router.get("/household", response_model=SuccessResponse)
-async def get_household(
-    db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
-):
+async def get_household(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """未配置时返回 data=null, 前端据此展示空表单"""
     entity = await PreferenceService(db).get_household(user.id)
     return SuccessResponse(

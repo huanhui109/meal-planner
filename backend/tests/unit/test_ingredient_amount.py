@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-
 from app.services.ingredient_amount import convert_quantity, normalize_amount, normalize_unit
 
 
