@@ -3,8 +3,9 @@
   "projectname": "meal-planner-miniapp",
   "description": "AI 每周营养菜谱工具",
   "appid": "wxf240348f8cae1d34",
+  "libVersion": "3.17.1",
   "setting": {
-    "urlCheck": true,
+    "urlCheck": false,
     "es6": false,
     "enhance": false,
     "compileHotReLoad": false,
@@ -34,7 +35,12 @@
   "simulatorPluginLibVersion": {},
   "condition": {},
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "type": "file",
+        "value": ".DS_Store"
+      }
+    ],
     "include": []
   },
   "editorSetting": {}

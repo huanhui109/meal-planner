@@ -66,12 +66,13 @@
 | 前端 | React 18 + Vite 6 + Ant Design 5 | 移动优先自适应 |
 | 状态 | Zustand + React Query | 轻量高效 |
 
-## 数据模型 (18 表)
+## 数据模型 (19 表)
 
 - **用户侧 (6)**：`user`、`household`、`diet_preference`、`allergy_restriction`、`health_goal`、`budget`
 - **内容 (3)**：`ingredient`(含 `reference_price`)、`recipe`、`recipe_ingredient`(含 `amount_text`)
 - **外部 (2)**：`product`、`product_mapping`
 - **运行 (7)**：`fridge_inventory`、`consumption_record`、`menu`、`menu_item`、`menu_generation_task`、`purchase_record`、`activity_log`
+- **配置 (1)**：`user_feishu_config`(迁移 `0006`，按用户隔离的飞书应用凭证)
 
 > 单一字段 `user_id` 贯穿所有用户侧数据；所有查询都带 `user_id` 过滤，越权一律 404。
 

@@ -10,6 +10,8 @@
 #
 #  可用环境变量覆盖:
 #    BACKEND_PORT=8000  FRONTEND_PORT=5173  FRONTEND_HOST=127.0.0.1  DEV_RELOAD=0
+#    后端默认绑定 0.0.0.0: 这样手机(同一 wifi 下)用电脑 LAN IP 即可访问,
+#    小程序真机调试/真机预览才能连上。仅本机开发时想收紧可设 BACKEND_HOST=127.0.0.1。
 # ============================================================================
 set -euo pipefail
 
@@ -67,7 +69,8 @@ read_pid() {
 
 peek_backend() {
   local code
-  code="$(curl -sS -m 3 -o /dev/null -w '%{http_code}' "http://$BACKEND_HOST:$BACKEND_PORT/api/health" 2>/dev/null || true)"
+  # 健康检查走 127.0.0.1 永远可达; BACKEND_HOST 可能为 0.0.0.0 不便直接 curl
+  code="$(curl -sS -m 3 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$BACKEND_PORT/api/health" 2>/dev/null || true)"
   if [ "$code" = "000" ] || [ "$code" = "" ]; then
     printf ''
   else
@@ -170,7 +173,7 @@ show_status() {
   local code
   code="$(peek_backend)"
   printf "  %-14s %b   %s\n" "后端" "$(dot "$bs")" \
-    "$(if [ "$bs" = "running" ]; then printf "http://%s:%s  健康检查 %s" "$BACKEND_HOST" "$BACKEND_PORT" "${code:-无响应}"; else printf "端口 %s" "$BACKEND_PORT"; fi)"
+    "$(if [ "$bs" = "running" ]; then printf "http://%s:%s  健康检查 %s" "$BACKEND_HOST" "$BACKEND_PORT" "${code:-无响应}"; if [ "$BACKEND_HOST" = "0.0.0.0" ]; then printf "  (手机用电脑 LAN IP 访问)"; fi; else printf "端口 %s" "$BACKEND_PORT"; fi)"
   printf "  %-14s %b   %s\n" "前端" "$(dot "$fs")" \
     "$(if [ "$fs" = "running" ]; then printf "http://%s:%s" "$FRONTEND_HOST" "$FRONTEND_PORT"; else printf "端口 %s" "$FRONTEND_PORT"; fi)"
   printf "  %-14s %b   %s\n" "数据库" "$(dot "$ds")" \

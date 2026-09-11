@@ -146,6 +146,9 @@ meal-planner/
 
 ## 文档
 
+- [**全项目总案**](docs/master-plan.md) —— 模块结构与规划、需求 × 版本台账、差异对齐、路线图、TAPD 落地映射
+- [项目审计](docs/project-audit.md) —— 模块划分 / 依赖关系 / 业务流程 / 历史进度还原
+- [产品方案 V2.0](docs/product-v2.md)
 - [架构设计](docs/architecture.md)
 - [设计系统](docs/design-system.md)
 - [微信小程序配置与调试](docs/miniapp-setup.md)

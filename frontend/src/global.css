@@ -586,6 +586,17 @@ select {
   box-shadow: var(--shadow-lift);
 }
 
+.next-step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.next-step-head .logo-mark {
+  opacity: 0.92;
+}
+
 .next-step .next-step-label {
   font-size: var(--font-micro);
   font-weight: 600;

@@ -251,8 +251,8 @@ export default function TodayPage() {
             <Text className="card__label">今日预算</Text>
             <Text className="chip">已用 {formatPercent(budgetPercent)}</Text>
           </View>
-          <View className="card__value">
-            <Text className="num" style={{ fontSize: 24, fontWeight: 700 }}>
+          <View className="card__value card__value--sm">
+            <Text className="num">
               {formatMoney(Math.max(0, budget.remaining_today ?? 0))}
             </Text>
             <Text className="card__unit">可用 / {formatMoney(dailyBudget)}</Text>
@@ -430,8 +430,8 @@ export default function TodayPage() {
                   : '暂无'}
               </Text>
             </View>
-            <View className="card__value">
-              <Text className="num" style={{ fontSize: 24, fontWeight: 700 }}>
+            <View className="card__value card__value--sm">
+              <Text className="num">
                 {formatMoney(data?.week?.budget.total_estimated ?? 0)}
               </Text>
               <Text className="card__unit">/ {formatMoney(data?.week?.budget.budget_limit ?? 0)}</Text>

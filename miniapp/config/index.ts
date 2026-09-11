@@ -8,6 +8,11 @@ import prodConfig from './prod'
 // 否则 webpack 会把 TS 源码原样当 JS 解析, 报 "Unexpected token"。
 const sharedDir = path.resolve(__dirname, '..', '..', 'shared')
 
+// weapp 与 h5 共用 config.outputRoot(全局, 无法按平台分目录);
+// DevTools 的 miniprogramRoot 指向 dist/, 故 weapp 必须留在 dist/,
+// h5 单独输出到 dist-h5, 否则互相覆盖会导致 "dist/app.json 找不到"。
+const isH5 = process.argv.includes('h5')
+
 export default defineConfig<'webpack5'>(async (merge) => {
   const baseConfig: UserConfigExport<'webpack5'> = {
     projectName: 'meal-planner-miniapp',
@@ -21,8 +26,8 @@ export default defineConfig<'webpack5'>(async (merge) => {
       828: 1.81 / 2,
     },
     sourceRoot: 'src',
-    outputRoot: 'dist',
-    plugins: [],
+    outputRoot: isH5 ? 'dist-h5' : 'dist',
+    plugins: ['@tarojs/plugin-platform-h5'],
     defineConstants: {},
     alias: {
       '@': path.resolve(__dirname, '..', 'src'),
@@ -50,8 +55,12 @@ export default defineConfig<'webpack5'>(async (merge) => {
     h5: {
       publicPath: '/',
       staticDirectory: 'static',
+      compile: {
+        include: [sharedDir],
+      },
       postcss: {
         autoprefixer: { enable: true, config: {} },
+        pxtransform: { enable: true, config: {} },
         cssModules: { enable: false },
       },
     },

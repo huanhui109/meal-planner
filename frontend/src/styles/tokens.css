@@ -43,4 +43,19 @@
   --layout-page-max: 1120px;
   --layout-tabbar-height: 74px;
   --layout-tap-target: 44px;
+  --brand-frame: #ffffff;
+  --brand-frame-line: #ededed;
+  --brand-frame-dark: #1c1c1e;
+  --brand-pan: #3b4048;
+  --brand-pan-rim: #6b7280;
+  --brand-pan-inner: #2b2f35;
+  --brand-pan-light: #e8e8ea;
+  --brand-pan-light-rim: #f4f4f6;
+  --brand-pan-light-inner: #c9c9ce;
+  --brand-wood: #c9824a;
+  --brand-yolk: #f6a623;
+  --brand-yolk-light: #ffc861;
+  --brand-motion: #f2b872;
+  --brand-egg: #ffffff;
+  --brand-egg-line: #dadada;
 }

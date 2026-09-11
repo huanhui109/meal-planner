@@ -14,15 +14,19 @@
     "dev:weapp": "npm run build:weapp -- --watch",
     "typecheck": "tsc --noEmit"
   },
+  "//browserslist": "微信小程序不能按现代浏览器出包: 微信开发者工具/服务端的编译器与部分 Android 旧内核不认可可选链 ?. 与空值合并 ??, 会判成『非法的文件』导致代码包被拒、真机白屏。这里显式压到 ES2015 语法层级, 让 babel 把 ?. / ?? 降级掉。详见 docs/miniapp-troubleshooting.md",
   "browserslist": [
-    "defaults and fully supports es6-module",
-    "maintained node versions"
+    "iOS >= 10",
+    "Android >= 5",
+    "Chrome >= 53",
+    "Safari >= 10"
   ],
   "dependencies": {
-    "@babel/runtime": "^7.24.4",
+    "@babel/runtime": "^8.0.0-alpha.17",
     "@tarojs/components": "4.2.1",
     "@tarojs/helper": "4.2.1",
     "@tarojs/plugin-framework-react": "4.2.1",
+    "@tarojs/plugin-platform-h5": "^4.2.1",
     "@tarojs/plugin-platform-weapp": "4.2.1",
     "@tarojs/react": "4.2.1",
     "@tarojs/router": "4.2.1",
@@ -45,6 +49,6 @@
     "react-refresh": "^0.14.0",
     "sass": "^1.77.0",
     "typescript": "^5.6.0",
-    "webpack": "^5.91.0"
+    "webpack": "^5.94.0"
   }
 }

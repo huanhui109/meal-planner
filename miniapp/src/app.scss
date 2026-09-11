@@ -127,6 +127,11 @@ scroll-view {
   font-variant-numeric: tabular-nums;
 }
 
+/* 预算这类长数字 (¥123.00 / ¥45.00) 比默认数字小一档, 320 宽的小屏才不会折行 */
+.card__value--sm {
+  font-size: 24px;
+}
+
 .card__unit {
   margin-left: 3px;
   font-size: $font-caption;
@@ -656,7 +661,8 @@ scroll-view {
 }
 
 .chip-option {
-  height: 34px;
+  /* 可点筛选: 遵守 >=44px 的触控目标 (原来是 34px, 手指容易点空) */
+  min-height: $layout-tap-target;
   padding: 0 14px;
   border-radius: $radius-pill;
   background: $color-fill;
@@ -731,8 +737,12 @@ scroll-view {
 
 .tabbar {
   position: fixed;
-  left: 14px;
-  right: 14px;
+  /* 居中 + 跟随 .page 的 max-width: 手机端 100%-28px 与原来 left/right:14px 等价,
+     宽屏 (iPad / PC 微信) 下不再比内容栏更宽, 与 .page 左右对齐 */
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 28px);
+  max-width: $layout-page-max;
   /* 悬浮胶囊 TabBar: 底部 14px 之外再抬高 home 指示条高度, 避免图标被手势条盖住 */
   bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   height: $layout-tabbar-height;
@@ -763,6 +773,9 @@ scroll-view {
 .tabbar__icon {
   width: 22px;
   height: 22px;
+  /* 图标内部有 position:absolute 的部件 (篮子提手 / 屋顶 / 圆点),
+     这里必须是定位元素, 否则它们的包含块会退到 .tabbar (position:fixed) 而飞出去 */
+  position: relative;
 }
 
 .tabbar__label {
@@ -1013,7 +1026,14 @@ scroll-view {
 .recog-row__del {
   font-size: $font-caption;
   color: $color-danger;
-  padding: 8px 4px;
+  /* 删除是纯文字, 原来是 8px 4px 的极小热区; 撑成 44x44 的触控目标 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: $layout-tap-target;
+  min-height: $layout-tap-target;
+  padding: 0 4px;
+  margin-right: -4px;
 }
 
 .recog-row__conf {

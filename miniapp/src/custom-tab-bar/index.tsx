@@ -10,6 +10,7 @@ import Taro from '@tarojs/taro'
 import { Text, View } from '@tarojs/components'
 
 import { cx } from '../components/ui'
+import { px } from '../lib/px'
 
 interface TabItem {
   pagePath: string
@@ -36,26 +37,29 @@ function TabIcon({ name, color }: { name: TabItem['icon']; color: string }) {
         <View className="tabbar__icon" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
           <View
             style={{
-              width: 16,
-              height: 12,
-              borderWidth: 2,
+              width: px(16),
+              height: px(12),
+              borderWidth: px(2),
               borderStyle: 'solid',
               borderTopWidth: 0,
-              borderBottomLeftRadius: 4,
-              borderBottomRightRadius: 4,
+              borderBottomLeftRadius: px(4),
+              borderBottomRightRadius: px(4),
               ...base,
             }}
           />
           <View
             style={{
               position: 'absolute',
-              width: 12,
-              height: 12,
-              borderLeftWidth: 2,
-              borderTopWidth: 2,
+              /* 必须自己给锚点: .tabbar__icon 是 22x22 的盒子 (position:relative),
+                 不给 top/left 时绝对定位会退到 .tabbar (position:fixed) 而飞走 */
+              top: 0,
+              left: '50%',
+              transform: 'translateX(-50%) rotate(45deg)',
+              width: px(12),
+              height: px(12),
+              borderLeftWidth: px(2),
+              borderTopWidth: px(2),
               borderStyle: 'solid',
-              transform: 'rotate(45deg)',
-              marginBottom: 12,
               ...base,
             }}
           />
@@ -63,13 +67,13 @@ function TabIcon({ name, color }: { name: TabItem['icon']; color: string }) {
       )
     case 'calendar':
       return (
-        <View className="tabbar__icon" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
+        <View className="tabbar__icon" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: px(3) }}>
           {[0, 1, 2].map((row) => (
-            <View key={row} style={{ display: 'flex', gap: 3 }}>
+            <View key={row} style={{ display: 'flex', gap: px(3) }}>
               {[0, 1].map((col) => (
                 <View
                   key={col}
-                  style={{ width: 7, height: 4, borderRadius: 2, background: color }}
+                  style={{ width: px(7), height: px(4), borderRadius: px(2), background: color }}
                 />
               ))}
             </View>
@@ -81,27 +85,30 @@ function TabIcon({ name, color }: { name: TabItem['icon']; color: string }) {
         <View className="tabbar__icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <View
             style={{
-              width: 18,
-              height: 13,
-              borderWidth: 2,
+              width: px(18),
+              height: px(13),
+              borderWidth: px(2),
               borderStyle: 'solid',
               borderTopWidth: 0,
-              borderBottomLeftRadius: 7,
-              borderBottomRightRadius: 7,
+              borderBottomLeftRadius: px(7),
+              borderBottomRightRadius: px(7),
               ...base,
             }}
           />
           <View
             style={{
-              width: 10,
-              height: 8,
-              borderWidth: 2,
+              width: px(10),
+              height: px(8),
+              borderWidth: px(2),
               borderStyle: 'solid',
               borderBottomWidth: 0,
-              borderTopLeftRadius: 6,
-              borderTopRightRadius: 6,
+              borderTopLeftRadius: px(6),
+              borderTopRightRadius: px(6),
               position: 'absolute',
+              /* 提手锚在图标盒顶部正中: 只给 top 不给 left 会退到 .tabbar, 提手会飞到胶囊条顶端 */
               top: 0,
+              left: '50%',
+              transform: 'translateX(-50%)',
               ...base,
             }}
           />
@@ -110,21 +117,24 @@ function TabIcon({ name, color }: { name: TabItem['icon']; color: string }) {
     case 'box':
       return (
         <View className="tabbar__icon" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ width: 18, height: 12, borderWidth: 2, borderStyle: 'solid', borderRadius: 4, ...base }} />
-          <View style={{ width: 10, height: 2, borderRadius: 1, background: color, marginTop: 4 }} />
+          <View style={{ width: px(18), height: px(12), borderWidth: px(2), borderStyle: 'solid', borderRadius: px(4), ...base }} />
+          <View style={{ width: px(10), height: px(2), borderRadius: px(1), background: color, marginTop: px(4) }} />
         </View>
       )
     default:
       return (
         <View className="tabbar__icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ width: 17, height: 17, borderWidth: 2, borderStyle: 'solid', borderRadius: 9, ...base }} />
+          <View style={{ width: px(17), height: px(17), borderWidth: px(2), borderStyle: 'solid', borderRadius: px(9), ...base }} />
           <View
             style={{
-              width: 5,
-              height: 5,
-              borderRadius: 3,
+              width: px(5),
+              height: px(5),
+              borderRadius: px(3),
               background: color,
               position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
             }}
           />
         </View>

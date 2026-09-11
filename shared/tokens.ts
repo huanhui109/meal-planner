@@ -67,6 +67,37 @@ export const tokens = {
     tabbarHeight: '74px',
     tapTarget: '44px',
   },
+  /**
+   * 品牌色 (只服务于 Logo, 不参与语义配色)
+   *
+   * 取自品牌故事「平底锅颠荷包蛋」: 白底容框, 深色锅身, 木色锅柄,
+   * 蛋黄与动势线是画面上仅有的暖色。渐变压成中间色, 保持扁平。
+   */
+  brand: {
+    /** 容框 (默认: 白底, 浅色场景) */
+    frame: '#ffffff',
+    frameLine: '#ededed',
+    /** 容框 (深色底专用版) */
+    frameDark: '#1c1c1e',
+    /** 锅身 / 锅沿 / 锅内 */
+    pan: '#3b4048',
+    panRim: '#6b7280',
+    panInner: '#2b2f35',
+    /** 深色底上的浅色锅 */
+    panLight: '#e8e8ea',
+    panLightRim: '#f4f4f6',
+    panLightInner: '#c9c9ce',
+    /** 锅柄木色 */
+    wood: '#c9824a',
+    /** 蛋黄 / 高光 */
+    yolk: '#f6a623',
+    yolkLight: '#ffc861',
+    /** 颠动的两道弧线 */
+    motion: '#f2b872',
+    /** 蛋白 / 蛋白描边 */
+    egg: '#ffffff',
+    eggLine: '#dadada',
+  },
 } as const
 
 export type Tokens = typeof tokens

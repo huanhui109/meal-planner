@@ -17,6 +17,7 @@ node_modules/
 frontend/dist/
 frontend/.vite/
 miniapp/dist/
+miniapp/dist-h5/
 miniapp/.temp/
 miniapp/.rn_temp/
 miniapp/.swc/
@@ -57,3 +58,6 @@ Thumbs.db
 
 # Config overrides
 config/user.yaml
+
+# Agent 记忆/工作目录
+.workbuddy/

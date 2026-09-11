@@ -30,6 +30,7 @@ import {
 } from '../../components/ui'
 import { confirmMenu, getCurrentMenu } from '../../lib/api'
 import { ensureLogin, goTo, syncTabBar, toast } from '../../lib/nav'
+import { px } from '../../lib/px'
 import { askReplaceRecipe, markCooked, toggleLock } from '../../lib/meal-actions'
 import { startGeneration, waitForGeneration } from '../../lib/menu'
 
@@ -258,7 +259,7 @@ export default function MenuPage() {
             <View key={meal.id} className={`meal${meal.is_cooked ? ' meal--cooked' : ''}`} style={{ marginTop: 12 }}>
               <View className="meal__head">
                 <Text className="meal__type">{mealLabel(meal.meal_type)}</Text>
-                <View style={{ display: 'flex', gap: 6 }}>
+                <View style={{ display: 'flex', gap: px(6) }}>
                   {meal.is_locked ? <Text className="chip">已锁定</Text> : null}
                   {meal.is_cooked ? <Text className="chip chip--accent">已做</Text> : null}
                 </View>
@@ -329,7 +330,7 @@ export default function MenuPage() {
         ) : null}
       </Card>
 
-      <View style={{ marginTop: 14, display: 'flex', gap: 10 }}>
+      <View style={{ marginTop: px(14), display: 'flex', gap: px(10) }}>
         <PillButton variant="gray" block disabled={busy} onClick={() => goTo('/shopping')}>
           看采购清单
         </PillButton>

@@ -9,7 +9,8 @@ import { Empty, Skeleton, Spin } from 'antd'
 import type { NextStep } from '@shared/next-step'
 import { formatMonthDay, WEEKDAY_SHORT_SAFE } from './day-strip-helper'
 
-export { LogoLockup, LogoMark } from './logo'
+import { LogoLockup, LogoMark } from './logo'
+export { LogoLockup, LogoMark }
 
 type Tone = 'ink' | 'gray' | 'ghost' | 'green' | 'warn' | 'danger'
 
@@ -217,7 +218,10 @@ export const NextStepCard: React.FC<{
   loading?: boolean
 }> = ({ step, onAction, loading }) => (
   <div className="next-step span-2 lg-3">
-    <div className="next-step-label">下一步</div>
+    <div className="next-step-head">
+      <div className="next-step-label">下一步</div>
+      <LogoMark inverse size={28} />
+    </div>
     <div className="next-step-title">{step.title}</div>
     <div className="next-step-desc">{step.description}</div>
     {step.actionLabel && (

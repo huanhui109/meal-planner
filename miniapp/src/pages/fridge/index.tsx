@@ -22,6 +22,7 @@ import {
 import { addInventory, getToday, listInventory } from '../../lib/api'
 import { RecognizeSheet } from '../../components/recognize-sheet'
 import { ensureLogin, syncTabBar, toast } from '../../lib/nav'
+import { px } from '../../lib/px'
 
 const UNITS = ['g', 'kg', 'ml', 'L', '个', '根', '颗', '把', '袋', '盒']
 
@@ -192,7 +193,7 @@ export default function FridgePage() {
           />
         </View>
 
-        <View style={{ display: 'flex', gap: 10 }}>
+        <View style={{ display: 'flex', gap: px(10) }}>
           <View className="field" style={{ flex: 1 }}>
             <View className="field__label">数量</View>
             <Input
@@ -241,7 +242,7 @@ export default function FridgePage() {
 
       <SectionTitle text="冰箱里" hint={`${items.length} 样`} />
 
-      <View style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+      <View style={{ display: 'flex', gap: px(8), marginBottom: px(10) }}>
         <View
           className={`chip-option tap${active === 'all' ? ' chip-option--on' : ''}`}
           onClick={() => setActive('all')}

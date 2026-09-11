@@ -25,6 +25,7 @@ import {
   saveHousehold,
 } from '../../lib/api'
 import { ensureLogin, toast } from '../../lib/nav'
+import { px } from '../../lib/px'
 import { BRAND_HOST } from '../../lib/config'
 import { getCachedUser } from '../../lib/session'
 import { brand } from '@shared/brand'
@@ -278,7 +279,7 @@ export default function ProfilePage() {
           />
           {open === 'household' ? (
             <View style={{ padding: '0 18px 18px' }}>
-              <View style={{ display: 'flex', gap: 10 }}>
+              <View style={{ display: 'flex', gap: px(10) }}>
                 <NumberField
                   label="家庭人数"
                   value={household.member_count}
@@ -304,7 +305,7 @@ export default function ProfilePage() {
                   }))
                 }
               />
-              <View style={{ display: 'flex', gap: 10 }}>
+              <View style={{ display: 'flex', gap: px(10) }}>
                 <NumberField
                   label="工作日做饭 (分钟)"
                   value={household.weekday_cook_minutes}
@@ -466,7 +467,7 @@ export default function ProfilePage() {
                 value={health.daily_calories}
                 onChange={(value) => setHealth((prev) => ({ ...prev, daily_calories: value || 1800 }))}
               />
-              <View style={{ display: 'flex', gap: 10 }}>
+              <View style={{ display: 'flex', gap: px(10) }}>
                 <NumberField
                   label="蛋白 %"
                   value={health.protein_pct}
@@ -507,7 +508,7 @@ export default function ProfilePage() {
           />
           {open === 'budget' ? (
             <View style={{ padding: '0 18px 18px' }}>
-              <View style={{ display: 'flex', gap: 10 }}>
+              <View style={{ display: 'flex', gap: px(10) }}>
                 <NumberField
                   label="工作日每日 (元)"
                   value={budget.weekday_daily_budget}
