@@ -132,6 +132,13 @@
 | R-27 | 部署与上线：nginx / systemd / certbot + MySQL 初始化，Alembic 为唯一建表入口 | 工程 | `deploy/*`、`deploy/README.md`、`docs/deployment.md` |
 | R-28 | CI 质量门禁：ruff + pytest + 令牌校验 + Logo 校验 + vitest + 两端构建 | 工程 | `Makefile` 的 `ci` 目标 |
 
+### V2.1 —— 体验与稳定（进行中，提交 `01b9111`）
+
+| 需求 ID | 需求 | 模块 | 证据 |
+|---|---|---|---|
+| R-29 | 换一道本地优先：点一下自动换 —— 先按当前菜单设定（热量贴合 / 库存命中 / 偏好菜系打分，硬过滤过敏源、忌口、超烹饪时长、本周与近 4 周重复）从本地 `recipe` 表挑一道；无候选再同步调 AI 生成单菜并落库；两条路径都替换同一餐次，响应 `replacement.source` 标注 `local` / `ai`。AI 路径才写 `is_regeneration` 任务（与「重新生成」共用额度），传 `recipe_id` 可直接「换回上一道」且不占额度 | 菜单 | `services/replacement_service.py`、`config/prompts/dish_replacement.txt`、`api/menus.py` |
+| R-30 | 换一道交互改造：弹框由「手输菜名 + 热量/时长/做法」改为「加载中 → 新菜名 + 来源 + 就它了 / 换回上一道」，H5 保留 5 秒 Toast 撤销，小程序在弹框内提供撤销 | 交互 | `miniapp/src/lib/meal-actions.ts`、`frontend/src/pages/Menus/WeeklyView.tsx` |
+
 ### 需求汇总
 
 | 版本 | 需求数 | 状态 |
@@ -139,7 +146,8 @@
 | V1.0 | 3 | 已完成 |
 | V1.1 | 4 | 已完成 |
 | V2.0 | 21 | 已完成 |
-| **合计** | **28** | 全部完成 |
+| V2.1 | 2 | 进行中（R-29 / R-30 已落地） |
+| **合计** | **30** | V2.0 及以前全部完成 |
 
 ---
 
@@ -168,6 +176,7 @@
 
 **目标**：把 V2.0 的闭环做「顺手且稳」。
 
+- 换一道本地优先 + AI 降级（R-29 / R-30，已落地 `01b9111`）
 - 小程序真机 + 多基础库回归，补齐 D6 的验证缺口
 - 移动端硬指标抽查（对比度、触摸目标、SE / Pro Max / 桌面 1440px），输出报告
 - 错误分级统一：Skeleton → 动作内 loading → ErrorState + 重试，禁止堆栈外露
