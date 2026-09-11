@@ -169,6 +169,14 @@ export interface MenuDetail {
   nutrition: NutritionSummary
   budget: BudgetSummary
   days: MenuDay[]
+  /** 仅「换一道」接口会带上: 这次换菜走了哪条路径 */
+  replacement?: ReplacementInfo
+}
+
+export interface ReplacementInfo {
+  source: 'local' | 'ai' | 'restore' | 'manual'
+  recipe_id: number | null
+  recipe_name: string | null
 }
 
 export interface GenerateAccepted {

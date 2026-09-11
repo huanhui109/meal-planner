@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Collapse, Form, Input, InputNumber, Modal, message } from 'antd'
+import { Alert, Button, Collapse, Modal, Spin, message } from 'antd'
 import { CheckCircleOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons'
 import {
   Bar,
@@ -45,13 +45,14 @@ const WeeklyView: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [busyItemId, setBusyItemId] = useState<number | null>(null)
   const [replaceTarget, setReplaceTarget] = useState<MealDetail | null>(null)
+  /** 换完后的那一餐与来源, 用于弹框展示结果 */
+  const [replaceResult, setReplaceResult] = useState<MealDetail | null>(null)
+  const [replaceSource, setReplaceSource] = useState<string | null>(null)
   const [replacing, setReplacing] = useState(false)
   const [selectedDate, setSelectedDate] = useState('')
   const [confirming, setConfirming] = useState(false)
   /** 周生成时间文案来自调度配置, 拉不到就用默认说法, 不影响页面 */
   const [weeklyGeneration, setWeeklyGeneration] = useState('每周日 20:00')
-  const [form] = Form.useForm()
-
   const menuId = menu?.id
 
   const load = useCallback(async () => {
@@ -146,43 +147,61 @@ const WeeklyView: React.FC = () => {
     }
   }
 
-  const submitReplace = async () => {
-    if (!menuId || !replaceTarget) return
-    const target = replaceTarget
-    const previous = target.recipe
+  /** 点「换一道」: 后端先查本地菜谱库, 挑不到再 AI 生成; 弹框先转圈再给结果 */
+  const openReplace = async (meal: MealDetail) => {
+    if (!menuId) return
+    setReplaceTarget(meal)
+    setReplaceResult(null)
+    setReplaceSource(null)
+    setReplacing(true)
     try {
-      const values = await form.validateFields()
-      setReplacing(true)
-      const updated = await replaceMenuItem(menuId, target.id, {
-        recipe_name: values.recipe_name,
-        calories: values.calories ?? 0,
-        cook_minutes: values.cook_minutes ?? 20,
-        steps: values.steps ?? '',
-      })
+      const updated = await replaceMenuItem(menuId, meal.id, {})
       setMenu(updated)
-      setReplaceTarget(null)
-      form.resetFields()
-      // 换一道也做成可撤销: 弹层里再放一个「换回上一道」会挤, 放 Toast 更顺手
-      if (previous) {
-        toastWithUndo({
-          key: `replace-${target.id}`,
-          text: `已换成「${values.recipe_name}」`,
-          onUndo: async () => {
-            setMenu(
-              await replaceMenuItem(menuId, target.id, {
-                recipe_name: previous.name,
-                calories: previous.calories ?? 0,
-                cook_minutes: previous.cook_minutes ?? 20,
-                steps: previous.steps ?? '',
-              }),
-            )
-          },
-        })
-      } else {
-        message.success('已替换这一餐')
-      }
+      setReplaceSource(updated.replacement?.source ?? null)
+      setReplaceResult(
+        updated.days.flatMap((day) => day.meals).find((row) => row.id === meal.id) ?? null,
+      )
     } catch (err) {
       if (err instanceof Error) message.error(err.message)
+      setReplaceTarget(null)
+    } finally {
+      setReplacing(false)
+    }
+  }
+
+  /** 就它了: 关掉弹框, 保留原来 5 秒可撤销的 Toast */
+  const acceptReplace = () => {
+    const target = replaceTarget
+    const previous = target?.recipe
+    const current = replaceResult?.recipe
+    setReplaceTarget(null)
+    setReplaceResult(null)
+    setReplaceSource(null)
+    if (!menuId || !target || !previous || !current) return
+    toastWithUndo({
+      key: `replace-${target.id}`,
+      text: `已换成「${current.name}」`,
+      onUndo: async () => {
+        setMenu(await replaceMenuItem(menuId, target.id, { recipe_id: previous.id }))
+      },
+    })
+  }
+
+  /** 换回上一道: 直接切回原菜谱, 不走 AI */
+  const revertReplace = async () => {
+    const target = replaceTarget
+    const previous = target?.recipe
+    if (!menuId || !target || !previous) return
+    setReplacing(true)
+    try {
+      const updated = await replaceMenuItem(menuId, target.id, { recipe_id: previous.id })
+      setMenu(updated)
+      message.success('已换回上一道')
+      setReplaceTarget(null)
+      setReplaceResult(null)
+      setReplaceSource(null)
+    } catch (err) {
+      message.error((err as Error).message)
     } finally {
       setReplacing(false)
     }
@@ -301,15 +320,7 @@ const WeeklyView: React.FC = () => {
                 busy={busyItemId === meal.id}
                 onLockToggle={handleLockToggle}
                 onCooked={handleCooked}
-                onReplace={(target) => {
-                  setReplaceTarget(target)
-                  form.setFieldsValue({
-                    recipe_name: '',
-                    calories: target.recipe?.calories ?? 350,
-                    cook_minutes: target.recipe?.cook_minutes ?? 20,
-                    steps: '',
-                  })
-                }}
+                onReplace={openReplace}
               />
             ))}
           </div>
@@ -352,34 +363,54 @@ const WeeklyView: React.FC = () => {
       </div>
 
       <Modal
-        title="换一道菜"
+        title="换一道"
         open={Boolean(replaceTarget)}
         onCancel={() => setReplaceTarget(null)}
-        onOk={submitReplace}
-        confirmLoading={replacing}
-        okText="替换"
-        cancelText="取消"
+        footer={
+          replacing
+            ? null
+            : [
+                ...(replaceResult && replaceTarget?.recipe
+                  ? [
+                      <Button key="revert" onClick={revertReplace}>
+                        换回上一道
+                      </Button>,
+                    ]
+                  : []),
+                <Button key="ok" type="primary" onClick={acceptReplace} disabled={!replaceResult}>
+                  就它了
+                </Button>,
+              ]
+        }
       >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="recipe_name"
-            label="新菜名"
-            rules={[{ required: true, message: '请输入菜名' }]}
-          >
-            <Input placeholder="例如: 番茄牛腩" />
-          </Form.Item>
-          <div className="field-grid">
-            <Form.Item name="calories" label="热量 (kcal)">
-              <InputNumber min={0} max={3000} placeholder="350" style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="cook_minutes" label="烹饪时间 (分钟)">
-              <InputNumber min={1} max={300} placeholder="20" style={{ width: '100%' }} />
-            </Form.Item>
+        {replacing ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 0' }}>
+            <Spin />
+            <span>正在换一道…</span>
           </div>
-          <Form.Item name="steps" label="做法 (可选)">
-            <Input.TextArea rows={3} placeholder="简要步骤" />
-          </Form.Item>
-        </Form>
+        ) : replaceResult?.recipe ? (
+          <div>
+            <div className="meal-name" style={{ fontSize: 16 }}>
+              {replaceResult.recipe.name}
+              <Chip tone="green">
+                {replaceSource === 'ai' ? 'AI 生成' : '本地菜谱库'}
+              </Chip>
+            </div>
+            <div className="meal-meta" style={{ marginTop: 6 }}>
+              {replaceResult.recipe.cook_minutes ? (
+                <span>{formatMinutes(replaceResult.recipe.cook_minutes)}</span>
+              ) : null}
+              {replaceResult.recipe.calories ? (
+                <span>{formatKcal(replaceResult.recipe.calories)}</span>
+              ) : null}
+              {replaceResult.estimated_cost ? (
+                <span>≈{formatMoney(replaceResult.estimated_cost)}</span>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: '12px 0' }}>没有换到合适的菜, 可以再试一次。</div>
+        )}
       </Modal>
     </div>
   )

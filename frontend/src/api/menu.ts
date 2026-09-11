@@ -54,19 +54,20 @@ export const confirmMenu = (menuId: number) =>
 export const getShoppingList = (menuId: number) =>
   unwrap<ShoppingList>(apiClient.get(`/menus/${menuId}/shopping-list`))
 
-/** 替换某一餐的菜品 */
+/** 换一道: 留空 body 走自动模式 (本地菜谱库优先, 挑不到再 AI 生成) */
 export const replaceMenuItem = (
   menuId: number,
   itemId: number,
   body: {
-    recipe_name: string
+    recipe_id?: number
+    recipe_name?: string
     calories?: number
     cook_minutes?: number
     protein_g?: number
     carb_g?: number
     fat_g?: number
     steps?: string
-  },
+  } = {},
 ) => unwrap<MenuDetail>(apiClient.put(`/menus/${menuId}/items/${itemId}/replace`, body))
 
 export const lockMenuItem = (menuId: number, itemId: number) =>

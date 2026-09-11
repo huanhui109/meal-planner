@@ -19,10 +19,11 @@ from app.schemas.common import SuccessResponse
 from app.schemas.menu import GenerateAcceptedResponse, GenerationTaskResponse
 from app.schemas.recipe import MenuGenerateRequest, MenuItemReplaceRequest
 from app.services.deeplink_service import PLATFORM_XIAOXIANG
-from app.services.generation_service import count_today_tasks, create_generation_task
+from app.services.generation_service import GenerationError, count_today_tasks, create_generation_task
 from app.services.inventory_service import InventoryService
 from app.services.menu_service import MenuService, week_start_of
 from app.services.order_service import OrderService
+from app.services.replacement_service import ReplacementQuotaExceeded, ReplacementService
 from app.services.shopping_service import ShoppingService
 
 router = APIRouter(prefix="/menus", tags=["菜单管理"])
@@ -223,19 +224,46 @@ async def get_shopping_list(
 async def replace_menu_item(
     menu_id: int,
     item_id: int,
-    request: MenuItemReplaceRequest,
+    request: Optional[MenuItemReplaceRequest] = None,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """替换某一餐的菜品"""
-    menu = await _require_menu(db, menu_id, user.id)
+    """换一道: 先从本地菜谱库挑一道, 挑不到再降级让 AI 生成一道
+
+    请求体三种用法: 留空走自动; 传 recipe_id 直接还原 (「换回上一道」);
+    传 recipe_name 走旧的手动指定路径。
+    """
+    # 先取成普通 int: 走 AI 降级时服务里会结束当前事务把连接还池, ORM 对象会被过期,
+    # 之后再读 user.id 就会触发同步懒加载 (异步会话里直接 MissingGreenlet)。
+    user_id = user.id
+    menu = await _require_menu(db, menu_id, user_id)
     item = await _require_item(db, menu, item_id)
-    await MenuService(db).replace_item(menu, item, request)
-    goal, budget = await _load_profile(db, user.id)
+    try:
+        result = await ReplacementService(db).replace(menu, item, user_id, request)
+    except ReplacementQuotaExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
+        ) from exc
+    except GenerationError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+    goal, budget = await _load_profile(db, user_id)
+    data = await MenuService(db).serialize(result.menu, goal, budget)
+    data["replacement"] = {
+        "source": result.source,
+        "recipe_id": result.recipe.id if result.recipe else None,
+        "recipe_name": result.recipe.name if result.recipe else None,
+    }
+    message = {
+        "local": "已从本地菜谱库换好",
+        "ai": "AI 已生成新菜并换好",
+        "restore": "已换回上一道",
+        "manual": "已替换",
+    }.get(result.source, "已替换")
     return SuccessResponse(
         code=0,
-        message="已替换",
-        data=await MenuService(db).serialize(menu, goal, budget),
+        message=message,
+        data=data,
     )
 
 
