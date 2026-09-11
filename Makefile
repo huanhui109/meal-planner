@@ -5,13 +5,18 @@ else
   PYTHON := $(CURDIR)/.venv/bin/python
 endif
 
-.PHONY: help ops up down restart status logs dev dev-backend dev-frontend install-backend install-frontend install-miniapp test test-cov test-frontend lint lint-frontend gen-tokens gen-logo ci build-frontend build-miniapp migrate migration seed backup tunnel playwright-install setup setup-local db-start db-stop db-status db-logs db-shell db-destroy
+.PHONY: help ops up down restart status logs dev dev-backend dev-frontend install-backend install-frontend install-miniapp test test-cov test-frontend lint lint-frontend gen-tokens gen-logo ci build-frontend build-miniapp migrate migration seed db-doc fetch-recipes build-recipes-sql import-recipes backfill-nutrition backup tunnel playwright-install setup setup-local db-start db-stop db-status db-logs db-shell db-destroy
 
 help:
 	@echo "make setup-local      - 一键装好本地环境 (MySQL/Python/依赖/迁移/种子/测试)"
 	@echo "make setup            - 仅安装后端+前端依赖 (环境已就绪时用)"
 	@echo "make migrate          - 执行数据库迁移 (alembic upgrade head)"
 	@echo "make seed             - 导入食材与参考价种子数据"
+	@echo "make db-doc           - 由数据库生成 docs/database.md (表结构/ER/字段说明)"
+	@echo "make fetch-recipes    - 拉取并缓存 HowToCook + proj.kitchen 菜谱原始数据"
+	@echo "make build-recipes-sql - 生成可直接执行的 data/sql/recipes_seed.sql"
+	@echo "make import-recipes   - 将菜谱幂等落库 (等价于执行生成的 SQL)"
+	@echo "make backfill-nutrition - 用 LLM 为缺营养的菜谱批量补全热量与三大营养素"
 	@echo "make ops              - 打开交互式运维台 (启动/停止/重启/日志/自检)"
 	@echo "make up               - 后台启动 数据库 + 后端 + 前端"
 	@echo "make down             - 停止 后端 + 前端"
@@ -92,6 +97,26 @@ migration:
 # 导入种子数据
 seed:
 	$(PYTHON) scripts/seed_data.py
+
+# 由数据库反向生成数据库说明文档 (表结构 / 索引 / 外键 / ER 图 / 字段含义)
+db-doc:
+	$(PYTHON) scripts/gen_db_doc.py
+
+# 拉取并缓存开源菜谱原始数据 (HowToCook 仓库 + proj.kitchen API)
+fetch-recipes:
+	$(PYTHON) scripts/import_recipes/cli.py fetch
+
+# 由缓存数据生成可直接执行的 SQL (data/sql/recipes_seed.sql)
+build-recipes-sql:
+	$(PYTHON) scripts/import_recipes/cli.py build-sql
+
+# 幂等落库 (等价于执行生成的 SQL)
+import-recipes:
+	$(PYTHON) scripts/import_recipes/cli.py load
+
+# 用 LLM 补全缺失的卡路里与三大营养素
+backfill-nutrition:
+	$(PYTHON) scripts/backfill_recipe_nutrition.py
 
 test:
 	cd backend && $(PYTHON) -m pytest tests/ -v --tb=short

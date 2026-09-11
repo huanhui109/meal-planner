@@ -150,6 +150,7 @@ meal-planner/
 - [项目审计](docs/project-audit.md) —— 模块划分 / 依赖关系 / 业务流程 / 历史进度还原
 - [产品方案 V2.0](docs/product-v2.md)
 - [架构设计](docs/architecture.md)
+- [数据库说明文档](docs/database.md) —— 表结构 / 索引 / 外键 / ER 关系图 / 字段含义（`make db-doc` 生成）
 - [设计系统](docs/design-system.md)
 - [微信小程序配置与调试](docs/miniapp-setup.md)
 - [本地部署指南（傻瓜版）](docs/local-setup.md)
