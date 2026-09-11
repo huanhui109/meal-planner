@@ -192,24 +192,41 @@ interface DayStripProps {
   onSelect: (date: string) => void
 }
 
-/** 星期条: 选中态是黑底白字, 今天多一个绿点 */
-export const DayStrip: React.FC<DayStripProps> = ({ days, selected, onSelect }) => (
-  <div className="day-strip">
-    {days.map((day) => (
-      <button
-        key={day.date}
-        type="button"
-        className={`day-pill ${selected === day.date ? 'is-selected' : ''} ${
-          day.isToday ? 'is-today' : ''
-        }`}
-        onClick={() => onSelect(day.date)}
-      >
-        <small>{WEEKDAY_SHORT_SAFE[day.weekday] ?? ''}</small>
-        <b>{formatMonthDay(day.date).replace('月', '/').replace('日', '')}</b>
-      </button>
-    ))}
-  </div>
-)
+/**
+ * 星期条: 选中态是黑底白字; 今天带「今」角标;
+ * 翻到别的日子时, 最前面多一颗「今天」快捷药丸, 一步跳回来。
+ */
+export const DayStrip: React.FC<DayStripProps> = ({ days, selected, onSelect }) => {
+  const today = days.find((day) => day.isToday)
+  return (
+    <div className="day-strip">
+      {today && today.date !== selected ? (
+        <button
+          type="button"
+          className="day-pill day-pill--jump"
+          onClick={() => onSelect(today.date)}
+        >
+          <small>今天</small>
+          <b>{formatMonthDay(today.date).replace('月', '/').replace('日', '')}</b>
+        </button>
+      ) : null}
+      {days.map((day) => (
+        <button
+          key={day.date}
+          type="button"
+          className={`day-pill ${selected === day.date ? 'is-selected' : ''}`}
+          onClick={() => onSelect(day.date)}
+        >
+          <small>
+            {WEEKDAY_SHORT_SAFE[day.weekday] ?? ''}
+            {day.isToday ? <i className="day-pill__today">今</i> : null}
+          </small>
+          <b>{formatMonthDay(day.date).replace('月', '/').replace('日', '')}</b>
+        </button>
+      ))}
+    </div>
+  )
+}
 
 /** 首页置顶的"下一步"卡: 黑底, 一句话 + 一个动作 */
 export const NextStepCard: React.FC<{

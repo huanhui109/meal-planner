@@ -6,7 +6,7 @@ import type { UserConfigExport } from '@tarojs/cli'
  */
 export default {
   defineConstants: {
-    API_BASE_URL: JSON.stringify('https://192.168.3.83:8000/api'),
+    API_BASE_URL: JSON.stringify('https://127.0.0.1:8000/api'),
   },
   mini: {},
   h5: {},

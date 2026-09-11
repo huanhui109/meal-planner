@@ -384,6 +384,32 @@ scroll-view {
   font-variant-numeric: tabular-nums;
 }
 
+/* 一键回到今天: 不在今天时出现在星期条最前的快捷药丸 */
+.day-pill--jump {
+  background: $color-accent-soft;
+  color: $color-accent-ink;
+  box-shadow: none;
+}
+
+.day-pill--jump .day-pill__week {
+  color: $color-accent-ink;
+  font-weight: 700;
+}
+
+/* 星期条上"今天"的小角标, 让当前日一眼可辨 */
+.day-pill__today {
+  display: inline-block;
+  margin-left: 3px;
+  padding: 0 4px;
+  border-radius: $radius-pill;
+  background: $color-accent;
+  color: $color-on-ink;
+  font-size: 9px;
+  line-height: 14px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
 /* ---------- 餐次行 ---------- */
 
 .meal {
