@@ -427,7 +427,7 @@ def build_document(tables: Dict[str, Table], db: str) -> str:
     out.append(f"- 数据库: `{db}` (MySQL 8 / utf8mb4)")
     out.append(f"- 表数量: **{len(business)} 张业务表** + `alembic_version` (迁移元数据)")
     out.append(f"- 字段总数: {total_cols} · 外键总数: {total_fks}")
-    out.append(f"- 建表唯一入口: Alembic 迁移 (`make migration MSG=\"...\"` → `make migrate`)")
+    out.append("- 建表唯一入口: Alembic 迁移 (`make migration MSG=\"...\"` → `make migrate`)")
     out.append("")
 
     out.append("## 一、概述")

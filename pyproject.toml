@@ -61,6 +61,8 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 testpaths = ["backend/tests"]
+# 让单元测试能引用仓库根下的 scripts/* (菜谱导入与营养回填脚本)
+pythonpath = ["."]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 markers = [

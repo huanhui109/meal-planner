@@ -312,6 +312,7 @@ class MenuService:
             "user_id": menu.user_id,
             "week_start_date": str(menu.week_start_date),
             "status": menu.status,
+            "source": menu.source,
             "created_at": menu.created_at.isoformat() if menu.created_at else None,
             "updated_at": menu.updated_at.isoformat() if menu.updated_at else None,
             "totals": {

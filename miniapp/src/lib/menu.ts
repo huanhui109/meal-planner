@@ -4,7 +4,13 @@
  * 后端生成是异步的 (202 + task_id), 小程序没有 SSE 也没必要上 WebSocket,
  * 直接轮询就行: 3 秒一次, 最多等 5 分钟, 中途用户切走页面也不会卡住。
  */
-import type { GenerateAccepted, GenerationTask, MealDetail, MenuDetail } from '@shared/types'
+import type {
+  GenerateAccepted,
+  GenerationMode,
+  GenerationTask,
+  MealDetail,
+  MenuDetail,
+} from '@shared/types'
 
 import { getGenerationTask, generateMenu } from './api'
 
@@ -14,8 +20,12 @@ const POLL_TIMEOUT = 5 * 60 * 1000
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /** 提交生成, 已经存在草稿时后端会直接复用 (reused=true) */
-export async function startGeneration(weekStart: string, force = false): Promise<GenerateAccepted> {
-  return generateMenu(weekStart, force)
+export async function startGeneration(
+  weekStart: string,
+  force = false,
+  mode: GenerationMode = 'auto',
+): Promise<GenerateAccepted> {
+  return generateMenu(weekStart, force, mode)
 }
 
 /** 轮询到出结果为止; onProgress 每次拿到新状态都会回调 */

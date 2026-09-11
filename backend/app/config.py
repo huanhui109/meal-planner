@@ -71,6 +71,10 @@ class MenuSettings(BaseModel):
     history_weeks: int = 4
     diversity_min_score: float = 0.7
     budget_tolerance: float = 0.05
+    # V2.3 本地菜谱库优先: 先用本地库编排, 填充率不足才交给 LLM
+    local_first: bool = True
+    local_min_fill: float = 0.8
+    local_candidate_pool: int = 300
 
 
 class SchedulerSettings(BaseModel):
@@ -201,6 +205,32 @@ class ScrapingSettings(BaseModel):
     retry_delay: int = 5
 
 
+class ProjKitchenSettings(BaseModel):
+    """proj.kitchen 静态 JSON API 数据源"""
+
+    enabled: bool = True
+    index_url: str = "https://proj.kitchen/api/recipes"
+    detail_url: str = "https://proj.kitchen/api/recipes/{id}"
+
+
+class HowToCookSettings(BaseModel):
+    """HowToCook 开源菜谱仓库"""
+
+    enabled: bool = True
+    repo_url: str = "https://github.com/Anduin2017/HowToCook"
+    branch: str = "master"
+
+
+class RecipeImportSettings(BaseModel):
+    """开源菜谱导入配置 (scripts/import_recipes)"""
+
+    cache_dir: str = ".cache/recipes"
+    proj_kitchen: ProjKitchenSettings = ProjKitchenSettings()
+    howtocook: HowToCookSettings = HowToCookSettings()
+    nutrition_batch_size: int = 20
+    nutrition_max_attempts: int = 2
+
+
 def _candidate_yaml_paths() -> List[Path]:
     """config/default.yaml 的可能位置 (仓库根 / backend 同级)"""
     here = Path(__file__).resolve()
@@ -326,6 +356,7 @@ class Settings(BaseSettings):
     wechat: WechatSettings = WechatSettings()
     platforms: PlatformSettings = PlatformSettings()
     scraping: ScrapingSettings = ScrapingSettings()
+    recipes: RecipeImportSettings = RecipeImportSettings()
 
     @classmethod
     def load(cls) -> Settings:

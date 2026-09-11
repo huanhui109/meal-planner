@@ -24,7 +24,7 @@ import {
   weekEnd,
 } from '@shared/format'
 import { MEAL_ORDER, mealLabel, weekdayLabel } from '@shared/labels'
-import type { MealDetail, MenuDay, MenuDetail } from '@shared/types'
+import type { MealDetail, MenuDay, MenuDetail, MenuSource } from '@shared/types'
 
 import {
   Bar,
@@ -39,6 +39,18 @@ import { ensureLogin, goTo, syncTabBar, toast } from '../../lib/nav'
 import { px } from '../../lib/px'
 import { askReplaceRecipe, markCooked, toggleLock, undoCook, UNDO_WINDOW_MS } from '../../lib/meal-actions'
 import { startGeneration, waitForGeneration } from '../../lib/menu'
+
+/** 生成来源 -> 展示文案与标签色 (本地多 = 好, 所以本地给 accent) */
+const SOURCE_LABEL: Record<MenuSource, string> = {
+  local: '本地菜谱库',
+  mixed: '本地 + AI',
+  ai: 'AI 生成',
+}
+const SOURCE_TONE: Record<MenuSource, string> = {
+  local: 'chip--accent',
+  mixed: 'chip--warn',
+  ai: 'chip--ink',
+}
 
 export default function MenuPage() {
   const [menu, setMenu] = useState<MenuDetail | null>(null)
@@ -252,12 +264,23 @@ export default function MenuPage() {
       <Card>
         <View className="card__head">
           <Text className="card__label">这周总览</Text>
-          <Text className="chip">{menu.status === 'draft' ? '待确认' : '已确认'}</Text>
+          <View className="chip-row">
+            <Text className={`chip ${menu.source ? SOURCE_TONE[menu.source] : 'chip--ink'}`}>
+              {menu.source ? SOURCE_LABEL[menu.source] : 'AI 生成'}
+            </Text>
+            <Text className="chip">{menu.status === 'draft' ? '待确认' : '已确认'}</Text>
+          </View>
         </View>
         <View className="card__hint">
-          由 AI {menu.created_at ? `${menu.created_at.replace('T', ' ').slice(5, 16)} 生成` : '生成'}
+          {menu.source === 'local' ? '全部来自本地菜谱库' : '由 AI 生成'}
+          {menu.created_at ? ` · ${menu.created_at.replace('T', ' ').slice(5, 16)}` : ''}
           {' · '}预估 {formatMoney(menu.totals.estimated_cost)}
         </View>
+        {menu.source === 'mixed' ? (
+          <View className="card__hint">
+            本地菜谱库没凑齐这一周, 缺口交给 AI 补齐了; 补齐本地库后会更省。
+          </View>
+        ) : null}
         <View style={{ marginTop: 10 }}>
           <Bar
             value={

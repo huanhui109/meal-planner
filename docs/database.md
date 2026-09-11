@@ -5,7 +5,7 @@
 
 - 数据库: `meal_planner` (MySQL 8 / utf8mb4)
 - 表数量: **19 张业务表** + `alembic_version` (迁移元数据)
-- 字段总数: 170 · 外键总数: 23
+- 字段总数: 171 · 外键总数: 23
 - 建表唯一入口: Alembic 迁移 (`make migration MSG="..."` → `make migrate`)
 
 ## 一、概述
@@ -56,7 +56,7 @@ erDiagram
 | 菜谱与食材 | `ingredient` | 食材字典 (唯一名 + 分类 + 标准单位 + 参考单价) | 7 | 0 |
 | 菜谱与食材 | `recipe` | 菜谱库 (AI 生成 / 用户创建 / 开源导入) | 13 | 0 |
 | 菜谱与食材 | `recipe_ingredient` | 菜谱↔食材用量关联 | 8 | 2 |
-| 菜单与生成 | `menu` | 周菜单 (按用户 + 周起始日) | 6 | 1 |
+| 菜单与生成 | `menu` | 周菜单 (按用户 + 周起始日) | 7 | 1 |
 | 菜单与生成 | `menu_item` | 菜单餐次 (7 天 × 餐次, 承载换菜 / 锁定 / 已做) | 10 | 2 |
 | 菜单与生成 | `menu_generation_task` | 异步生成任务队列 (worker 抢占执行 + 配额计数) | 13 | 2 |
 | 库存与采购 | `fridge_inventory` | 冰箱库存批次 (含保质期) | 10 | 2 |
@@ -254,6 +254,7 @@ erDiagram
 | `status` | varchar(20) | 否 | — | — | 状态: draft/confirmed/active/completed |
 | `created_at` | datetime | 否 | CURRENT_TIMESTAMP | — | 创建时间 |
 | `updated_at` | datetime | 否 | CURRENT_TIMESTAMP | — | 更新时间 |
+| `source` | varchar(20) | 否 | `ai` | — | 菜单来源: local/ai/mixed |
 
 **索引**:
 - `ix_menu_user_status` (普通): `user_id`, `status`

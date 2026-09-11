@@ -41,6 +41,9 @@ menu:
   history_weeks: 4              # 多样性比对的历史周数
   diversity_min_score: 0.7
   budget_tolerance: 0.05        # 允许超预算 5%
+  local_first: true             # 生成周菜单时优先从本地菜谱库编排 (V2.3)
+  local_min_fill: 0.8           # 本地候选填充率达标才用本地方案, 否则交给 LLM
+  local_candidate_pool: 300     # 本地编排最多扫描的候选菜谱数
 
 scheduler:
   # 定时推送默认关闭: 多 worker 部署时每个 worker 都会注册一遍任务, 会重复推送。
@@ -134,3 +137,17 @@ scraping:
   timeout: 30000
   retry_count: 2
   retry_delay: 5
+
+# 开源菜谱导入 (scripts/import_recipes): 数据源 / 缓存 / 营养回填
+recipes:
+  cache_dir: ".cache/recipes"   # 原始数据缓存 (相对项目根目录)
+  proj_kitchen:
+    enabled: true
+    index_url: "https://proj.kitchen/api/recipes"
+    detail_url: "https://proj.kitchen/api/recipes/{id}"
+  howtocook:
+    enabled: true
+    repo_url: "https://github.com/Anduin2017/HowToCook"
+    branch: "master"
+  nutrition_batch_size: 20      # LLM 回填每批菜谱数
+  nutrition_max_attempts: 2     # 每批最多重试次数

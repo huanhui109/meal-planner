@@ -19,7 +19,14 @@ from app.schemas.common import SuccessResponse
 from app.schemas.menu import GenerateAcceptedResponse, GenerationTaskResponse
 from app.schemas.recipe import MenuGenerateRequest, MenuItemReplaceRequest
 from app.services.deeplink_service import PLATFORM_XIAOXIANG
-from app.services.generation_service import GenerationError, count_today_tasks, create_generation_task
+from app.services.generation_service import (
+    MODE_AI,
+    MODE_AUTO,
+    MODE_LOCAL,
+    GenerationError,
+    count_today_tasks,
+    create_generation_task,
+)
 from app.services.inventory_service import InventoryService
 from app.services.menu_service import MenuService, week_start_of
 from app.services.order_service import OrderService
@@ -92,6 +99,9 @@ async def generate_menu(
 
     # 首次生成和重新生成走各自的额度: 重生成是常规编辑动作, 不该被 3 次/天的探索额度卡住
     is_regeneration = bool(request.force)
+    mode = (request.mode or MODE_AUTO).lower()
+    if mode not in (MODE_AUTO, MODE_LOCAL, MODE_AI):
+        mode = MODE_AUTO
     limit = settings.menu.daily_regenerate_limit if is_regeneration else settings.menu.daily_generation_limit
     used = await count_today_tasks(db, user.id, is_regeneration)
     if used >= limit:
@@ -105,7 +115,11 @@ async def generate_menu(
         db,
         user_id=user.id,
         week_start=week_start,
-        payload={"week_start": str(week_start), "force": request.force},
+        payload={
+            "week_start": str(week_start),
+            "force": request.force,
+            "mode": mode,
+        },
         is_regeneration=is_regeneration,
     )
     return SuccessResponse(

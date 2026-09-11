@@ -163,6 +163,8 @@ export interface MenuDetail {
   user_id: number
   week_start_date: string
   status: MenuStatus
+  /** 这周菜单的来源: local 全本地菜谱库 / mixed 本地+AI / ai 全模型生成 */
+  source?: MenuSource
   created_at: string | null
   updated_at: string | null
   totals: MenuTotals
@@ -172,6 +174,12 @@ export interface MenuDetail {
   /** 仅「换一道」接口会带上: 这次换菜走了哪条路径 */
   replacement?: ReplacementInfo
 }
+
+/** 菜单生成来源 */
+export type MenuSource = 'local' | 'mixed' | 'ai'
+
+/** 生成策略: auto 本地优先+AI兜底 / local 只用本地 / ai 只用模型 */
+export type GenerationMode = 'auto' | 'local' | 'ai'
 
 export interface ReplacementInfo {
   source: 'local' | 'ai' | 'restore' | 'manual'

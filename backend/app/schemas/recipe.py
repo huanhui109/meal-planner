@@ -78,11 +78,18 @@ class MenuResponse(BaseModel):
 
 
 class MenuGenerateRequest(BaseModel):
-    """生成请求 - 兼容 week_start 与 week_start_date 两种字段名"""
+    """生成请求 - 兼容 week_start 与 week_start_date 两种字段名
+
+    ``mode`` 控制生成策略:
+      * ``auto``  (默认): 先尝试本地菜谱库编排, 不足再交给 LLM
+      * ``local``: 强制优先本地 (不足时仍回落到 LLM)
+      * ``ai``   : 跳过本地, 直接让模型生成
+    """
 
     week_start: Optional[str] = None
     week_start_date: Optional[str] = None
     force: bool = False
+    mode: str = "auto"
 
 
 class MenuItemReplaceRequest(BaseModel):
@@ -91,10 +98,12 @@ class MenuItemReplaceRequest(BaseModel):
     * 全部留空 (``{}``): 自动模式, 后端先从本地菜谱库挑一道, 挑不到再让 AI 生成
     * ``recipe_id``: 直接切回已有菜谱, 供「换回上一道」撤销使用 (不走 AI, 不占配额)
     * ``recipe_name``: 手动指定菜名, 保留旧行为向后兼容
+    * ``force_ai=True``: 跳过本地打分, 直接让 AI 换一道 (「让 AI 再换一道」入口)
     """
 
     recipe_id: Optional[int] = None
     recipe_name: Optional[str] = None
+    force_ai: bool = False
     recipe_ingredients: List[IngredientItem] = []
     calories: int = 0
     cook_minutes: int = 20
