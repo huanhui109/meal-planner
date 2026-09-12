@@ -4,11 +4,13 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any, Dict, List
 
+from app.config import get_settings
 from app.llm.base import LLMClient
-from app.models.menu import Menu, MenuItem, MenuStatus
+from app.models.menu import GenerationStatus, Menu, MenuGenerationTask, MenuItem, MenuStatus
 from app.models.recipe import Recipe
+from app.services import replacement_service
 from app.services.generation_service import MenuGenerationPipeline
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from tests.conftest import requires_mysql
 from tests.factories import (
@@ -217,3 +219,167 @@ async def test_cross_user_menu_access_is_404(api_client, db_session, auth_header
     assert (
         await api_client.put(f"/api/menus/{menu_id}/items/{item_id}/lock", headers=headers)
     ).status_code == 404
+
+
+# ---------- 换一道: 本地库优先 + AI 降级 ----------
+
+DISH_PAYLOAD: Dict[str, Any] = {
+    "name": "番茄牛腩",
+    "ingredients": [{"name": "牛腩", "quantity": "300g", "unit": ""}],
+    "calories": 430,
+    "protein_g": 35.0,
+    "carb_g": 20.0,
+    "fat_g": 24.0,
+    "cook_minutes": 28,
+    "steps": "牛腩焯水后与番茄同炖。",
+}
+
+
+async def _count_regeneration_tasks(db, user_id: int) -> int:
+    db.expire_all()
+    await db.rollback()
+    result = await db.execute(
+        select(func.count(MenuGenerationTask.id)).where(
+            MenuGenerationTask.user_id == user_id,
+            MenuGenerationTask.is_regeneration.is_(True),
+        )
+    )
+    return int(result.scalar() or 0)
+
+
+async def test_replace_prefers_local_recipe(api_client, db_session, auth_headers):
+    """本地库有合格菜谱时直接换, 且自动避开过敏源与本周已用菜"""
+    user = await make_user(db_session, open_id="ou_replace_local")
+    await make_preferences(db_session, user.id, allergens=["花生"])
+
+    original = await make_recipe(db_session, "醋溜土豆丝", await make_ingredient(db_session, "土豆"), 200)
+    used = await make_recipe(db_session, "红烧排骨", await make_ingredient(db_session, "排骨"), 300)
+    await make_recipe(db_session, "干锅花菜", await make_ingredient(db_session, "花菜"), 300)
+    await make_recipe(db_session, "花生炖猪蹄", await make_ingredient(db_session, "花生"), 300)
+
+    menu = await make_menu(
+        db_session,
+        user.id,
+        {0: [(original, "dinner")], 1: [(used, "dinner")]},
+        week_start=WEEK_START,
+    )
+    user_id, menu_id = user.id, menu.id
+    await db_session.commit()
+
+    item_id = (await _items(db_session, menu_id))[0].id
+    response = await api_client.put(
+        f"/api/menus/{menu_id}/items/{item_id}/replace",
+        json={},
+        headers=auth_headers(user_id),
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["replacement"]["source"] == "local"
+    assert data["replacement"]["recipe_name"] == "干锅花菜"
+    assert data["days"][0]["meals"][0]["recipe"]["name"] == "干锅花菜"
+    # 换完按新菜谱的用量与参考价重算成本 (300g * 0.02)
+    assert data["days"][0]["meals"][0]["estimated_cost"] == 6.0
+    assert data["nutrition"]["days_count"] == 2
+    assert await _count_regeneration_tasks(db_session, user_id) == 0
+
+
+async def test_replace_falls_back_to_ai(api_client, db_session, auth_headers, monkeypatch):
+    """本地库没有可用菜谱时调 AI 生成一道, 结果落库并计入重新生成额度"""
+    user = await make_user(db_session, open_id="ou_replace_ai")
+    original = await make_recipe(db_session, "醋溜土豆丝", await make_ingredient(db_session, "土豆"), 200)
+    menu = await make_menu(db_session, user.id, {0: [(original, "dinner")]}, week_start=WEEK_START)
+    user_id, menu_id, original_recipe_id = user.id, menu.id, original.id
+    await db_session.commit()
+
+    monkeypatch.setattr(
+        replacement_service, "build_fallback_chain", lambda settings: FakeLLM(DISH_PAYLOAD)
+    )
+
+    item_id = (await _items(db_session, menu_id))[0].id
+    response = await api_client.put(
+        f"/api/menus/{menu_id}/items/{item_id}/replace",
+        json={},
+        headers=auth_headers(user_id),
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["replacement"]["source"] == "ai"
+    assert data["replacement"]["recipe_name"] == "番茄牛腩"
+    assert data["days"][0]["meals"][0]["recipe"]["name"] == "番茄牛腩"
+
+    items = await _items(db_session, menu_id)
+    assert items[0].recipe_id != original_recipe_id
+
+    db_session.expire_all()
+    await db_session.rollback()
+    saved = (
+        await db_session.execute(select(Recipe).where(Recipe.name == "番茄牛腩"))
+    ).scalar_one()
+    assert saved.calories == 430
+
+    assert await _count_regeneration_tasks(db_session, user_id) == 1
+
+
+async def test_replace_ai_quota_exceeded(api_client, db_session, auth_headers, monkeypatch):
+    """AI 降级超出当日重新生成额度时返回 429, 菜品保持不变"""
+    user = await make_user(db_session, open_id="ou_replace_quota")
+    original = await make_recipe(db_session, "醋溜土豆丝", await make_ingredient(db_session, "土豆"), 200)
+    menu = await make_menu(db_session, user.id, {0: [(original, "dinner")]}, week_start=WEEK_START)
+    for _ in range(get_settings().menu.daily_regenerate_limit):
+        db_session.add(
+            MenuGenerationTask(
+                user_id=user.id,
+                status=GenerationStatus.SUCCEEDED,
+                week_start_date=WEEK_START,
+                is_regeneration=True,
+            )
+        )
+    user_id, menu_id, original_recipe_id = user.id, menu.id, original.id
+    await db_session.commit()
+
+    monkeypatch.setattr(
+        replacement_service, "build_fallback_chain", lambda settings: FakeLLM(DISH_PAYLOAD)
+    )
+
+    item_id = (await _items(db_session, menu_id))[0].id
+    response = await api_client.put(
+        f"/api/menus/{menu_id}/items/{item_id}/replace",
+        json={},
+        headers=auth_headers(user_id),
+    )
+    assert response.status_code == 429
+
+    items = await _items(db_session, menu_id)
+    assert items[0].recipe_id == original_recipe_id
+
+
+async def test_replace_restore_previous_recipe(api_client, db_session, auth_headers):
+    """「换回上一道」直接切回原菜谱, 不调 AI 也不占配额"""
+    user = await make_user(db_session, open_id="ou_replace_restore")
+    original = await make_recipe(db_session, "醋溜土豆丝", await make_ingredient(db_session, "土豆"), 200)
+    await make_recipe(db_session, "干锅花菜", await make_ingredient(db_session, "花菜"), 300)
+    menu = await make_menu(db_session, user.id, {0: [(original, "dinner")]}, week_start=WEEK_START)
+    user_id, menu_id, original_recipe_id = user.id, menu.id, original.id
+    await db_session.commit()
+
+    headers = auth_headers(user_id)
+    item_id = (await _items(db_session, menu_id))[0].id
+    replaced = await api_client.put(
+        f"/api/menus/{menu_id}/items/{item_id}/replace", json={}, headers=headers
+    )
+    assert replaced.json()["data"]["replacement"]["source"] == "local"
+
+    restored = await api_client.put(
+        f"/api/menus/{menu_id}/items/{item_id}/replace",
+        json={"recipe_id": original_recipe_id},
+        headers=headers,
+    )
+    assert restored.status_code == 200
+    data = restored.json()["data"]
+    assert data["replacement"]["source"] == "restore"
+    assert data["replacement"]["recipe_id"] == original_recipe_id
+    assert data["days"][0]["meals"][0]["recipe"]["name"] == "醋溜土豆丝"
+
+    items = await _items(db_session, menu_id)
+    assert items[0].recipe_id == original_recipe_id
+    assert await _count_regeneration_tasks(db_session, user_id) == 0

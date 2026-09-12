@@ -6,39 +6,49 @@
  */
 import Taro from '@tarojs/taro'
 
-import type { MenuDetail } from '@shared/types'
+import type { MealDetail, MenuDetail } from '@shared/types'
 
 import { lockMenuItem, markItemCooked, replaceMenuItem, undoMarkItemCooked, unlockMenuItem } from './api'
 import { toast } from './nav'
 
-/** 微信扩展过的 showModal: editable 与返回的 content 不在 Taro 类型里 */
-interface EditableModalResult {
-  confirm: boolean
-  content?: string
-}
+/**
+ * 换一道: 后端先从本地菜谱库挑, 挑不到再让 AI 生成一道, 前端只负责结果确认。
+ * 返回换好后的整份菜单 (含"换回上一道"的结果), 页面据此做乐观更新, 不再整页 reload。
+ */
+export async function askReplaceRecipe(menu: MenuDetail, meal: MealDetail): Promise<MenuDetail | null> {
+  const previous = meal.recipe
 
-/** 换一道: 让用户输个菜名, 后端负责重算食材与成本 */
-export async function askReplaceRecipe(
-  menu: MenuDetail,
-  itemId: number,
-  currentName: string,
-): Promise<boolean> {
+  Taro.showLoading({ title: '正在换一道…', mask: true })
+  let updated: MenuDetail
+  try {
+    updated = await replaceMenuItem(menu.id, meal.id, {})
+  } finally {
+    Taro.hideLoading()
+  }
+
+  const info = updated.replacement
+  const name = info?.recipe_name || '新的一道菜'
+  const from = info?.source === 'ai' ? 'AI 生成' : '本地菜谱库'
   const modal = (await Taro.showModal({
     title: '换一道',
-    editable: true,
-    placeholderText: `现在: ${currentName}, 想换成?`,
+    content: `已换成「${name}」\n来源: ${from}`,
     confirmText: '就它了',
-    cancelText: '算了',
-  } as never)) as unknown as EditableModalResult
-  if (!modal.confirm) return false
-  const name = (modal.content || '').trim()
-  if (!name) {
-    toast('没有输入菜名')
-    return false
+    cancelText: '换回上一道',
+    showCancel: Boolean(previous?.id),
+  })) as unknown as { confirm: boolean }
+
+  if (!modal.confirm && previous?.id) {
+    Taro.showLoading({ title: '正在换回…', mask: true })
+    try {
+      updated = await replaceMenuItem(menu.id, meal.id, { recipe_id: previous.id })
+    } finally {
+      Taro.hideLoading()
+    }
+    toast('已换回上一道')
+    return updated
   }
-  await replaceMenuItem(menu.id, itemId, { recipe_name: name })
   toast('已换好', 'success')
-  return true
+  return updated
 }
 
 export async function toggleLock(menu: MenuDetail, itemId: number, locked: boolean): Promise<boolean> {

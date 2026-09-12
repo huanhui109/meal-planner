@@ -45,7 +45,8 @@ export default function FridgePage() {
     if (!ensureLogin()) return
     setError('')
     try {
-      setItems((await listInventory()) || [])
+      const result = await listInventory()
+      setItems(result.items || [])
     } catch (err) {
       setError((err as Error).message)
     } finally {

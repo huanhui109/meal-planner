@@ -1,10 +1,16 @@
 /**
  * 周菜单 - 星期条 + 当天全部餐次
  *
- * 交互: 换一道 / 锁定(重生成时保留) / 标记已做(扣库存)。
- * 草稿状态顶部会有"确认菜单"的引导, 确认后采购清单才作数。
+ * 交互目标 (钟老师闭环原则):
+ *  - 每个操作都有即时反馈且回到稳定态, 不靠整页 reload 闪一下;
+ *  - "重新生成" 只在页面底部出现一次, 不冗余;
+ *  - 选了某天后能一键"回到今天", 日期导航自闭环;
+ *  - "做完了" 之后 6 秒内可"撤销", 操作可逆, 形成闭环。
+ *
+ * 换一道 / 锁定 / 标记已做 全部走本地乐观更新: 先改本地状态让界面立刻响应,
+ * 接口成功即定稿; 只有"生成菜单 / 确认菜单"这种整周级动作才重新拉取。
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 
@@ -18,7 +24,7 @@ import {
   weekEnd,
 } from '@shared/format'
 import { MEAL_ORDER, mealLabel, weekdayLabel } from '@shared/labels'
-import type { MenuDay, MenuDetail } from '@shared/types'
+import type { MealDetail, MenuDay, MenuDetail } from '@shared/types'
 
 import {
   Bar,
@@ -31,7 +37,7 @@ import {
 import { confirmMenu, getCurrentMenu } from '../../lib/api'
 import { ensureLogin, goTo, syncTabBar, toast } from '../../lib/nav'
 import { px } from '../../lib/px'
-import { askReplaceRecipe, markCooked, toggleLock } from '../../lib/meal-actions'
+import { askReplaceRecipe, markCooked, toggleLock, undoCook, UNDO_WINDOW_MS } from '../../lib/meal-actions'
 import { startGeneration, waitForGeneration } from '../../lib/menu'
 
 export default function MenuPage() {
@@ -40,6 +46,10 @@ export default function MenuPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState(todayIso())
+
+  /** 刚"做完了"的餐次 id: 在 UNDO_WINDOW_MS 内显示"撤销", 形成可逆闭环 */
+  const [undoItemId, setUndoItemId] = useState<number | null>(null)
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = useCallback(async () => {
     if (!ensureLogin()) return
@@ -67,6 +77,13 @@ export default function MenuPage() {
     if (!loading) Taro.stopPullDownRefresh()
   }, [loading])
 
+  /** 卸载时清理撤销计时器, 避免回调打到已卸载的页面 */
+  useEffect(() => {
+    return () => {
+      if (undoTimer.current) clearTimeout(undoTimer.current)
+    }
+  }, [])
+
   usePullDownRefresh(() => {
     void load()
   })
@@ -75,6 +92,42 @@ export default function MenuPage() {
     () => menu?.days.find((item) => item.date === selected),
     [menu, selected],
   )
+
+  const today = todayIso()
+  const onToday = selected === today
+
+  // ---- 本地乐观更新: 改一处餐次 / 累计已做数, 不整页 reload ----
+  const patchMeal = useCallback((itemId: number, patch: Partial<MealDetail>) => {
+    setMenu((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        days: prev.days.map((d) => ({
+          ...d,
+          meals: d.meals.map((m) => (m.id === itemId ? { ...m, ...patch } : m)),
+        })),
+      }
+    })
+  }, [])
+
+  const bumpCooked = useCallback((delta: number) => {
+    setMenu((prev) =>
+      prev
+        ? { ...prev, totals: { ...prev.totals, cooked_count: Math.max(0, prev.totals.cooked_count + delta) } }
+        : prev,
+    )
+  }, [])
+
+  const showUndo = useCallback((itemId: number) => {
+    if (undoTimer.current) clearTimeout(undoTimer.current)
+    setUndoItemId(itemId)
+    undoTimer.current = setTimeout(() => setUndoItemId(null), UNDO_WINDOW_MS)
+  }, [])
+
+  const clearUndo = useCallback(() => {
+    if (undoTimer.current) clearTimeout(undoTimer.current)
+    setUndoItemId(null)
+  }, [])
 
   const handleGenerate = async (force = false) => {
     setBusy(true)
@@ -104,7 +157,8 @@ export default function MenuPage() {
     try {
       await confirmMenu(menu.id)
       toast('菜单已确认', 'success')
-      await load()
+      // 确认只改状态, 本地直接翻状态即可, 不必整页 reload
+      setMenu((prev) => (prev ? { ...prev, status: 'confirmed' } : prev))
     } catch (err) {
       toast((err as Error).message)
     } finally {
@@ -112,11 +166,11 @@ export default function MenuPage() {
     }
   }
 
-  const handleReplace = async (itemId: number, name: string) => {
+  const handleReplace = async (meal: MealDetail) => {
     if (!menu) return
     try {
-      const changed = await askReplaceRecipe(menu, itemId, name)
-      if (changed) await load()
+      const updated = await askReplaceRecipe(menu, meal)
+      if (updated) setMenu(updated)
     } catch (err) {
       toast((err as Error).message)
     }
@@ -126,7 +180,8 @@ export default function MenuPage() {
     if (!menu) return
     try {
       await toggleLock(menu, itemId, locked)
-      await load()
+      // 乐观翻状态: 锁/解锁已落库, 本地立刻反映
+      patchMeal(itemId, { is_locked: !locked })
     } catch (err) {
       toast((err as Error).message)
     }
@@ -136,7 +191,23 @@ export default function MenuPage() {
     if (!menu) return
     try {
       const changed = await markCooked(menu, itemId)
-      if (changed) await load()
+      if (changed) {
+        patchMeal(itemId, { is_cooked: true })
+        bumpCooked(1)
+        showUndo(itemId)
+      }
+    } catch (err) {
+      toast((err as Error).message)
+    }
+  }
+
+  const handleUndo = async (itemId: number) => {
+    if (!menu) return
+    try {
+      await undoCook(menu, itemId)
+      patchMeal(itemId, { is_cooked: false })
+      bumpCooked(-1)
+      clearUndo()
     } catch (err) {
       toast((err as Error).message)
     }
@@ -206,11 +277,6 @@ export default function MenuPage() {
             ? `周均 ${Math.round(menu.nutrition.weekly_avg_calories)} kcal 达标`
             : menu.nutrition.issues[0] || '营养有偏离'}
         </View>
-        <View style={{ marginTop: 12 }}>
-          <PillButton variant="gray" block disabled={busy} onClick={() => handleGenerate(true)}>
-            {busy ? '处理中…' : '重新生成 (锁定的餐次原样保留)'}
-          </PillButton>
-        </View>
       </Card>
 
       {menu.status === 'draft' ? (
@@ -233,16 +299,30 @@ export default function MenuPage() {
 
       <ScrollView scrollX className="day-strip">
         <View className="day-strip__inner">
-          {menu.days.map((item, index) => (
+          {!onToday ? (
             <View
-              key={item.date}
-              className={`day-pill tap${item.date === selected ? ' day-pill--active' : ''}`}
-              onClick={() => setSelected(item.date)}
+              className="day-pill tap day-pill--jump"
+              onClick={() => setSelected(today)}
             >
-              <View className="day-pill__week">{weekdayLabel(index)}</View>
-              <View className="day-pill__date">{formatMonthDay(item.date).replace(/\d+月/, '')}</View>
+              <View className="day-pill__week">今天</View>
             </View>
-          ))}
+          ) : null}
+          {menu.days.map((item, index) => {
+            const isToday = item.date === today
+            return (
+              <View
+                key={item.date}
+                className={`day-pill tap${item.date === selected ? ' day-pill--active' : ''}`}
+                onClick={() => setSelected(item.date)}
+              >
+                <View className="day-pill__week">
+                  {weekdayLabel(index)}
+                  {isToday ? <Text className="day-pill__today">今</Text> : null}
+                </View>
+                <View className="day-pill__date">{formatMonthDay(item.date).replace(/\d+月/, '')}</View>
+              </View>
+            )
+          })}
         </View>
       </ScrollView>
 
@@ -255,6 +335,7 @@ export default function MenuPage() {
         {MEAL_ORDER.map((mealType) => {
           const meal = day?.meals.find((item) => item.meal_type === mealType)
           if (!meal) return null
+          const canUndo = undoItemId === meal.id
           return (
             <View key={meal.id} className={`meal${meal.is_cooked ? ' meal--cooked' : ''}`} style={{ marginTop: 12 }}>
               <View className="meal__head">
@@ -287,11 +368,7 @@ export default function MenuPage() {
                 <View className="meal__ings">做法: {meal.recipe.steps.slice(0, 60)}</View>
               ) : null}
               <View className="meal__actions">
-                <PillButton
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => handleReplace(meal.id, meal.recipe?.name ?? '这道菜')}
-                >
+                <PillButton size="sm" variant="ghost" onClick={() => handleReplace(meal)}>
                   换一道
                 </PillButton>
                 <PillButton size="sm" variant="ghost" onClick={() => handleLock(meal.id, meal.is_locked)}>
@@ -300,6 +377,10 @@ export default function MenuPage() {
                 {!meal.is_cooked ? (
                   <PillButton size="sm" onClick={() => handleCook(meal.id)}>
                     做完了
+                  </PillButton>
+                ) : canUndo ? (
+                  <PillButton size="sm" variant="ghost" onClick={() => handleUndo(meal.id)}>
+                    撤销
                   </PillButton>
                 ) : null}
               </View>

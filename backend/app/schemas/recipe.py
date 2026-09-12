@@ -86,11 +86,32 @@ class MenuGenerateRequest(BaseModel):
 
 
 class MenuItemReplaceRequest(BaseModel):
-    recipe_name: str
+    """换一道请求 - 三种用法
+
+    * 全部留空 (``{}``): 自动模式, 后端先从本地菜谱库挑一道, 挑不到再让 AI 生成
+    * ``recipe_id``: 直接切回已有菜谱, 供「换回上一道」撤销使用 (不走 AI, 不占配额)
+    * ``recipe_name``: 手动指定菜名, 保留旧行为向后兼容
+    """
+
+    recipe_id: Optional[int] = None
+    recipe_name: Optional[str] = None
     recipe_ingredients: List[IngredientItem] = []
     calories: int = 0
     cook_minutes: int = 20
     protein_g: float = 0.0
     carb_g: float = 0.0
     fat_g: float = 0.0
+    steps: str = ""
+
+
+class DishGenerate(BaseModel):
+    """单道菜的 AI 生成结果 (只替换一餐时使用)"""
+
+    name: str = ""
+    ingredients: List[IngredientItem] = []
+    calories: int = 0
+    protein_g: float = 0.0
+    carb_g: float = 0.0
+    fat_g: float = 0.0
+    cook_minutes: int = 20
     steps: str = ""

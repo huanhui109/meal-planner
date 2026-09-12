@@ -107,6 +107,11 @@
      `menu_item.estimated_cost = Σ(数量 × reference_price)` → 营养/预算/多样性校验。
    - 命中过敏源的菜品直接剔除并写入 `warnings`。
 3. 编辑：换一道 / 锁定 / 解锁 / 标记已做；锁定餐次在重生成时被保留，不会被覆盖。
+   - 换一道（`PUT /api/menus/{id}/items/{item_id}/replace`）本地优先：先按当前菜单设定
+     （热量贴合 / 库存命中 / 偏好菜系打分，硬过滤过敏源与超时菜）从 `recipe` 表挑一道；
+     挑不到再同步调 AI 生成单菜并落库。响应里的 `replacement.source` 标明走了 `local` 还是 `ai`，
+     只有 AI 这条路径写入一条 `is_regeneration=True` 的生成任务，与「重新生成」共用额度。
+     请求体传 `recipe_id` 可直接切回原菜谱（「换回上一道」撤销），不调 AI 也不占额度。
 4. 采购清单：`GET /api/menus/{id}/shopping-list` 输出「冰箱已有 / 需买」差集（含缺口与单位换算）。
 5. 库存闭环：标记已做 → 按 `recipe_ingredient` 扣减 `fridge_inventory`（临期优先）→ 写 `consumption_record`；
    缺料不阻断，返回 `missing` 明细。撤销（`DELETE .../cooked`）反向执行：批次行还在就加回原行，

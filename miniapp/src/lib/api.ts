@@ -79,7 +79,14 @@ export const getShoppingList = (menuId: number) =>
 export const replaceMenuItem = (
   menuId: number,
   itemId: number,
-  body: { recipe_name: string; calories?: number; cook_minutes?: number; steps?: string },
+  body: {
+    /** 留空 body 走自动模式: 本地菜谱库优先, 挑不到再 AI 生成 */
+    recipe_id?: number
+    recipe_name?: string
+    calories?: number
+    cook_minutes?: number
+    steps?: string
+  } = {},
 ) => http.put<MenuDetail>(ENDPOINTS.replaceMenuItem(menuId, itemId), body)
 
 export const lockMenuItem = (menuId: number, itemId: number) =>
@@ -147,7 +154,10 @@ export const recognizeInventory = (filePath: string) =>
 
 // ---------- 库存 ----------
 
-export const listInventory = () => http.get<InventoryItem[]>(ENDPOINTS.inventory)
+/** 后端 GET /inventory 返回 { total, expiring_count, items },
+ *  与 H5 的 listInventory 契约一致, 这里只取 items 数组给页面用 */
+export const listInventory = () =>
+  http.get<{ total: number; expiring_count: number; items: InventoryItem[] }>(ENDPOINTS.inventory)
 
 export const addInventory = (data: Record<string, unknown>) =>
   http.post<InventoryItem>(ENDPOINTS.inventory, data)

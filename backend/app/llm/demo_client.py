@@ -158,6 +158,22 @@ DEMO_WEEK: List[Dict[str, Any]] = [
 MEAL_ORDER = ("lunch", "dinner")
 DAYS = 7
 
+# 与 services/replacement_service.py 的 DISH_PROMPT_MARKER 一致:
+# 提示词里出现这个说法就说明这是在「换一道」, 只该返回单道菜。
+DISH_PROMPT_MARKER = "只生成一道菜"
+
+# 「换一道」演示用菜: 刻意不在 DEMO_WEEK 里, 否则会被"不要与已有菜重名"挡掉
+DEMO_DISH: Dict[str, Any] = {
+    "name": "番茄牛腩",
+    "ingredients": [("牛腩", "300g"), ("番茄", "2个"), ("洋葱", "1个")],
+    "calories": 430,
+    "protein_g": 35.0,
+    "carb_g": 20.0,
+    "fat_g": 24.0,
+    "cook_minutes": 28,
+    "steps": "牛腩焯水后与番茄同炖 20 分钟, 收汁前加洋葱。",
+}
+
 
 def build_demo_week_menu() -> Dict[str, Any]:
     """把 DEMO_WEEK 铺成 7 天 x (午餐, 晚餐); 日期留空由后端按周一对齐"""
@@ -187,6 +203,23 @@ def build_demo_week_menu() -> Dict[str, Any]:
     return {"week_menu": days}
 
 
+def build_demo_dish() -> Dict[str, Any]:
+    """单菜 JSON, 结构对齐 schemas.recipe.DishGenerate"""
+    return {
+        "name": DEMO_DISH["name"],
+        "ingredients": [
+            {"name": name, "quantity": amount, "unit": ""}
+            for name, amount in DEMO_DISH["ingredients"]
+        ],
+        "calories": DEMO_DISH["calories"],
+        "protein_g": DEMO_DISH["protein_g"],
+        "carb_g": DEMO_DISH["carb_g"],
+        "fat_g": DEMO_DISH["fat_g"],
+        "cook_minutes": DEMO_DISH["cook_minutes"],
+        "steps": DEMO_DISH["steps"],
+    }
+
+
 class DemoLLMClient(LLMClient):
     """固定输出的假客户端, 只在 APP__LLM__DEMO=true 时启用"""
 
@@ -200,6 +233,8 @@ class DemoLLMClient(LLMClient):
         temperature: float = 0.7,
         max_tokens: int = 4000,
     ) -> str:
+        if any(DISH_PROMPT_MARKER in (message.get("content") or "") for message in messages):
+            return json.dumps(build_demo_dish(), ensure_ascii=False)
         return json.dumps(self.payload, ensure_ascii=False)
 
     async def is_available(self) -> bool:

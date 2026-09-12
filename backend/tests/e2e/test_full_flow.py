@@ -13,7 +13,7 @@ from app.auth.feishu_oauth import get_feishu_oauth_client
 from app.llm.base import LLMClient
 from app.models.menu import MenuItem, MenuStatus
 from app.models.user import User
-from app.services import generation_service
+from app.services import generation_service, replacement_service
 from sqlalchemy import select
 
 from tests.conftest import requires_mysql
@@ -38,6 +38,9 @@ class FakeLLM(LLMClient):
         self.payload = payload
 
     async def chat(self, messages, temperature=0.7, max_tokens=4000) -> str:
+        # 「换一道」只问单菜, 返回与整周菜单不同的结构
+        if any("只生成一道菜" in (message.get("content") or "") for message in messages):
+            return json.dumps(_dish_payload(), ensure_ascii=False)
         return json.dumps(self.payload, ensure_ascii=False)
 
     async def is_available(self) -> bool:
@@ -74,6 +77,19 @@ def _full_week_payload() -> Dict[str, Any]:
             }
         )
     return {"week_menu": days}
+
+
+def _dish_payload() -> Dict[str, Any]:
+    return {
+        "name": "清炒时蔬",
+        "ingredients": [{"name": "西兰花", "quantity": "400g", "unit": ""}],
+        "calories": 200,
+        "protein_g": 10.0,
+        "carb_g": 18.0,
+        "fat_g": 8.0,
+        "cook_minutes": 10,
+        "steps": "清炒",
+    }
 
 
 async def test_full_user_journey(api_client, db_session, auth_headers, monkeypatch):
@@ -138,6 +154,7 @@ async def test_full_user_journey(api_client, db_session, auth_headers, monkeypat
     task_id = submitted.json()["data"]["task_id"]
 
     monkeypatch.setattr(generation_service, "build_fallback_chain", lambda settings: FakeLLM(_full_week_payload()))
+    monkeypatch.setattr(replacement_service, "build_fallback_chain", lambda settings: FakeLLM(_full_week_payload()))
     worker = generation_service.GenerationWorker()
     claimed = await worker._claim()
     assert claimed == task_id, "worker 应领取到刚提交的任务"
@@ -157,19 +174,30 @@ async def test_full_user_journey(api_client, db_session, auth_headers, monkeypat
     assert menu["nutrition"]["days_count"] == 7
 
     target_item = menu["days"][0]["meals"][0]
+    # 自动换一道: 本周菜名都在排除名单里, 本地挑不到 -> 降级 AI 生成单菜
     replaced = await api_client.put(
         f"/api/menus/{menu_id}/items/{target_item['id']}/replace",
-        json={
-            "recipe_name": "清炒时蔬",
-            "recipe_ingredients": [{"name": "西兰花", "quantity": "400g", "unit": ""}],
-            "calories": 200,
-            "cook_minutes": 10,
-            "steps": "清炒",
-        },
+        json={},
         headers=headers,
     )
     assert replaced.status_code == 200
-    assert replaced.json()["data"]["days"][0]["meals"][0]["recipe"]["name"] == "清炒时蔬"
+    replaced_data = replaced.json()["data"]
+    assert replaced_data["replacement"]["source"] == "ai"
+    assert replaced_data["replacement"]["recipe_name"] == "清炒时蔬"
+    assert replaced_data["days"][0]["meals"][0]["recipe"]["name"] == "清炒时蔬"
+
+    # 换回上一道: 传 recipe_id 直接还原, 不走 AI
+    restored = await api_client.put(
+        f"/api/menus/{menu_id}/items/{target_item['id']}/replace",
+        json={"recipe_id": target_item["recipe"]["id"]},
+        headers=headers,
+    )
+    assert restored.status_code == 200
+    restored_data = restored.json()["data"]
+    assert restored_data["replacement"]["source"] == "restore"
+    assert (
+        restored_data["days"][0]["meals"][0]["recipe"]["name"] == target_item["recipe"]["name"]
+    )
 
     locked = await api_client.put(
         f"/api/menus/{menu_id}/items/{target_item['id']}/lock", headers=headers
