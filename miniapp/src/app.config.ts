@@ -10,8 +10,7 @@ export default defineAppConfig({
   window: {
     backgroundTextStyle: 'dark',
     navigationStyle: 'custom',
-    backgroundColor: '#e9e9ee',
-    navigationBarBackgroundColor: '#e9e9ee',
+    // 背景交给 page CSS 接管, 不写死 #e9e9ee —— 深色模式下避免下拉刷新闪冷灰 (audit B3)
     navigationBarTitleText: '每周鲜',
     navigationBarTextStyle: 'black',
   },

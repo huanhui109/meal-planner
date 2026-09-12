@@ -1,9 +1,17 @@
 /**
- * 补单跳转 - 有配置小程序 AppID 就直接跳, 没有就降级为"复制清单 + 提示搜索"
+ * 补单跳转 - 三级降级链: 1) 配置了 AppID 走 navigateToMiniProgram
+ *                    2) 有外链走 setClipboardData
+ *                    3) 兜底: 复制清单 + 提示去平台搜索
  *
- * 为什么不做商品匹配: 本期不接采集, 也就不知道缺口食材对应哪个商品。
- * 与其编一个假的商品链接, 不如把"该买什么"原样交给用户, 让他自己在
- * 小象超市里搜 —— 这是诚实且真的能用的降级路径。
+ * 为什么三级降级:
+ *   - 二期 (V3.0) 才接小象超市商品库, 现在 `data.order.miniapp_app_id` 永远空,
+ *     100% 走兜底, 直白告诉用户"复制清单后去小象超市搜"是诚实且真的能用。
+ *   - 旧版文案 "立即下单" 容易让用户以为跳到了小象超市, 实际只是复制了一段
+ *     文字 —— 期望与现实不一致会引发"小程序坏了"的认知 (audit B2)。
+ *
+ * 注意: `navigateToMiniProgram` 失败常见原因不是用户拒绝, 是开发者没在
+ * `app.json` 的 `navigateToMiniProgramAppIdList` 里登记目标 appid。这种情况
+ * 给具体提示, 避免开发期踩坑。
  */
 import Taro from '@tarojs/taro'
 
@@ -23,7 +31,14 @@ export async function openPurchaseLink(target: DeeplinkTarget): Promise<void> {
       await Taro.navigateToMiniProgram({ appId: miniappAppId, path: 'pages/index/index' })
       return
     } catch {
-      // 没在 app.json 的 navigateToMiniProgramAppIdList 里时会失败, 继续走复制
+      // 失败时明确告诉用户原因, 不静默吞掉
+      Taro.showModal({
+        title: '跳转失败',
+        content: `未在 app.json 的 navigateToMiniProgramAppIdList 里登记「${miniappAppId}」, 改为复制清单。`,
+        showCancel: false,
+        confirmText: '知道了',
+      })
+      // 继续走下面的复制降级
     }
   }
 
@@ -33,7 +48,7 @@ export async function openPurchaseLink(target: DeeplinkTarget): Promise<void> {
       Taro.showToast({ title: '链接已复制, 去浏览器打开', icon: 'none', duration: 2400 })
       return
     } catch {
-      // 忽略, 走下面的清单复制
+      // 走下面的清单复制
     }
   }
 
