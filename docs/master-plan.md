@@ -9,7 +9,7 @@
 > | 代码库 | `/Users/jason/Documents/project/meal-planner` |
 > | TAPD 项目 | workspace_id `43478791` |
 > | TAPD 链接 | https://www.tapd.cn/tapd_fe/43478791/story/list |
-> | 基线版本 | `0.3.0`（`pyproject.toml`） |
+> | 基线版本 | `0.4.0`（`pyproject.toml`） |
 > | 基线提交 | `4318890` @ 2026-09-10 23:00 |
 
 ---
@@ -23,12 +23,12 @@
 
 | 维度 | 现状 |
 |---|---|
-| 后端 | Python 3.12 / FastAPI / SQLAlchemy 2.0 async / MySQL 8.0 / Alembic；`backend/app` ≈ 9,427 行，9 个包，44 个 API 端点，25 个服务，19 张表 |
+| 后端 | Python 3.12 / FastAPI / SQLAlchemy 2.0 async / MySQL 8.0 / Alembic；`backend/app` ≈ 9,427 行，9 个包，44 个 API 端点，25 个服务，20 张表 |
 | H5 | React 18 + Vite 6 + TypeScript + Ant Design 5；6 个页面，3 个 Zustand store |
 | 小程序 | Taro 4.2 + React 18 + SCSS；6 个页面 + 自定义胶囊 TabBar |
 | 共享层 | `shared/` 8 个纯 TS 模块，两端唯一真源 |
-| 质量 | 后端测试 225（unit 121 / integration 103 / e2e 1）；前端 vitest 47；`make ci` 七道门禁 |
-| 数据库 | 19 张表，6 个 Alembic 迁移（`0001_init` → `0006_user_feishu_config`） |
+| 质量 | 后端测试 375（unit 253 / integration 121 / e2e 1）；前端 vitest 47；`make ci` 七道门禁 |
+| 数据库 | 20 张表，7 个 Alembic 迁移（`0001_init` → `0007_menu_source`） |
 | 部署 | nginx + systemd + certbot；本地一键 `scripts/setup_local.sh` + `make ops` 运维台 |
 
 ---
@@ -139,6 +139,18 @@
 | R-29 | 换一道本地优先：点一下自动换 —— 先按当前菜单设定（热量贴合 / 库存命中 / 偏好菜系打分，硬过滤过敏源、忌口、超烹饪时长、本周与近 4 周重复）从本地 `recipe` 表挑一道；无候选再同步调 AI 生成单菜并落库；两条路径都替换同一餐次，响应 `replacement.source` 标注 `local` / `ai`。AI 路径才写 `is_regeneration` 任务（与「重新生成」共用额度），传 `recipe_id` 可直接「换回上一道」且不占额度 | 菜单 | `services/replacement_service.py`、`config/prompts/dish_replacement.txt`、`api/menus.py` |
 | R-30 | 换一道交互改造：弹框由「手输菜名 + 热量/时长/做法」改为「加载中 → 新菜名 + 来源 + 就它了 / 换回上一道」，H5 保留 5 秒 Toast 撤销，小程序在弹框内提供撤销 | 交互 | `miniapp/src/lib/meal-actions.ts`、`frontend/src/pages/Menus/WeeklyView.tsx` |
 
+### V2.3 —— 菜谱库与本地优先生成（进行中，分支 `feat/recipe-library`，版本 `0.4.0`）
+
+> 把 V2.1 单菜维度的「换一道本地优先」扩展到**整周生成**：本地菜谱库先行，AI 只补缺口。
+> 需求全文见 [`docs/requirements-v2.3.md`](requirements-v2.3.md)。
+
+| 需求 ID | 需求 | 模块 | 证据 |
+|---|---|---|---|
+| R-31 | 数据库结构与字段说明文档：由数据库反向生成，覆盖全部表 / 索引 / 外键 / 枚举 / 字段含义，支持 `--check` 防漂移 | 工程 | `scripts/gen_db_doc.py`、`docs/database.md`（20 表）、`Makefile` `db-doc` |
+| R-32 | 开源菜谱导入与可执行 SQL：采集 proj.kitchen（MIT）+ HowToCook（Unlicense），归一化脏食材名、按菜名合并去重，产出外键安全、**幂等**可重复执行的种子 SQL | 数据 | `scripts/import_recipes/*`、`data/sql/recipes_seed.sql`、`scripts/backfill_recipe_nutrition.py` |
+| R-33 | 本地优先菜单生成与 AI 兜底：整周逐格按打分（热量 50 / 库存 30 / 菜系 20）编排，硬过滤过敏源/忌口/超时长/重复；填充率达标即 `source=local`，不足则携带候选短名单交给 LLM（`source=mixed`）；`mode=ai` 完全跳过本地（`source=ai`） | 菜单 | `services/generation_service.py`、`schemas/recipe.py`、`api/menus.py`、迁移 `0007_menu_source.py`、`models/menu.py` |
+| R-34 | 小程序来源标注与 AI 换一道入口：两端展示来源 chip（本地 / 本地+AI / AI）；「换一道」改 action sheet，本地换来的结果额外提供「让 AI 再换一道」（`force_ai=true`）与「换回上一道」 | 交互 | `shared/types.ts`、`miniapp/src/lib/{api,menu,meal-actions}.ts`、`miniapp/src/pages/menu/index.tsx`、`frontend/src/api/menu.ts`、`frontend/src/pages/Menus/WeeklyView.tsx` |
+
 ### 需求汇总
 
 | 版本 | 需求数 | 状态 |
@@ -147,7 +159,8 @@
 | V1.1 | 4 | 已完成 |
 | V2.0 | 21 | 已完成 |
 | V2.1 | 2 | 进行中（R-29 / R-30 已落地） |
-| **合计** | **30** | V2.0 及以前全部完成 |
+| V2.3 | 4 | 进行中（R-31 ~ R-34 已落地） |
+| **合计** | **34** | V2.0 及以前全部完成 |
 
 ---
 
@@ -199,6 +212,17 @@
 
 **验收**：口味学习有可解释的推荐命中率指标；多周菜单无状态串扰。
 
+### V2.3 —— 菜谱库与本地优先生成（第 5–6 周）
+
+**目标**：让「一周吃什么」不再每次都求模型，本地能拼就本地拼。
+
+- 菜谱库：两源采集 + 归一化 + 幂等 SQL + 落库（R-31 / R-32）
+- 整周本地优先编排 + AI 兜底 + `mode` 三态（R-33）
+- 两端来源标注与「让 AI 再换一道」入口（R-34）
+- 营养回填策略：有 Key 走 LLM，无 Key 记录「跳过」并保证 AI 兜底可用
+
+**验收**：`make ci` 全绿；本地够满时零模型调用；重复执行种子 SQL 行数不翻倍。
+
 ### V3.0 —— 二期数据源（第 6–9 周）
 
 **目标**：把「估算」换成「实价」。
@@ -217,7 +241,7 @@
 
 ## 六、TAPD 项目管理落地映射
 
-### 6.1 迭代（7 个）
+### 6.1 迭代（8 个）
 
 | 迭代名 | 对应版本 | 状态 |
 |---|---|---|
@@ -227,11 +251,12 @@
 | M4 工程收口 | V2.0 | 已关闭 |
 | V2.1 体验与稳定 | V2.1 | 开启 |
 | V2.2 数据与智能 | V2.2 | 开启 |
+| V2.3 菜谱库与本地优先生成 | V2.3 | 开启 |
 | V3.0 二期数据源 | V3.0 | 开启 |
 
 ### 6.2 需求与任务
 
-- **需求（Story）**：按第三章台账建 28 条，命名 `R-xx 需求名`，描述写入「版本 / 模块 / 证据 / 验收」，归属对应迭代。
+- **需求（Story）**：按第三章台账建 34 条，命名 `R-xx 需求名`，描述写入「版本 / 模块 / 证据 / 验收」，归属对应迭代。
 - **任务（Task）**：每条需求拆 2–3 条任务，状态用 TAPD 的 `未开始 / 进行中 / 已完成`；已开发需求的任务直接置为已完成。
 
 ### 6.3 缺陷（Bug）

@@ -38,7 +38,26 @@ import {
   mealLabel,
   todayIso,
 } from '@shared/index'
-import type { MealDetail, MenuDetail } from '../../types'
+import type { MealDetail, MenuDetail, MenuSource } from '../../types'
+
+/** 菜单来源 -> 展示文案与标签色 (本地越多越省, 所以本地给绿) */
+const MENU_SOURCE_LABELS: Record<MenuSource, string> = {
+  local: '本地菜谱库',
+  mixed: '本地 + AI',
+  ai: 'AI 生成',
+}
+const MENU_SOURCE_TONES: Record<MenuSource, 'green' | 'warn' | 'gray'> = {
+  local: 'green',
+  mixed: 'warn',
+  ai: 'gray',
+}
+/** 「换一道」走的路径 -> 展示文案 */
+const REPLACE_SOURCE_LABELS: Record<string, string> = {
+  local: '本地菜谱库',
+  ai: 'AI 生成',
+  restore: '换回上一道',
+  manual: '指定菜名',
+}
 
 const WeeklyView: React.FC = () => {
   const [menu, setMenu] = useState<MenuDetail | null>(null)
@@ -185,6 +204,25 @@ const WeeklyView: React.FC = () => {
         setMenu(await replaceMenuItem(menuId, target.id, { recipe_id: previous.id }))
       },
     })
+  }
+
+  /** 让 AI 再换一道: 跳过本地打分直接走模型 (仅当当前是本地换来的才给入口) */
+  const replaceWithAi = async () => {
+    const target = replaceTarget
+    if (!menuId || !target) return
+    setReplacing(true)
+    try {
+      const updated = await replaceMenuItem(menuId, target.id, { force_ai: true })
+      setMenu(updated)
+      setReplaceSource(updated.replacement?.source ?? null)
+      setReplaceResult(
+        updated.days.flatMap((day) => day.meals).find((row) => row.id === target.id) ?? null,
+      )
+    } catch (err) {
+      if (err instanceof Error) message.error(err.message)
+    } finally {
+      setReplacing(false)
+    }
   }
 
   /** 换回上一道: 直接切回原菜谱, 不走 AI */
@@ -370,6 +408,13 @@ const WeeklyView: React.FC = () => {
           replacing
             ? null
             : [
+                ...(replaceResult && replaceSource === 'local'
+                  ? [
+                      <Button key="ai" onClick={replaceWithAi}>
+                        让 AI 再换一道
+                      </Button>,
+                    ]
+                  : []),
                 ...(replaceResult && replaceTarget?.recipe
                   ? [
                       <Button key="revert" onClick={revertReplace}>
@@ -392,8 +437,8 @@ const WeeklyView: React.FC = () => {
           <div>
             <div className="meal-name" style={{ fontSize: 16 }}>
               {replaceResult.recipe.name}
-              <Chip tone="green">
-                {replaceSource === 'ai' ? 'AI 生成' : '本地菜谱库'}
+              <Chip tone={replaceSource === 'local' ? 'green' : 'gray'}>
+                {REPLACE_SOURCE_LABELS[replaceSource ?? ''] ?? '已替换'}
               </Chip>
             </div>
             <div className="meal-meta" style={{ marginTop: 6 }}>
@@ -449,13 +494,25 @@ const WeekSummary: React.FC<WeekSummaryProps> = ({
           <div className="card-title">这周总览</div>
           <div className="card-sub">
             {formatDateRange(menu.week_start_date, menu.days[menu.days.length - 1]?.date ?? menu.week_start_date)}
-            {' · '}由 AI {atLabel} 生成
+            {' · '}
+            {menu.source === 'local' ? '全部来自本地菜谱库' : `由 AI ${atLabel} 生成`}
           </div>
         </div>
-        <Chip tone={menu.status === 'draft' ? 'warn' : 'green'}>
-          {MENU_STATUS_LABELS[menu.status] ?? menu.status}
-        </Chip>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {menu.source ? (
+            <Chip tone={MENU_SOURCE_TONES[menu.source]}>{MENU_SOURCE_LABELS[menu.source]}</Chip>
+          ) : null}
+          <Chip tone={menu.status === 'draft' ? 'warn' : 'green'}>
+            {MENU_STATUS_LABELS[menu.status] ?? menu.status}
+          </Chip>
+        </div>
       </div>
+
+      {menu.source === 'mixed' ? (
+        <div className="card-sub" style={{ marginTop: 6 }}>
+          本地菜谱库没凑齐这一周, 缺口交给 AI 补齐了; 补齐本地库后会更省。
+        </div>
+      ) : null}
 
       <div className="week-grid">
         <div className="week-stat">

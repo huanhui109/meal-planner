@@ -11,12 +11,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.config import Settings, get_settings
 from app.database import async_session_factory, session_scope
@@ -28,7 +30,14 @@ from app.models.fridge_inventory import FridgeInventory
 from app.models.health_goal import HealthGoal
 from app.models.ingredient import Ingredient
 from app.models.menu import GenerationStatus, Menu, MenuGenerationTask, MenuItem, MenuStatus
-from app.schemas.recipe import WeekMenuGenerate
+from app.models.recipe import Recipe, RecipeIngredient
+from app.schemas.recipe import (
+    DayGenerateItem,
+    IngredientItem,
+    MealGenerateItem,
+    RecipeGenerateItem,
+    WeekMenuGenerate,
+)
 from app.services.budget_service import BudgetService
 from app.services.diversity_service import DiversityReport, DiversityService
 from app.services.menu_service import MenuService
@@ -44,6 +53,20 @@ DEFAULT_SYSTEM_PROMPT = "你是专业营养师, 根据用户偏好生成一周�
 VALID_MEAL_TYPES = ("breakfast", "lunch", "dinner")
 ERROR_MESSAGE_LIMIT = 500
 MAX_MENU_DAYS = 7
+
+# 生成模式: auto 本地优先+AI兜底 / local 只用本地 / ai 只用模型
+MODE_AUTO = "auto"
+MODE_LOCAL = "local"
+MODE_AI = "ai"
+
+# 本地编排打分权重 (与 replacement_service 口径一致)
+SCORE_CALORIE = 50.0
+SCORE_INVENTORY = 30.0
+SCORE_CUISINE = 20.0
+DEFAULT_WEEKDAY_COOK_MINUTES = 30
+DEFAULT_WEEKEND_COOK_MINUTES = 60
+# 给 LLM 的本地候选短名单长度 (mixed 模式)
+LOCAL_HINT_LIMIT = 30
 
 
 class GenerationError(Exception):
@@ -61,10 +84,23 @@ class GenerationContext:
     history_names: List[str]
     allergens: List[str] = field(default_factory=list)
     avoid_ingredients: List[str] = field(default_factory=list)
+    cuisines: List[str] = field(default_factory=list)
     target_calories: Optional[float] = None
     weekly_cap: Optional[float] = None
     weekday_budget: Optional[float] = None
     weekend_budget: Optional[float] = None
+    # 本地编排用: 每日餐次与工作日/周末烹饪时长上限
+    meals_per_day: int = 2
+    weekday_cook_minutes: int = DEFAULT_WEEKDAY_COOK_MINUTES
+    weekend_cook_minutes: int = DEFAULT_WEEKEND_COOK_MINUTES
+
+
+@dataclass
+class LocalPlan:
+    """本地编排结果: 拼成功的周菜单 (可能为 None) 与给 LLM 的候选短名单"""
+
+    week: Optional[WeekMenuGenerate] = None
+    hints: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -94,6 +130,16 @@ def _json_list(raw: Optional[str]) -> List[str]:
     except (json.JSONDecodeError, TypeError):
         return []
     return [str(item).strip() for item in parsed if str(item).strip()] if isinstance(parsed, list) else []
+
+
+def _payload_mode(payload: Optional[str]) -> str:
+    """从任务 request_payload 里取生成模式, 缺失或非法时按 auto 处理"""
+    try:
+        data = json.loads(payload or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return MODE_AUTO
+    mode = str(data.get("mode") or MODE_AUTO).lower()
+    return mode if mode in (MODE_AUTO, MODE_LOCAL, MODE_AI) else MODE_AUTO
 
 
 def find_allergen_hits(recipe_data, allergens: Sequence[str]) -> List[str]:
@@ -201,6 +247,8 @@ class MenuGenerationPipeline:
             ).scalar_one_or_none()
             allergens = _json_list(allergy.allergens if allergy else None)
             avoids = _json_list(allergy.avoid_ingredients if allergy else None)
+            household = await pref_service.get_household(user_id)
+            diet = await pref_service.get_diet_preference(user_id)
         profile = await load_profile_snapshot(user_id)
         return GenerationContext(
             user_id=user_id,
@@ -210,6 +258,14 @@ class MenuGenerationPipeline:
             history_names=history,
             allergens=allergens,
             avoid_ingredients=avoids,
+            cuisines=_json_list(diet.cuisines) if diet else [],
+            meals_per_day=household.meals_per_day if household else 2,
+            weekday_cook_minutes=(
+                household.weekday_cook_minutes if household else DEFAULT_WEEKDAY_COOK_MINUTES
+            ),
+            weekend_cook_minutes=(
+                household.weekend_cook_minutes if household else DEFAULT_WEEKEND_COOK_MINUTES
+            ),
             **profile,  # type: ignore[arg-type]
         )
 
@@ -234,7 +290,7 @@ class MenuGenerationPipeline:
 
     # ---------- 2. 调 LLM ----------
 
-    def build_messages(self, ctx: GenerationContext) -> List[Dict[str, str]]:
+    def build_messages(self, ctx: GenerationContext, hint_names: Sequence[str] = ()) -> List[Dict[str, str]]:
         allergy_block, avoid_block = self._split_constraints(ctx)
         constraints = (
             "\n".join(part for part in (allergy_block, avoid_block, self._cook_time_block(ctx)) if part)
@@ -254,7 +310,7 @@ class MenuGenerationPipeline:
             inventory=inventory_text,
             constraints=constraints,
         )
-        return [
+        messages = [
             {"role": "system", "content": prompt},
             {
                 "role": "user",
@@ -264,6 +320,17 @@ class MenuGenerationPipeline:
                 ),
             },
         ]
+        if hint_names:
+            messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "优先从这些本地菜谱库里挑选, 不足的部分再自行发挥: "
+                        + ", ".join(hint_names[:LOCAL_HINT_LIMIT])
+                    ),
+                }
+            )
+        return messages
 
     def _split_constraints(self, ctx: GenerationContext) -> Tuple[str, str]:
         """硬约束必须回显给模型 (过敏源是安全红线)"""
@@ -277,9 +344,12 @@ class MenuGenerationPipeline:
         return "工作日单菜烹饪时间不超过 30 分钟, 周末可放宽到 60 分钟"
 
     async def call_llm(
-        self, ctx: GenerationContext, avoid_names: Sequence[str] = ()
+        self,
+        ctx: GenerationContext,
+        avoid_names: Sequence[str] = (),
+        hint_names: Sequence[str] = (),
     ) -> Tuple[WeekMenuGenerate, List[str]]:
-        messages = self.build_messages(ctx)
+        messages = self.build_messages(ctx, hint_names=hint_names)
         if avoid_names:
             messages.append(
                 {
@@ -300,6 +370,108 @@ class MenuGenerationPipeline:
             raise GenerationError("模型没有返回任何菜单")
         return week, []
 
+    # ---------- 2.5 本地菜谱库编排 ----------
+
+    def _slot_plan(self, ctx: GenerationContext) -> List[Tuple[int, str]]:
+        """7 天 × 餐次 (按家庭每日餐次取午餐/晚餐或三餐)"""
+        count = max(1, min(len(VALID_MEAL_TYPES), ctx.meals_per_day or 2))
+        meal_types = VALID_MEAL_TYPES[-count:]
+        return [(day, meal) for day in range(MAX_MENU_DAYS) for meal in meal_types]
+
+    async def _load_local_candidates(self, ctx: GenerationContext) -> List[Recipe]:
+        async with session_scope() as session:
+            stmt = (
+                select(Recipe)
+                .options(selectinload(Recipe.recipe_ingredients).selectinload(RecipeIngredient.ingredient))
+                .where(
+                    Recipe.calories.is_not(None),
+                    Recipe.cook_minutes.is_not(None),
+                    Recipe.steps.is_not(None),
+                    Recipe.steps != "",
+                    Recipe.recipe_ingredients.any(),
+                )
+                .order_by(Recipe.id.desc())
+                .limit(self.settings.menu.local_candidate_pool)
+            )
+            return list((await session.execute(stmt)).scalars().all())
+
+    async def _inventory_name_set(self, user_id: int) -> set:
+        async with session_scope() as session:
+            result = await session.execute(
+                select(Ingredient.name)
+                .join(FridgeInventory, FridgeInventory.ingredient_id == Ingredient.id)
+                .where(FridgeInventory.user_id == user_id, FridgeInventory.quantity > 0)
+            )
+            return {row[0] for row in result.all() if row[0]}
+
+    def _pick_for_slot(
+        self,
+        recipes: Sequence[Recipe],
+        chosen_ids: set,
+        used_names: set,
+        ctx: GenerationContext,
+        inventory: set,
+        cook_cap: int,
+        target_calories: Optional[float],
+    ) -> Optional[Recipe]:
+        scored: List[Tuple[float, Recipe]] = []
+        for recipe in recipes:
+            if recipe.id in chosen_ids or (recipe.name or "") in used_names:
+                continue
+            if (recipe.cook_minutes or 0) > cook_cap:
+                continue
+            haystacks = _recipe_haystacks(recipe)
+            if keyword_hits(haystacks, ctx.allergens) or keyword_hits(haystacks, ctx.avoid_ingredients):
+                continue
+            scored.append((_score_recipe(recipe, target_calories, inventory, ctx.cuisines), recipe))
+        if not scored:
+            return None
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        top = scored[:3]
+        best = top[0][0]
+        band = [recipe for score, recipe in top if score >= best - 5.0]
+        return random.choice(band or [top[0][1]])
+
+    async def compose_from_local(self, ctx: GenerationContext) -> LocalPlan:
+        """用本地菜谱库拼一周菜单
+
+        填充率达标 -> 返回拼好的周菜单 (source=local);
+        不达标 -> 返回候选短名单, 交给 LLM 兜底 (source=mixed/ai)。
+        """
+        slots = self._slot_plan(ctx)
+        if not slots:
+            return LocalPlan()
+        recipes = await self._load_local_candidates(ctx)
+        if not recipes:
+            return LocalPlan()
+
+        inventory = await self._inventory_name_set(ctx.user_id)
+        target_calories = _per_meal_calories(ctx)
+        used_names = set(ctx.history_names)
+        chosen: Dict[Tuple[int, str], Recipe] = {}
+        chosen_ids: set = set()
+
+        for day_index, meal_type in slots:
+            meal_date = ctx.week_start + timedelta(days=day_index)
+            cook_cap = (
+                ctx.weekend_cook_minutes if meal_date.weekday() >= 5 else ctx.weekday_cook_minutes
+            )
+            recipe = self._pick_for_slot(
+                recipes, chosen_ids, used_names, ctx, inventory, cook_cap, target_calories
+            )
+            if recipe is None:
+                continue
+            chosen[(day_index, meal_type)] = recipe
+            chosen_ids.add(recipe.id)
+            used_names.add(recipe.name)
+
+        if len(chosen) / len(slots) >= self.settings.menu.local_min_fill:
+            logger.info("本地菜谱库拼齐一周: %s/%s 餐次", len(chosen), len(slots))
+            return LocalPlan(week=_build_week(ctx, chosen))
+        hints = [r.name for r in recipes if (r.name or "") not in ctx.history_names][:LOCAL_HINT_LIMIT]
+        logger.info("本地菜谱库不足 (%s/%s), 交给 LLM 兜底", len(chosen), len(slots))
+        return LocalPlan(hints=hints)
+
     # ---------- 3. 落库 ----------
 
     def _day_dates(self, week: WeekMenuGenerate, week_start: date) -> List[date]:
@@ -318,7 +490,9 @@ class MenuGenerationPipeline:
                 dates.append(fallback)
         return dates
 
-    async def persist(self, ctx: GenerationContext, week: WeekMenuGenerate) -> GenerationOutcome:
+    async def persist(
+        self, ctx: GenerationContext, week: WeekMenuGenerate, source: str = "ai"
+    ) -> GenerationOutcome:
         warnings: List[str] = []
         async with session_scope() as session:
             menu_service = MenuService(session)
@@ -333,12 +507,14 @@ class MenuGenerationPipeline:
                         continue
                     await session.delete(existing)
                 menu.status = MenuStatus.DRAFT
+                menu.source = source
                 await session.flush()
             else:
                 menu = Menu(
                     user_id=ctx.user_id,
                     week_start_date=ctx.week_start,
                     status=MenuStatus.DRAFT,
+                    source=source,
                 )
                 session.add(menu)
                 await session.flush()
@@ -420,9 +596,15 @@ class MenuGenerationPipeline:
 
     # ---------- 4. 编排 ----------
 
-    async def run(self, user_id: int, week_start: date) -> GenerationOutcome:
+    async def run(self, user_id: int, week_start: date, mode: str = MODE_AUTO) -> GenerationOutcome:
         ctx = await self.prepare(user_id, week_start)
-        week, _ = await self.call_llm(ctx)
+        # 本地优先: 除显式只走模型 (mode=ai) 外, 都先尝试用本地菜谱库编排
+        use_local = self.settings.menu.local_first and mode in (MODE_AUTO, MODE_LOCAL)
+        plan = await self.compose_from_local(ctx) if use_local else LocalPlan()
+        if plan.week is not None:
+            return await self.persist(ctx, plan.week, source="local")
+
+        week, _ = await self.call_llm(ctx, hint_names=plan.hints)
         names = [
             r.name for day in week.week_menu for meal in (day.meals or {}).values() for r in meal.recipes
         ]
@@ -432,7 +614,9 @@ class MenuGenerationPipeline:
         if not first_report.passed and first_report.overlaps:
             logger.info("多样性不达标, 重生成一次: %s", first_report.issues)
             try:
-                second_week, _ = await self.call_llm(ctx, avoid_names=first_report.overlaps)
+                second_week, _ = await self.call_llm(
+                    ctx, avoid_names=first_report.overlaps, hint_names=plan.hints
+                )
                 second_names = [
                     r.name
                     for day in second_week.week_menu
@@ -447,7 +631,93 @@ class MenuGenerationPipeline:
             else:
                 if second_report.score >= first_report.score:
                     week = second_week
-        return await self.persist(ctx, week)
+        source = "mixed" if plan.hints else "ai"
+        return await self.persist(ctx, week, source=source)
+
+
+def keyword_hits(texts: Sequence[str], keywords: Sequence[str]) -> List[str]:
+    """texts 里是否包含任一关键词 (过敏源/忌口判定)"""
+    if not keywords:
+        return []
+    return [word for word in keywords if any(word in text for text in texts)]
+
+
+def _recipe_haystacks(recipe: Recipe) -> List[str]:
+    """菜名 + 食材名, 用于过敏源/忌口的包含判定"""
+    names = [recipe.name or ""]
+    for row in recipe.recipe_ingredients or []:
+        if row.ingredient is not None:
+            names.append(row.ingredient.name or "")
+    return names
+
+
+def _per_meal_calories(ctx: GenerationContext) -> Optional[float]:
+    if not ctx.target_calories:
+        return None
+    return float(ctx.target_calories) / max(1, ctx.meals_per_day or 2)
+
+
+def _score_recipe(
+    recipe: Recipe, target_calories: Optional[float], inventory: set, cuisines: Sequence[str]
+) -> float:
+    """本地候选打分: 热量贴合 50 + 库存命中 30 + 偏好菜系 20"""
+    score = 0.0
+    if target_calories:
+        deviation = abs((recipe.calories or 0) - target_calories) / target_calories
+        score += SCORE_CALORIE * max(0.0, 1.0 - min(1.0, deviation))
+    else:
+        score += SCORE_CALORIE * 0.5
+
+    names = [
+        row.ingredient.name
+        for row in recipe.recipe_ingredients or []
+        if row.ingredient is not None and row.ingredient.name
+    ]
+    if names:
+        hits = sum(1 for name in names if name in inventory)
+        score += SCORE_INVENTORY * hits / len(names)
+
+    if cuisines and recipe.cuisine and recipe.cuisine in cuisines:
+        score += SCORE_CUISINE
+    return score
+
+
+def _to_generate_item(recipe: Recipe) -> RecipeGenerateItem:
+    """本地 Recipe -> LLM 同构的生成项, 复用同一条落库路径"""
+    ingredients = [
+        IngredientItem(name=row.ingredient.name, quantity=row.quantity, unit=row.unit or "")
+        for row in recipe.recipe_ingredients or []
+        if row.ingredient is not None and row.ingredient.name
+    ]
+    return RecipeGenerateItem(
+        name=recipe.name,
+        ingredients=ingredients,
+        calories=recipe.calories or 0,
+        protein_g=recipe.protein_g or 0.0,
+        carb_g=recipe.carb_g or 0.0,
+        fat_g=recipe.fat_g or 0.0,
+        cook_minutes=recipe.cook_minutes or 20,
+        steps=recipe.steps or "",
+    )
+
+
+def _build_week(ctx: GenerationContext, chosen: Dict[Tuple[int, str], Recipe]) -> WeekMenuGenerate:
+    days: List[DayGenerateItem] = []
+    for day_index in range(MAX_MENU_DAYS):
+        meal_date = ctx.week_start + timedelta(days=day_index)
+        meals: Dict[str, MealGenerateItem] = {}
+        for meal_type in VALID_MEAL_TYPES:
+            recipe = chosen.get((day_index, meal_type))
+            if recipe is not None:
+                meals[meal_type] = MealGenerateItem(recipes=[_to_generate_item(recipe)])
+        days.append(
+            DayGenerateItem(
+                date=str(meal_date),
+                day_type="weekend" if meal_date.weekday() >= 5 else "weekday",
+                meals=meals,
+            )
+        )
+    return WeekMenuGenerate(week_menu=days)
 
 
 def _health_goal(ctx: GenerationContext) -> Optional[HealthGoal]:
@@ -550,10 +820,11 @@ class GenerationWorker:
                 return
             user_id = task.user_id
             week_start = task.week_start_date
+            mode = _payload_mode(task.request_payload)
 
         try:
             llm = build_fallback_chain(self.settings)
-            outcome = await MenuGenerationPipeline(llm, self.settings).run(user_id, week_start)
+            outcome = await MenuGenerationPipeline(llm, self.settings).run(user_id, week_start, mode)
         except Exception as exc:  # noqa: BLE001 - 失败必须落库可读原因
             logger.exception("生成菜单失败 task=%s", task_id)
             message = str(exc)[:ERROR_MESSAGE_LIMIT] or exc.__class__.__name__

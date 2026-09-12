@@ -59,6 +59,13 @@ class Menu(Base, TimestampMixin):
         default=MenuStatus.DRAFT,
         comment="状态: draft/confirmed/active/completed",
     )
+    source: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="ai",
+        server_default="ai",
+        comment="来源: local 本地菜谱库 / ai 模型生成 / mixed 混合",
+    )
 
     menu_items = relationship(
         "MenuItem", back_populates="menu", cascade="all, delete-orphan", lazy="selectin"

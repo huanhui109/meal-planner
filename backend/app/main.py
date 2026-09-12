@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="每周鲜 · AI 营养菜谱",
     description="把一周的饭交给 AI 安排好: 偏好即约束 → 生成周菜单 → 校验营养预算 → 补单 → 做饭扣库存",
-    version="0.2.0",
+    version="0.4.0",
     lifespan=lifespan,
 )
 

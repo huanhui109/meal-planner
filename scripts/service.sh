@@ -8,8 +8,12 @@
 #           bash scripts/service.sh restart backend
 #           bash scripts/service.sh status
 #
+#  运行环境:  SERVICE_ENV=dev|prod  (缺省 dev, 决定加载哪套参数 / 构建方式)
+#    dev  : 后端热重载 + debug 开启; 前端 vite dev + HMR; 详细日志
+#    prod : 后端多 worker、无热重载、debug 关闭; 前端构建产物 preview; 端口 4173
+#
 #  可用环境变量覆盖:
-#    BACKEND_PORT=8000  FRONTEND_PORT=5173  FRONTEND_HOST=127.0.0.1  DEV_RELOAD=0
+#    SERVICE_ENV=prod  BACKEND_PORT=8000  FRONTEND_HOST=127.0.0.1  DEV_RELOAD=0  BACKEND_WORKERS=2
 #    后端默认绑定 0.0.0.0: 这样手机(同一 wifi 下)用电脑 LAN IP 即可访问,
 #    小程序真机调试/真机预览才能连上。仅本机开发时想收紧可设 BACKEND_HOST=127.0.0.1。
 # ============================================================================
@@ -23,12 +27,23 @@ BACKEND_PID_FILE="$LOGS_DIR/backend.pid"
 FRONTEND_PID_FILE="$LOGS_DIR/frontend.pid"
 BACKEND_LOG="$LOGS_DIR/backend.log"
 FRONTEND_LOG="$LOGS_DIR/frontend.log"
-BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
+BACKEND_HOST="${BACKEND_HOST:-0.0.0.0}"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
-FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 FRONTEND_HOST="${FRONTEND_HOST:-127.0.0.1}"
 DEV_RELOAD="${DEV_RELOAD:-1}"
 START_TIMEOUT="${START_TIMEOUT:-40}"
+BACKEND_WORKERS="${BACKEND_WORKERS:-2}"
+
+# ---------- 运行环境 (dev | prod) ----------
+SERVICE_ENV="${SERVICE_ENV:-dev}"
+case "$SERVICE_ENV" in
+  dev|development) SERVICE_ENV="dev" ;;
+  prod|production) SERVICE_ENV="prod" ;;
+  *) echo "✗ 未知运行环境: $SERVICE_ENV (可选 dev | prod)" >&2; exit 1 ;;
+esac
+# 生产与开发使用不同默认端口, 便于两者同时并存不打架;
+# 显式设置 FRONTEND_PORT 仍会覆盖这里的默认值。
+FRONTEND_PORT="${FRONTEND_PORT:-$([ "$SERVICE_ENV" = "prod" ] && echo 4173 || echo 5173)}"
 
 if [ -t 1 ]; then
   C_OK=$'\033[1;32m'; C_INFO=$'\033[1;34m'; C_WARN=$'\033[1;33m'
@@ -42,6 +57,15 @@ warn() { printf "%s! %s%s\n" "$C_WARN" "$*" "$C_OFF"; }
 err()  { printf "%s✗ %s%s\n" "$C_ERR" "$*" "$C_OFF"; }
 dim()  { printf "%s  %s%s\n" "$C_DIM" "$*" "$C_OFF"; }
 title(){ printf "\n%s%s%s\n" "$C_BOLD" "$*" "$C_OFF"; }
+
+# 当前运行环境的彩色标签 (dev / prod)
+env_label() {
+  if [ "$SERVICE_ENV" = "prod" ]; then
+    printf "%s生产 (prod)%s" "$C_WARN" "$C_OFF"
+  else
+    printf "%s开发 (dev)%s" "$C_INFO" "$C_OFF"
+  fi
+}
 
 [ -f backend/app/main.py ] || { err "请在项目根目录执行: bash scripts/service.sh"; exit 1; }
 mkdir -p "$LOGS_DIR"
@@ -170,6 +194,7 @@ show_status() {
   IFS=: read -r f fp_pid <<<"$(frontend_state)"; fs="$f"
   IFS=: read -r d dp <<<"$(db_state)"; ds="$d"
 
+  dim "运行环境: $(env_label)"
   local code
   code="$(peek_backend)"
   printf "  %-14s %b   %s\n" "后端" "$(dot "$bs")" \
@@ -230,11 +255,22 @@ start_backend() {
   esac
   check_backend_prereq || return 1
 
-  info "启动后端 (uvicorn, 端口 $BACKEND_PORT, 日志 logs/backend.log)"
-  local args=( -m uvicorn app.main:app "--host=$BACKEND_HOST" "--port=$BACKEND_PORT" --proxy-headers )
-  if [ "$DEV_RELOAD" = "1" ]; then args+=( --reload ); fi
+  info "启动后端 (环境: $(env_label), uvicorn, 端口 $BACKEND_PORT, 日志 logs/backend.log)"
+  local -a args=( -m uvicorn app.main:app "--host=$BACKEND_HOST" "--port=$BACKEND_PORT" --proxy-headers )
+  if [ "$SERVICE_ENV" = "prod" ]; then
+    dim "生产参数: ${BACKEND_WORKERS} 个 worker · 无热重载 · debug 关闭"
+    args+=( "--workers=$BACKEND_WORKERS" )
+  else
+    if [ "$DEV_RELOAD" = "1" ]; then
+      dim "开发参数: 热重载开启 · debug 开启 (DEV_RELOAD=0 可关热重载)"
+      args+=( --reload )
+    else
+      dim "开发参数: 热重载关闭 (DEV_RELOAD=1 可开) · debug 开启"
+    fi
+  fi
   (
     cd "$ROOT_DIR/backend" || exit 1
+    export APP__APP__DEBUG="$([ "$SERVICE_ENV" = "prod" ] && echo false || echo true)"
     nohup "$ROOT_DIR/.venv/bin/python" "${args[@]}" >>"$BACKEND_LOG" 2>&1 &
     echo $! >"$BACKEND_PID_FILE"
   )
@@ -272,12 +308,31 @@ start_frontend() {
   check_frontend_prereq || return 1
   command -v npm >/dev/null 2>&1 || { err "找不到 npm, 请先安装 Node.js 18+"; return 1; }
 
-  info "启动前端 (vite dev, $FRONTEND_HOST:$FRONTEND_PORT, 日志 logs/frontend.log)"
-  (
-    cd "$ROOT_DIR/frontend" || exit 1
-    nohup npm run dev -- --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" >>"$FRONTEND_LOG" 2>&1 &
-    echo $! >"$FRONTEND_PID_FILE"
-  )
+  if [ "$SERVICE_ENV" = "prod" ]; then
+    info "启动前端 (环境: $(env_label), 构建产物 preview, $FRONTEND_HOST:$FRONTEND_PORT)"
+    local dist_dir="$ROOT_DIR/frontend/dist"
+    if [ ! -d "$dist_dir" ]; then
+      warn "没有找到构建产物 ($dist_dir), 先用生产模式构建一次"
+      if ! (cd "$ROOT_DIR/frontend" && npm run build); then
+        err "前端构建失败, 看上方 vite 报错"
+        return 1
+      fi
+    else
+      dim "使用现有构建产物: $dist_dir  (想重新构建先 rm -rf frontend/dist)"
+    fi
+    (
+      cd "$ROOT_DIR/frontend" || exit 1
+      nohup npm run preview -- --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" --strictPort >>"$FRONTEND_LOG" 2>&1 &
+      echo $! >"$FRONTEND_PID_FILE"
+    )
+  else
+    info "启动前端 (环境: $(env_label), vite dev + HMR, $FRONTEND_HOST:$FRONTEND_PORT)"
+    (
+      cd "$ROOT_DIR/frontend" || exit 1
+      nohup npm run dev -- --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" >>"$FRONTEND_LOG" 2>&1 &
+      echo $! >"$FRONTEND_PID_FILE"
+    )
+  fi
 
   if wait_port "$FRONTEND_PORT" "$START_TIMEOUT"; then
     ok "前端已启动: http://$FRONTEND_HOST:$FRONTEND_PORT"
@@ -486,6 +541,8 @@ start_all() {
     *) err "未知服务: $target (可选 all | backend | frontend | db)"; return 1 ;;
   esac
 
+  info "启动全部 · 运行环境: $(env_label)  (前端端口 $FRONTEND_PORT)"
+
   if start_db;       then db_ok=0; fi
   if start_backend;  then be_ok=0; fi
   if start_frontend; then fe_ok=0; fi
@@ -547,11 +604,33 @@ stop_all() {
 
 restart_all() { stop_all "$1"; echo; start_all "$1"; }
 
+# 显示当前环境及如何切换
+show_env() {
+  title "当前运行环境"
+  ok "SERVICE_ENV=$SERVICE_ENV  (env: $(env_label))"
+  if [ "$SERVICE_ENV" = "prod" ]; then
+    dim "生产模式: 后端 ${BACKEND_WORKERS} worker · 无热重载 · debug 关闭; 前端构建产物 preview"
+    dim "前端默认端口 $FRONTEND_PORT, 访问 http://$FRONTEND_HOST:$FRONTEND_PORT"
+  else
+    dim "开发模式: 后端热重载($([ "$DEV_RELOAD" = "1" ] && echo 开 || echo 关)) · debug 开启; 前端 vite dev + HMR"
+    dim "前端默认端口 $FRONTEND_PORT, 访问 http://$FRONTEND_HOST:$FRONTEND_PORT"
+  fi
+  echo
+  dim "切换环境(仅本次运行生效, 临时覆盖):"
+  dim "  生产:  SERVICE_ENV=prod bash scripts/service.sh start"
+  dim "  开发:  SERVICE_ENV=dev  bash scripts/service.sh start"
+  echo
+  dim "要长期固定某环境, 在导出或 .env 中写入 SERVICE_ENV=prod 即可。"
+}
+
 usage() {
   cat <<USAGE
 AI 每周营养菜谱工具 · 本地服务运维台
 
 用法:  bash scripts/service.sh [命令] [服务]
+
+环境:  SERVICE_ENV=dev(默认)|prod  —— 决定开发/生产加载哪套参数与构建方式
+       生产: SERVICE_ENV=prod bash scripts/service.sh start   (前端端口 4173)
 
 命令:
   (不带参数)        打开交互式运维台
@@ -563,14 +642,19 @@ AI 每周营养菜谱工具 · 本地服务运维台
   health            后端健康检查 (含数据库连通性)
   doctor            环境自检: 依赖/配置/数据库/端口
   migrate           执行数据库迁移 (alembic upgrade head)
+  env               显示当前运行环境及切换说明
 
 服务:  all (默认)  |  backend  |  frontend  |  db
 
+常用环境变量:  SERVICE_ENV  BACKEND_PORT  FRONTEND_HOST  FRONTEND_PORT
+              BACKEND_WORKERS(prod)        DEV_RELOAD(dev)
+
 例子:
-  bash scripts/service.sh                 # 交互式菜单
-  bash scripts/service.sh start           # 启动数据库 + 后端 + 前端
-  bash scripts/service.sh restart backend # 只重启后端
-  bash scripts/service.sh logs frontend   # 跟踪前端日志
+  bash scripts/service.sh env               # 查看当前环境
+  SERVICE_ENV=prod bash scripts/service.sh start  # 生产模式启动
+  bash scripts/service.sh start             # 开发模式启动(缺省)
+  bash scripts/service.sh restart backend   # 只重启后端
+  bash scripts/service.sh logs frontend     # 跟踪前端日志
 USAGE
 }
 
@@ -662,5 +746,6 @@ case "${1:-menu}" in
   doctor)  doctor ;;
   migrate) migrate_db ;;
   -h|--help|help) usage ;;
+  env)   show_env ;;
   *) err "未知命令: $1"; echo; usage; exit 1 ;;
 esac

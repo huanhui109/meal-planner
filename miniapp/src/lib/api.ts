@@ -8,6 +8,7 @@ import type {
   ConsumeResult,
   CurrentUser,
   GenerateAccepted,
+  GenerationMode,
   GenerationTask,
   InventoryItem,
   MenuDetail,
@@ -60,8 +61,8 @@ export const saveBudget = (data: Record<string, unknown>) => http.put<unknown>(E
 
 // ---------- 菜单 ----------
 
-export const generateMenu = (weekStart: string, force = false) =>
-  http.post<GenerateAccepted>(ENDPOINTS.generateMenu, { week_start: weekStart, force })
+export const generateMenu = (weekStart: string, force = false, mode: GenerationMode = 'auto') =>
+  http.post<GenerateAccepted>(ENDPOINTS.generateMenu, { week_start: weekStart, force, mode })
 
 export const getGenerationTask = (taskId: number) =>
   http.get<GenerationTask>(ENDPOINTS.generationTask(taskId))
@@ -83,6 +84,8 @@ export const replaceMenuItem = (
     /** 留空 body 走自动模式: 本地菜谱库优先, 挑不到再 AI 生成 */
     recipe_id?: number
     recipe_name?: string
+    /** 跳过本地打分, 直接让 AI 换一道 */
+    force_ai?: boolean
     calories?: number
     cook_minutes?: number
     steps?: string

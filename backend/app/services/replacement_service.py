@@ -160,7 +160,7 @@ class ReplacementService:
             return await self._restore(menu, item, request.recipe_id)
         if (request.recipe_name or "").strip():
             return await self._manual(menu, item, request)
-        return await self._auto(menu, item, user_id)
+        return await self._auto(menu, item, user_id, force_ai=bool(request.force_ai))
 
     # ---------- 三条路径 ----------
 
@@ -180,13 +180,16 @@ class ReplacementService:
         replaced = await MenuService(self.db).replace_item(menu, item, request)
         return ReplacementResult("manual", replaced.recipe, menu, item)
 
-    async def _auto(self, menu: Menu, item: MenuItem, user_id: int) -> ReplacementResult:
+    async def _auto(self, menu: Menu, item: MenuItem, user_id: int, force_ai: bool = False) -> ReplacementResult:
         ctx = await self._build_context(menu, item, user_id)
-        local = await self._pick_local(ctx)
-        if local is not None:
-            self._apply(item, local)
-            await self.db.flush()
-            return ReplacementResult("local", local, menu, item)
+        if not force_ai:
+            local = await self._pick_local(ctx)
+            if local is not None:
+                self._apply(item, local)
+                await self.db.flush()
+                return ReplacementResult("local", local, menu, item)
+        else:
+            logger.info("用户要求直接让 AI 换一道, 跳过本地菜谱库")
 
         # AI 可能耗时几十秒, 先结束当前事务把连接还回连接池, 不能占着连接等模型
         menu_id, item_id = menu.id, item.id

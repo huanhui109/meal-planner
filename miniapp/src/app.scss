@@ -9,8 +9,8 @@
 @use './styles/tokens' as *;
 
 page {
-  background: $color-bg;
-  color: $color-ink;
+  background: var(--color-bg);
+  color: var(--color-ink);
   font-family: $font-family;
   font-size: $font-body;
   letter-spacing: $font-tracking;
@@ -43,7 +43,7 @@ scroll-view {
   margin: 0 auto;
   /* padding-bottom 要再兜住底部 home 指示条, 否则最后一块内容会被悬浮 tabbar/指示条挡住 */
   padding: 0 16px calc(#{$layout-tabbar-height} + 34px + env(safe-area-inset-bottom, 0px));
-  background: $color-bg;
+  background: var(--color-bg);
 }
 
 .page-head {
@@ -54,14 +54,14 @@ scroll-view {
   font-size: $font-title;
   font-weight: 700;
   letter-spacing: $font-tracking-tight;
-  color: $color-ink;
+  color: var(--color-ink);
   line-height: 1.2;
 }
 
 .page-sub {
   margin-top: 6px;
   font-size: $font-label;
-  color: $color-ink2;
+  color: var(--color-ink2);
   line-height: 1.5;
 }
 
@@ -76,18 +76,18 @@ scroll-view {
   font-size: $font-heading;
   font-weight: 650;
   letter-spacing: $font-tracking-tight;
-  color: $color-ink;
+  color: var(--color-ink);
 }
 
 .section-title__hint {
   font-size: $font-caption;
-  color: $color-ink2;
+  color: var(--color-ink2);
 }
 
 /* ---------- 卡片 ---------- */
 
 .card {
-  background: $color-card;
+  background: var(--color-card);
   border-radius: $radius-xl;
   padding: 18px;
   box-shadow: $shadow-card;
@@ -104,7 +104,7 @@ scroll-view {
 
 .card--flat {
   box-shadow: none;
-  border: 1px solid $color-line;
+  border: 1px solid var(--color-line);
 }
 
 .card__head {
@@ -116,14 +116,14 @@ scroll-view {
 
 .card__label {
   font-size: $font-caption;
-  color: $color-ink2;
+  color: var(--color-ink2);
 }
 
 .card__value {
   font-size: $font-number;
   font-weight: 700;
   letter-spacing: $font-tracking-tight;
-  color: $color-ink;
+  color: var(--color-ink);
   font-variant-numeric: tabular-nums;
 }
 
@@ -136,13 +136,13 @@ scroll-view {
   margin-left: 3px;
   font-size: $font-caption;
   font-weight: 500;
-  color: $color-ink2;
+  color: var(--color-ink2);
 }
 
 .card__hint {
   margin-top: 6px;
   font-size: $font-caption;
-  color: $color-ink2;
+  color: var(--color-ink2);
   line-height: 1.5;
 }
 
@@ -173,27 +173,27 @@ scroll-view {
 .bar {
   height: 8px;
   border-radius: $radius-pill;
-  background: $color-fill;
+  background: var(--color-fill);
   overflow: hidden;
 }
 
 .bar__fill {
   height: 100%;
   border-radius: $radius-pill;
-  background: $color-ink;
+  background: var(--color-ink);
   transition: width $motion-base $motion-ease;
 }
 
 .bar__fill--accent {
-  background: $color-accent;
+  background: var(--color-accent);
 }
 
 .bar__fill--warn {
-  background: $color-warn;
+  background: var(--color-warn);
 }
 
 .bar__fill--danger {
-  background: $color-danger;
+  background: var(--color-danger);
 }
 
 /* ---------- 胶囊按钮 ---------- */
@@ -217,19 +217,19 @@ scroll-view {
 }
 
 .pill--ink {
-  background: $color-ink;
-  color: $color-on-ink;
+  background: var(--color-ink);
+  color: var(--color-on)-ink;
 }
 
 .pill--gray {
-  background: $color-fill;
-  color: $color-ink;
+  background: var(--color-fill);
+  color: var(--color-ink);
 }
 
 .pill--ghost {
   background: transparent;
-  color: $color-ink;
-  border: 1px solid $color-line;
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
 }
 
 .pill--sm {
@@ -258,28 +258,28 @@ scroll-view {
   border-radius: $radius-pill;
   font-size: $font-micro;
   font-weight: 600;
-  background: $color-fill;
-  color: $color-ink2;
+  background: var(--color-fill);
+  color: var(--color-ink2);
 }
 
 .chip--accent {
-  background: $color-accent-soft;
-  color: $color-accent-ink;
+  background: var(--color-accent)-soft;
+  color: var(--color-accent)-ink;
 }
 
 .chip--warn {
-  background: $color-warn-soft;
-  color: $color-warn-ink;
+  background: var(--color-warn)-soft;
+  color: var(--color-warn)-ink;
 }
 
 .chip--danger {
-  background: $color-danger-soft;
-  color: $color-danger;
+  background: var(--color-danger)-soft;
+  color: var(--color-danger);
 }
 
 .chip--ink {
-  background: $color-ink;
-  color: $color-on-ink;
+  background: var(--color-ink);
+  color: var(--color-on)-ink;
 }
 
 /* ---------- 提示横幅 ---------- */
@@ -292,30 +292,30 @@ scroll-view {
   border-radius: $radius-md;
   font-size: $font-label;
   line-height: 1.5;
-  background: $color-fill;
-  color: $color-ink;
+  background: var(--color-fill);
+  color: var(--color-ink);
 }
 
 .banner--accent {
-  background: $color-accent-soft;
-  color: $color-accent-ink;
+  background: var(--color-accent)-soft;
+  color: var(--color-accent)-ink;
 }
 
 .banner--warn {
-  background: $color-warn-soft;
-  color: $color-warn-ink;
+  background: var(--color-warn)-soft;
+  color: var(--color-warn)-ink;
 }
 
 .banner--danger {
-  background: $color-danger-soft;
-  color: $color-danger;
+  background: var(--color-danger)-soft;
+  color: var(--color-danger);
 }
 
 /* ---------- 下一步指引卡 ---------- */
 
 .next-step {
-  background: $color-ink;
-  color: $color-on-ink;
+  background: var(--color-ink);
+  color: var(--color-on)-ink;
   border-radius: $radius-xl;
   padding: 20px;
   box-shadow: $shadow-lift;
@@ -337,8 +337,8 @@ scroll-view {
 
 .next-step__cta {
   margin-top: 16px;
-  background: $color-on-ink;
-  color: $color-ink;
+  background: var(--color-on)-ink;
+  color: var(--color-ink);
 }
 
 /* ---------- 星期条 ---------- */
@@ -358,19 +358,19 @@ scroll-view {
   width: 44px;
   padding: 10px 0;
   border-radius: $radius-md;
-  background: $color-card;
+  background: var(--color-card);
   text-align: center;
   box-shadow: $shadow-card;
 }
 
 .day-pill--active {
-  background: $color-ink;
-  color: $color-on-ink;
+  background: var(--color-ink);
+  color: var(--color-on)-ink;
 }
 
 .day-pill__week {
   font-size: $font-micro;
-  color: $color-ink2;
+  color: var(--color-ink2);
 }
 
 .day-pill--active .day-pill__week {
@@ -384,12 +384,38 @@ scroll-view {
   font-variant-numeric: tabular-nums;
 }
 
+/* 一键回到今天: 不在今天时出现在星期条最前的快捷药丸 */
+.day-pill--jump {
+  background: var(--color-accent)-soft;
+  color: var(--color-accent)-ink;
+  box-shadow: none;
+}
+
+.day-pill--jump .day-pill__week {
+  color: var(--color-accent)-ink;
+  font-weight: 700;
+}
+
+/* 星期条上"今天"的小角标, 让当前日一眼可辨 */
+.day-pill__today {
+  display: inline-block;
+  margin-left: 3px;
+  padding: 0 4px;
+  border-radius: $radius-pill;
+  background: var(--color-accent);
+  color: var(--color-on)-ink;
+  font-size: 9px;
+  line-height: 14px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
 /* ---------- 餐次行 ---------- */
 
 .meal {
   padding: 14px;
   border-radius: $radius-lg;
-  background: $color-fill;
+  background: var(--color-fill);
 }
 
 .meal + .meal {
@@ -406,7 +432,7 @@ scroll-view {
 .meal__type {
   font-size: $font-caption;
   font-weight: 700;
-  color: $color-ink2;
+  color: var(--color-ink2);
 }
 
 .meal__name {
@@ -414,20 +440,20 @@ scroll-view {
   font-size: 17px;
   font-weight: 650;
   letter-spacing: $font-tracking-tight;
-  color: $color-ink;
+  color: var(--color-ink);
 }
 
 .meal__meta {
   margin-top: 6px;
   font-size: $font-caption;
-  color: $color-ink2;
+  color: var(--color-ink2);
   font-variant-numeric: tabular-nums;
 }
 
 .meal__ings {
   margin-top: 8px;
   font-size: $font-caption;
-  color: $color-ink2;
+  color: var(--color-ink2);
   line-height: 1.6;
 }
 
@@ -444,7 +470,7 @@ scroll-view {
 /* ---------- 设置行 ---------- */
 
 .set-group {
-  background: $color-card;
+  background: var(--color-card);
   border-radius: $radius-xl;
   overflow: hidden;
   box-shadow: $shadow-card;
@@ -458,7 +484,7 @@ scroll-view {
   padding: 14px 18px 6px;
   font-size: $font-caption;
   font-weight: 700;
-  color: $color-ink2;
+  color: var(--color-ink2);
   letter-spacing: 0.04em;
 }
 
@@ -469,17 +495,17 @@ scroll-view {
   gap: 12px;
   min-height: $layout-tap-target;
   padding: 12px 18px;
-  border-top: 1px solid $color-line;
+  border-top: 1px solid var(--color-line);
 }
 
 .set-row__label {
   font-size: $font-body;
-  color: $color-ink;
+  color: var(--color-ink);
 }
 
 .set-row__value {
   font-size: $font-label;
-  color: $color-ink2;
+  color: var(--color-ink2);
   font-variant-numeric: tabular-nums;
   text-align: right;
   max-width: 62%;
@@ -492,16 +518,16 @@ scroll-view {
   width: 7px;
   height: 7px;
   border-radius: $radius-pill;
-  background: $color-ink3;
+  background: var(--color-ink3);
   margin-right: 8px;
 }
 
 .state-dot--ok {
-  background: $color-accent;
+  background: var(--color-accent);
 }
 
 .state-dot--warn {
-  background: $color-warn;
+  background: var(--color-warn);
 }
 
 /* ---------- 库存 ---------- */
@@ -511,31 +537,31 @@ scroll-view {
   align-items: center;
   gap: 12px;
   padding: 14px 18px;
-  border-top: 1px solid $color-line;
+  border-top: 1px solid var(--color-line);
 }
 
 .inv-row__name {
   font-size: $font-body;
   font-weight: 600;
-  color: $color-ink;
+  color: var(--color-ink);
 }
 
 .inv-row__meta {
   margin-top: 4px;
   font-size: $font-caption;
-  color: $color-ink2;
+  color: var(--color-ink2);
   font-variant-numeric: tabular-nums;
 }
 
 .inv-row__qty {
   font-size: $font-label;
   font-weight: 700;
-  color: $color-ink;
+  color: var(--color-ink);
   font-variant-numeric: tabular-nums;
 }
 
 .inv-row--expiring .inv-row__qty {
-  color: $color-warn;
+  color: var(--color-warn);
 }
 
 /* ---------- 采购清单 ---------- */
@@ -547,7 +573,7 @@ scroll-view {
 .shop-group__title {
   font-size: $font-caption;
   font-weight: 700;
-  color: $color-ink2;
+  color: var(--color-ink2);
   margin: 0 2px 8px;
 }
 
@@ -556,42 +582,42 @@ scroll-view {
   align-items: center;
   gap: 12px;
   padding: 13px 18px;
-  border-top: 1px solid $color-line;
+  border-top: 1px solid var(--color-line);
 }
 
 .shop-check {
   width: 20px;
   height: 20px;
   border-radius: $radius-pill;
-  border: 1.5px solid $color-ink3;
+  border: 1.5px solid var(--color-ink3);
 }
 
 .shop-check--on {
-  background: $color-ink;
-  border-color: $color-ink;
+  background: var(--color-ink);
+  border-color: var(--color-ink);
 }
 
 .shop-row--done .shop-row__name {
-  color: $color-ink3;
+  color: var(--color-ink3);
   text-decoration: line-through;
 }
 
 .shop-row__name {
   font-size: $font-body;
-  color: $color-ink;
+  color: var(--color-ink);
 }
 
 .shop-row__qty {
   font-size: $font-label;
   font-weight: 600;
-  color: $color-ink2;
+  color: var(--color-ink2);
   font-variant-numeric: tabular-nums;
 }
 
 /* ---------- 空态 / 骨架 ---------- */
 
 .empty {
-  background: $color-card;
+  background: var(--color-card);
   border-radius: $radius-xl;
   padding: 32px 22px;
   text-align: center;
@@ -601,19 +627,19 @@ scroll-view {
 .empty__title {
   font-size: 17px;
   font-weight: 650;
-  color: $color-ink;
+  color: var(--color-ink);
   letter-spacing: $font-tracking-tight;
 }
 
 .empty__desc {
   margin: 8px 0 18px;
   font-size: $font-label;
-  color: $color-ink2;
+  color: var(--color-ink2);
   line-height: 1.6;
 }
 
 .skeleton {
-  background: $color-card;
+  background: var(--color-card);
   border-radius: $radius-xl;
   padding: 18px;
   box-shadow: $shadow-card;
@@ -622,7 +648,7 @@ scroll-view {
 .skeleton__line {
   height: 12px;
   border-radius: $radius-pill;
-  background: $color-fill;
+  background: var(--color-fill);
   margin-bottom: 10px;
 }
 
@@ -634,23 +660,23 @@ scroll-view {
 
 .field__label {
   font-size: $font-label;
-  color: $color-ink2;
+  color: var(--color-ink2);
   margin-bottom: 8px;
 }
 
 .field__hint {
   margin-top: 6px;
   font-size: $font-micro;
-  color: $color-ink3;
+  color: var(--color-ink3);
 }
 
 .text-input {
   height: $layout-tap-target;
   padding: 0 14px;
   border-radius: $radius-md;
-  background: $color-fill;
+  background: var(--color-fill);
   font-size: 16px;
-  color: $color-ink;
+  color: var(--color-ink);
   width: 100%;
 }
 
@@ -665,16 +691,16 @@ scroll-view {
   min-height: $layout-tap-target;
   padding: 0 14px;
   border-radius: $radius-pill;
-  background: $color-fill;
-  color: $color-ink;
+  background: var(--color-fill);
+  color: var(--color-ink);
   font-size: $font-label;
   display: inline-flex;
   align-items: center;
 }
 
 .chip-option--on {
-  background: $color-ink;
-  color: $color-on-ink;
+  background: var(--color-ink);
+  color: var(--color-on)-ink;
 }
 
 .inline-add {
@@ -689,11 +715,11 @@ scroll-view {
   flex-direction: column;
   justify-content: center;
   padding: 0 24px 60px;
-  background: $color-bg;
+  background: var(--color-bg);
 }
 
 .login-card {
-  background: $color-card;
+  background: var(--color-card);
   border-radius: $radius-xl;
   padding: 26px 22px;
   text-align: center;
@@ -722,14 +748,14 @@ scroll-view {
 .login-sub {
   margin: 6px 0 0;
   font-size: $font-label;
-  color: $color-ink2;
+  color: var(--color-ink2);
   line-height: 1.6;
 }
 
 .login-desc {
   margin: 12px 0 22px;
   font-size: $font-caption;
-  color: $color-ink3;
+  color: var(--color-ink3);
   line-height: 1.6;
 }
 
@@ -747,7 +773,7 @@ scroll-view {
   bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   height: $layout-tabbar-height;
   border-radius: $radius-pill;
-  background: $color-glass;
+  background: var(--color-glass);
   box-shadow: $shadow-float;
   display: flex;
   align-items: center;
@@ -780,11 +806,11 @@ scroll-view {
 
 .tabbar__label {
   font-size: $font-micro;
-  color: $color-ink2;
+  color: var(--color-ink2);
 }
 
 .tabbar__label--on {
-  color: $color-ink;
+  color: var(--color-ink);
   font-weight: 700;
 }
 
@@ -802,7 +828,7 @@ scroll-view {
   align-items: center;
   gap: 10px;
   padding: 10px 0;
-  border-top: 1px solid $color-line;
+  border-top: 1px solid var(--color-line);
 }
 
 .order-line:first-child {
@@ -813,12 +839,12 @@ scroll-view {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: $color-warn;
+  background: var(--color-warn);
   flex: none;
 }
 
 .order-dot--topup {
-  background: $color-ink3;
+  background: var(--color-ink3);
 }
 
 .order-line__name {
@@ -848,17 +874,17 @@ scroll-view {
   flex: 1;
   padding: 14px 8px;
   border-radius: $radius-md;
-  background: $color-fill;
+  background: var(--color-fill);
   text-align: center;
 }
 
 .versus__side--lead {
-  background: $color-ink;
+  background: var(--color-ink);
 }
 
 .versus__label {
   font-size: $font-caption;
-  color: $color-ink2;
+  color: var(--color-ink2);
   display: block;
   margin-bottom: 4px;
 }
@@ -875,13 +901,13 @@ scroll-view {
 }
 
 .versus__side--lead .versus__value {
-  color: $color-on-ink;
+  color: var(--color-on)-ink;
 }
 
 .versus__unit {
   font-size: $font-caption;
   font-weight: 500;
-  color: $color-ink2;
+  color: var(--color-ink2);
 }
 
 .versus__side--lead .versus__unit {
@@ -891,7 +917,7 @@ scroll-view {
 .versus__vs {
   font-size: $font-caption;
   font-weight: 700;
-  color: $color-ink3;
+  color: var(--color-ink3);
 }
 
 .price-edit {
@@ -901,18 +927,18 @@ scroll-view {
   gap: 8px;
   padding: 10px 0;
   font-size: $font-label;
-  color: $color-ink2;
+  color: var(--color-ink2);
 }
 
 .price-edit__hint {
   font-size: $font-caption;
-  color: $color-ink3;
+  color: var(--color-ink3);
 }
 
 .reason-line {
   display: block;
   font-size: $font-label;
-  color: $color-ink2;
+  color: var(--color-ink2);
   line-height: 1.7;
 }
 
@@ -926,8 +952,8 @@ scroll-view {
 
 .meal__ing {
   font-size: $font-caption;
-  color: $color-ink2;
-  background: $color-fill;
+  color: var(--color-ink2);
+  background: var(--color-fill);
   border-radius: $radius-pill;
   padding: 4px 10px;
 }
@@ -951,7 +977,7 @@ scroll-view {
   right: 0;
   bottom: 0;
   max-height: 86vh;
-  background: $color-card;
+  background: var(--color-card);
   border-radius: $radius-xl $radius-xl 0 0;
   padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
   display: flex;
@@ -973,7 +999,7 @@ scroll-view {
 
 .sheet__close {
   font-size: $font-label;
-  color: $color-ink2;
+  color: var(--color-ink2);
 }
 
 .sheet__body {
@@ -983,14 +1009,14 @@ scroll-view {
 
 .sheet__hint {
   font-size: $font-caption;
-  color: $color-ink2;
+  color: var(--color-ink2);
   margin: 10px 0;
 }
 
 .sheet__notice {
   font-size: $font-label;
-  color: $color-warn-ink;
-  background: $color-warn-soft;
+  color: var(--color-warn)-ink;
+  background: var(--color-warn)-soft;
   border-radius: $radius-sm;
   padding: 10px 12px;
   margin: 8px 0;
@@ -1007,7 +1033,7 @@ scroll-view {
   gap: 6px;
   flex-wrap: wrap;
   padding: 8px 0;
-  border-top: 1px solid $color-line;
+  border-top: 1px solid var(--color-line);
 }
 
 .recog-row .text-input {
@@ -1025,7 +1051,7 @@ scroll-view {
 
 .recog-row__del {
   font-size: $font-caption;
-  color: $color-danger;
+  color: var(--color-danger);
   /* 删除是纯文字, 原来是 8px 4px 的极小热区; 撑成 44x44 的触控目标 */
   display: inline-flex;
   align-items: center;
@@ -1039,7 +1065,7 @@ scroll-view {
 .recog-row__conf {
   width: 100%;
   font-size: $font-micro;
-  color: $color-ink3;
+  color: var(--color-ink3);
 }
 
 .page-head__row {
@@ -1054,13 +1080,13 @@ scroll-view {
   width: $layout-tap-target;
   height: $layout-tap-target;
   border-radius: 50%;
-  background: $color-card;
+  background: var(--color-card);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 15px;
   font-weight: 700;
-  color: $color-ink;
+  color: var(--color-ink);
   box-shadow: $shadow-card;
 }
 
@@ -1075,7 +1101,7 @@ scroll-view {
   margin-top: 16px;
   padding: 0 4px;
   font-size: $font-caption;
-  color: $color-ink2;
+  color: var(--color-ink2);
   line-height: 1.7;
   white-space: pre-line;
 }

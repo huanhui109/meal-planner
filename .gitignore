@@ -47,6 +47,8 @@ logs/
 
 # 工具产生的临时目录
 .playwright-cli/
+# 开源菜谱原始数据缓存 (HowToCook 浅克隆 + proj.kitchen 响应)
+.cache/
 
 # OS
 .DS_Store

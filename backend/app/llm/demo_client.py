@@ -8,7 +8,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional
+import re
+from typing import Any, Dict, List, Optional, Sequence
 
 from app.llm.base import LLMClient
 
@@ -162,7 +163,10 @@ DAYS = 7
 # 提示词里出现这个说法就说明这是在「换一道」, 只该返回单道菜。
 DISH_PROMPT_MARKER = "只生成一道菜"
 
-# 「换一道」演示用菜: 刻意不在 DEMO_WEEK 里, 否则会被"不要与已有菜重名"挡掉
+# 「换一道」演示用菜: 刻意不在 DEMO_WEEK 里, 否则会被"不要与已有菜重名"挡掉。
+# 注意: 演示客户端必须能提供「多道互不相同」的替换菜, 只用一道的话,
+# 第一次换进菜单后, 之后每次都会因"与已有菜重名"被挡 -> 重试后仍失败 -> 502
+# (见 logs/backend.log 里连续的 `AI 换一道结果不合格(与已有菜重名): 番茄牛腩`)。
 DEMO_DISH: Dict[str, Any] = {
     "name": "番茄牛腩",
     "ingredients": [("牛腩", "300g"), ("番茄", "2个"), ("洋葱", "1个")],
@@ -173,6 +177,121 @@ DEMO_DISH: Dict[str, Any] = {
     "cook_minutes": 28,
     "steps": "牛腩焯水后与番茄同炖 20 分钟, 收汁前加洋葱。",
 }
+
+# 「换一道」轮换菜池: 名字均不同于 DEMO_WEEK, 且不含花生等常见过敏源。
+DEMO_REPLACEMENT_DISHES: List[Dict[str, Any]] = [
+    DEMO_DISH,
+    {
+        "name": "麻婆豆腐",
+        "ingredients": [("豆腐", "1块"), ("牛肉末", "100g"), ("豆瓣酱", "15g")],
+        "calories": 340,
+        "protein_g": 22.0,
+        "carb_g": 18.0,
+        "fat_g": 19.0,
+        "cook_minutes": 20,
+        "steps": "豆腐切块焯水, 牛肉末炒散后下豆瓣酱, 加豆腐小火烧 5 分钟勾芡。",
+    },
+    {
+        "name": "宫保鸡丁",
+        "ingredients": [("鸡胸肉", "250g"), ("干辣椒", "10g"), ("黄瓜", "1根")],
+        "calories": 400,
+        "protein_g": 38.0,
+        "carb_g": 16.0,
+        "fat_g": 20.0,
+        "cook_minutes": 18,
+        "steps": "鸡胸肉切丁上浆, 干辣椒爆香后下鸡丁与黄瓜丁, 调糖醋汁翻匀。",
+    },
+    {
+        "name": "清蒸鲈鱼",
+        "ingredients": [("鲈鱼", "1条"), ("姜", "1块"), ("葱", "2根")],
+        "calories": 280,
+        "protein_g": 34.0,
+        "carb_g": 3.0,
+        "fat_g": 13.0,
+        "cook_minutes": 22,
+        "steps": "鲈鱼改刀铺姜丝, 大火蒸 8 分钟, 淋蒸鱼豉油撒葱丝泼热油。",
+    },
+    {
+        "name": "咖喱鸡肉饭",
+        "ingredients": [("鸡腿肉", "250g"), ("咖喱块", "50g"), ("米饭", "1碗")],
+        "calories": 560,
+        "protein_g": 30.0,
+        "carb_g": 64.0,
+        "fat_g": 20.0,
+        "cook_minutes": 25,
+        "steps": "鸡腿肉煎香, 加水与咖喱块煮 10 分钟至浓稠, 浇在米饭上。",
+    },
+    {
+        "name": "冬瓜排骨汤",
+        "ingredients": [("排骨", "300g"), ("冬瓜", "200g"), ("姜", "1块")],
+        "calories": 360,
+        "protein_g": 26.0,
+        "carb_g": 10.0,
+        "fat_g": 22.0,
+        "cook_minutes": 40,
+        "steps": "排骨焯水后与姜片炖 25 分钟, 下冬瓜再煮 10 分钟加盐。",
+    },
+    {
+        "name": "蚝油生菜",
+        "ingredients": [("生菜", "1颗"), ("蚝油", "15ml")],
+        "calories": 130,
+        "protein_g": 5.0,
+        "carb_g": 10.0,
+        "fat_g": 7.0,
+        "cook_minutes": 8,
+        "steps": "生菜焯水摆盘, 蚝油加水烧开后淋上。",
+    },
+    {
+        "name": "番茄龙利鱼",
+        "ingredients": [("龙利鱼", "300g"), ("番茄", "2个")],
+        "calories": 300,
+        "protein_g": 32.0,
+        "carb_g": 12.0,
+        "fat_g": 13.0,
+        "cook_minutes": 20,
+        "steps": "番茄炒出汁加水煮开, 下龙利鱼块煮 5 分钟调味。",
+    },
+    {
+        "name": "芦笋炒虾仁",
+        "ingredients": [("芦笋", "200g"), ("虾仁", "150g")],
+        "calories": 240,
+        "protein_g": 30.0,
+        "carb_g": 10.0,
+        "fat_g": 8.0,
+        "cook_minutes": 15,
+        "steps": "芦笋切段焯水, 虾仁滑炒变色后下芦笋快炒调味。",
+    },
+    {
+        "name": "香菇青菜",
+        "ingredients": [("香菇", "4个"), ("青菜", "1把")],
+        "calories": 150,
+        "protein_g": 7.0,
+        "carb_g": 14.0,
+        "fat_g": 7.0,
+        "cook_minutes": 12,
+        "steps": "香菇切片爆香, 下青菜大火快炒至断生。",
+    },
+    {
+        "name": "辣子鸡丁",
+        "ingredients": [("鸡腿肉", "250g"), ("干辣椒", "15g"), ("花椒", "5g")],
+        "calories": 450,
+        "protein_g": 34.0,
+        "carb_g": 12.0,
+        "fat_g": 28.0,
+        "cook_minutes": 20,
+        "steps": "鸡腿肉切丁炸至金黄, 与干辣椒花椒同炒出香。",
+    },
+    {
+        "name": "罗宋汤",
+        "ingredients": [("牛腩", "200g"), ("番茄", "2个"), ("土豆", "1个"), ("胡萝卜", "1根")],
+        "calories": 380,
+        "protein_g": 24.0,
+        "carb_g": 28.0,
+        "fat_g": 18.0,
+        "cook_minutes": 45,
+        "steps": "牛腩焯水炖软, 下番茄土豆胡萝卜煮 20 分钟至汤浓。",
+    },
+]
 
 
 def build_demo_week_menu() -> Dict[str, Any]:
@@ -203,29 +322,96 @@ def build_demo_week_menu() -> Dict[str, Any]:
     return {"week_menu": days}
 
 
-def build_demo_dish() -> Dict[str, Any]:
-    """单菜 JSON, 结构对齐 schemas.recipe.DishGenerate"""
+def _dish_to_payload(dish: Dict[str, Any]) -> Dict[str, Any]:
+    """把菜池里的 raw dish 转成 DishGenerate 兼容的 JSON 结构"""
     return {
-        "name": DEMO_DISH["name"],
+        "name": dish["name"],
         "ingredients": [
             {"name": name, "quantity": amount, "unit": ""}
-            for name, amount in DEMO_DISH["ingredients"]
+            for name, amount in dish["ingredients"]
         ],
-        "calories": DEMO_DISH["calories"],
-        "protein_g": DEMO_DISH["protein_g"],
-        "carb_g": DEMO_DISH["carb_g"],
-        "fat_g": DEMO_DISH["fat_g"],
-        "cook_minutes": DEMO_DISH["cook_minutes"],
-        "steps": DEMO_DISH["steps"],
+        "calories": dish["calories"],
+        "protein_g": dish["protein_g"],
+        "carb_g": dish["carb_g"],
+        "fat_g": dish["fat_g"],
+        "cook_minutes": dish["cook_minutes"],
+        "steps": dish["steps"],
     }
 
 
+def build_demo_dish() -> Dict[str, Any]:
+    """单菜 JSON, 结构对齐 schemas.recipe.DishGenerate (默认返回第一道演示菜)"""
+    return _dish_to_payload(DEMO_DISH)
+
+
+# 「不要与这些菜重名」/「避开」后面的名单 -> 演示客户端据此避开重复
+_EXCLUDE_MARKERS = ("不要与这些菜重名", "不要与已有菜重名", "避开")
+# 「过敏源 / 忌口」后面的名单 -> 演示客户端据此避开忌口食材
+_RESTRICTED_MARKERS = ("过敏源", "忌口")
+
+
+def _split_names(raw: str) -> List[str]:
+    return [part.strip() for part in re.split(r"[,，、;；]", raw) if part.strip()]
+
+
+def _names_after_markers(text: str, markers: Sequence[str]) -> List[str]:
+    """从提示词文本里抽出 marker 那一行紧跟的逗号名单"""
+    names: List[str] = []
+    for line in text.splitlines():
+        for marker in markers:
+            if marker not in line:
+                continue
+            sep = ":" if ":" in line else ("：" if "：" in line else "")
+            if not sep:
+                continue
+            names.extend(_split_names(line.split(sep, 1)[1]))
+    return names
+
+
+def _dish_haystack(dish: Dict[str, Any]) -> List[str]:
+    return [dish["name"]] + [name for name, _amount in dish["ingredients"]]
+
+
+def pick_replacement_dish(
+    messages: List[Dict[str, str]], cursor: int = 0
+) -> tuple[Dict[str, Any], int]:
+    """按提示词里的「不要与已有菜重名 / 避开过敏源」约束, 从菜池轮换挑一道。
+
+    返回 ``(dish, next_cursor)``。整池都被排除时, 退回轮换并加后缀保证名字唯一,
+    免得演示环境里反复「换一道」必然撞重名 -> 502。
+    """
+    text = "\n".join((message.get("content") or "") for message in messages)
+    excluded = set(_names_after_markers(text, _EXCLUDE_MARKERS))
+    restricted = _names_after_markers(text, _RESTRICTED_MARKERS)
+    pool = DEMO_REPLACEMENT_DISHES
+    size = len(pool)
+
+    for offset in range(size):
+        dish = pool[(cursor + offset) % size]
+        names = _dish_haystack(dish)
+        if dish["name"] in excluded:
+            continue
+        if any(any(word in item for word in restricted) for item in names):
+            continue
+        return dish, (cursor + offset + 1) % size
+
+    fallback = dict(pool[cursor % size])
+    fallback["name"] = f"{fallback['name']}·特调{cursor + 1}"
+    return fallback, (cursor + 1) % size
+
+
 class DemoLLMClient(LLMClient):
-    """固定输出的假客户端, 只在 APP__LLM__DEMO=true 时启用"""
+    """假客户端, 只在 APP__LLM__DEMO=true 时启用。
+
+    整周请求返回固定的 DEMO_WEEK; 单菜「换一道」请求会读提示词里
+    「不要与这些菜重名」的名单, 从 DEMO_REPLACEMENT_DISHES 轮换挑一道,
+    保证连续多次「换一道」不会反复返回同一道而被判重名。
+    """
 
     def __init__(self, payload: Optional[Dict[str, Any]] = None):
         super().__init__(name="local-demo")
         self.payload = payload or build_demo_week_menu()
+        self._dish_cursor = 0
 
     async def chat(
         self,
@@ -234,7 +420,8 @@ class DemoLLMClient(LLMClient):
         max_tokens: int = 4000,
     ) -> str:
         if any(DISH_PROMPT_MARKER in (message.get("content") or "") for message in messages):
-            return json.dumps(build_demo_dish(), ensure_ascii=False)
+            dish, self._dish_cursor = pick_replacement_dish(messages, self._dish_cursor)
+            return json.dumps(_dish_to_payload(dish), ensure_ascii=False)
         return json.dumps(self.payload, ensure_ascii=False)
 
     async def is_available(self) -> bool:

@@ -13,42 +13,65 @@ import { toast } from './nav'
 
 /**
  * 换一道: 后端先从本地菜谱库挑, 挑不到再让 AI 生成一道, 前端只负责结果确认。
- * 返回换好后的整份菜单 (含"换回上一道"的结果), 页面据此做乐观更新, 不再整页 reload。
+ * 结果确认用 action sheet: 就它了 / (本地换来的话) 让 AI 再换一道 / 换回上一道。
+ * 返回换好后的整份菜单, 页面据此做乐观更新, 不再整页 reload。
  */
 export async function askReplaceRecipe(menu: MenuDetail, meal: MealDetail): Promise<MenuDetail | null> {
   const previous = meal.recipe
 
-  Taro.showLoading({ title: '正在换一道…', mask: true })
-  let updated: MenuDetail
+  const updated = await runReplace('正在换一道…', menu.id, meal.id, {})
+  const info = updated.replacement
+  const name = info?.recipe_name || '新的一道菜'
+  const fromLocal = info?.source === 'local'
+
+  type Choice = 'keep' | 'ai' | 'restore'
+  const options: Array<{ label: string; choice: Choice }> = [{ label: '就它了', choice: 'keep' }]
+  // 只有「本地菜谱库换来的」才给 AI 再换的入口; 已经是 AI 换的就没必要再来一次
+  if (fromLocal) options.push({ label: '让 AI 再换一道', choice: 'ai' })
+  if (previous?.id) options.push({ label: '换回上一道', choice: 'restore' })
+
+  let tapIndex = 0
   try {
-    updated = await replaceMenuItem(menu.id, meal.id, {})
+    const sheet = await Taro.showActionSheet({
+      alertText: `已换成「${name}」\n来源: ${fromLocal ? '本地菜谱库' : 'AI 生成'}`,
+      itemList: options.map((option) => option.label),
+    })
+    tapIndex = sheet.tapIndex
+  } catch {
+    return updated // 用户点空白取消, 沿用当前结果
+  }
+
+  const picked = options[tapIndex]?.choice ?? 'keep'
+
+  if (picked === 'ai') {
+    const next = await runReplace('让 AI 再换一道…', menu.id, meal.id, { force_ai: true })
+    toast('已让 AI 换一道', 'success')
+    return next
+  }
+
+  if (picked === 'restore' && previous?.id) {
+    const restored = await runReplace('正在换回…', menu.id, meal.id, { recipe_id: previous.id })
+    toast('已换回上一道')
+    return restored
+  }
+
+  toast('已换好', 'success')
+  return updated
+}
+
+/** 统一的 loading + 替换调用 */
+async function runReplace(
+  title: string,
+  menuId: number,
+  itemId: number,
+  body: Parameters<typeof replaceMenuItem>[2],
+): Promise<MenuDetail> {
+  Taro.showLoading({ title, mask: true })
+  try {
+    return await replaceMenuItem(menuId, itemId, body)
   } finally {
     Taro.hideLoading()
   }
-
-  const info = updated.replacement
-  const name = info?.recipe_name || '新的一道菜'
-  const from = info?.source === 'ai' ? 'AI 生成' : '本地菜谱库'
-  const modal = (await Taro.showModal({
-    title: '换一道',
-    content: `已换成「${name}」\n来源: ${from}`,
-    confirmText: '就它了',
-    cancelText: '换回上一道',
-    showCancel: Boolean(previous?.id),
-  })) as unknown as { confirm: boolean }
-
-  if (!modal.confirm && previous?.id) {
-    Taro.showLoading({ title: '正在换回…', mask: true })
-    try {
-      updated = await replaceMenuItem(menu.id, meal.id, { recipe_id: previous.id })
-    } finally {
-      Taro.hideLoading()
-    }
-    toast('已换回上一道')
-    return updated
-  }
-  toast('已换好', 'success')
-  return updated
 }
 
 export async function toggleLock(menu: MenuDetail, itemId: number, locked: boolean): Promise<boolean> {

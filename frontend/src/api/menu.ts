@@ -2,6 +2,7 @@ import apiClient, { unwrap } from './client'
 import type {
   ConsumeResult,
   GenerateAccepted,
+  GenerationMode,
   GenerationTask,
   MenuDetail,
   ShoppingList,
@@ -27,12 +28,13 @@ export function addDays(isoDate: string, days: number): string {
   return formatDate(date)
 }
 
-/** 提交生成任务 (同一周已有草稿会直接复用) */
-export const generateMenu = (weekStart?: string, force = false) =>
+/** 提交生成任务 (同一周已有草稿会直接复用); mode 控制本地优先/纯 AI */
+export const generateMenu = (weekStart?: string, force = false, mode: GenerationMode = 'auto') =>
   unwrap<GenerateAccepted>(
     apiClient.post('/menus/generate', {
       week_start: weekStart || currentWeekStart(),
       force,
+      mode,
     }),
   )
 
@@ -61,6 +63,8 @@ export const replaceMenuItem = (
   body: {
     recipe_id?: number
     recipe_name?: string
+    /** 跳过本地打分, 直接让 AI 换一道 */
+    force_ai?: boolean
     calories?: number
     cook_minutes?: number
     protein_g?: number

@@ -156,7 +156,16 @@ export function StatTile(props: {
   return (
     <View className={cx('card', onClick && 'tap')} onClick={onClick}>
       <Text className="card__label">{label}</Text>
-      <View className="card__value" style={tone === 'accent' ? { color: '#1e7d3c' } : tone === 'warn' ? { color: '#c77800' } : undefined}>
+      <View
+        className="card__value"
+        style={
+          tone === 'accent'
+            ? { color: 'var(--color-accent-ink)' }
+            : tone === 'warn'
+              ? { color: 'var(--color-warn-ink)' }
+              : undefined
+        }
+      >
         {/* 字号/字重由 .card__value 提供 ($font-number + 700), 不写内联值:
             内联 px 不经过 pxtransform, 在大屏上不会跟着缩放 */}
         <Text className="num">{value}</Text>
