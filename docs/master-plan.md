@@ -42,11 +42,11 @@
              │                 │                │
 共享层    shared/ 纯 TS（类型 · 格式化 · 下一步规则 · 设计令牌）—— 仅两端复用
              │                 │                │
-接入层    nginx 443 → FastAPI 路由（44 端点）· JWT 会话（httpOnly Cookie / Bearer）
+接入层    nginx 443 → FastAPI 路由（46 端点）· JWT 会话（httpOnly Cookie / Bearer）
              │
 业务层    生成流水线 │ 采购与库存 │ 今日聚合 │ 自动化推送
              │
-支撑层    MySQL 19 表 │ LLM 降级链 │ 生成 Worker │ APScheduler
+支撑层    MySQL 20 表 │ LLM 降级链 │ 生成 Worker │ APScheduler
 ```
 
 **依赖方向约定（硬约束）**
@@ -54,7 +54,10 @@
 - `api → services → models`，禁止 `models → services` 反向依赖；
 - `services → llm`；`bot → services`；跨模块只能经 service 层，禁止直接跨包访问 ORM 会话；
 - `shared/` 只被 `frontend` 与 `miniapp` 引用，**零框架依赖、不反向依赖任何后端概念**；
-- `scraper_service` / `matching_service` / `product_service` 为二期占位，**不得接入现有链路**。
+- 二期占位服务的现状（V3.0 后更新）：
+  - `scraper_service` — **已删除**（全仓 0 处引用，被 V3.0 的 `scraper_registry.py` 取代）；
+  - `matching_service` — 仍是二期占位，**未接入任何链路**；
+  - `product_service` — **已接入**（V3.0 起 `GET /api/products/search` 走它，但底层 scraper 全是 stub，返回空 + `v3_status`）。
 
 ### 2.2 模块职责矩阵（后端）
 
@@ -76,7 +79,7 @@
 |---|---|---|---|
 | P1 | 契约单一化 | 前端类型全部来自 `shared/types.ts`，禁止在页面里另写一套接口类型 | 已基本达成，V2.1 加 lint 校验 |
 | P2 | 令牌单一真源 | 设计令牌只允许从 `shared/tokens.ts` 生成，CI `--check` 阻断漂移 | 已达成 |
-| P3 | 版本号统一 | `pyproject.toml`(0.3.0) 与 `frontend`/`miniapp`/`shared`(0.2.0) 口径不一致 → 统一为产品版本 | **待办（V2.1）** |
+| P3 | 版本号统一 | `pyproject.toml` / `frontend` / `miniapp` / `shared` / `backend/app/main.py` 统一为产品版本 | **已完成** — 四处均为 `0.5.0`（V2.4 收口） |
 | P4 | 文档表数统一 | `architecture.md` 的「18 表」与实际 19 表不符 → 本次已修正 | 本次完成 |
 | P5 | 二期隔离 | 占位服务加 `# 二期` 标注并禁止被 import | 已达成（docstring 标注），V2.1 加 import 检查 |
 | P6 | 覆盖率门禁 | `make ci` 目前只跑测试不卡覆盖率阈值 | **待办（V2.1）** |
@@ -165,6 +168,27 @@
 | R-38 | 外观切换极简化：H5「我的」与小程序 profile 里的"外观"块，从"深色 · 黑色胶囊 / 明亮 · 暖色奶油"两行说明改为两枚胶囊按钮（深色 / 明亮），未选中态为灰底，选中态为黑底白字；保持 Apple 风格的纯黑胶囊主按钮 + 毛玻璃悬浮 TabBar | 交互 | `frontend/src/pages/Me/index.tsx`、`miniapp/src/pages/profile/index.tsx`、`frontend/src/global.css`（`.theme-switch`） |
 | R-39 | 小程序主题切换与 H5 对齐：`miniapp/src/lib/theme.ts` 写 `document.documentElement[data-theme]`（H5 构建生效），顶部导航条颜色同步 `setNavigationBarColor`；自定义 TabBar 通过 `subscribeTheme` 强制刷新 | 设计 | `miniapp/src/lib/theme.ts`、`miniapp/src/custom-tab-bar/index.tsx`、`miniapp/src/styles/_tokens.scss` |
 
+### V2.5 —— 真·深色主题（已落地，提交 `4f6ed75`）
+
+> 需求全文见 [`docs/requirements-v2.5-dark-mode.md`](requirements-v2.5-dark-mode.md)。
+
+| 需求 ID | 需求 | 模块 | 证据 |
+|---|---|---|---|
+| R-40 | 真·深色主题 + 命名收敛 + auto 跟随：新增第三态 `dark`（主背景 `#000000` / 卡片 `#1C1C1E`）；旧 `dark` 改名 `cool`、旧 `light` 改名 `cream`；新增 `auto` 跟随 `prefers-color-scheme`；storage key 升到 `:v2` 并自动迁移旧值 | 设计 | `shared/tokens.ts`、`scripts/gen_tokens.mjs`、`frontend/src/stores/useThemeStore.ts`、`miniapp/src/lib/theme.ts`、`miniapp/src/pages/profile/index.tsx` |
+
+### V2.6 —— 小程序上线交付（Week 1-4，已落地，提交 `21e95f2` / `fc401cc` / `0ec63e7`）
+
+> 依据 `docs/miniapp-audit-2026-09.md`（30 条发现）推进 4 周，把小程序从「可内测」
+> 做到「可交付种子用户灰度」。发布形态与步骤见
+> [`docs/operations/internal-test-rollout.md`](operations/internal-test-rollout.md)。
+
+| 需求 ID | 需求 | 模块 | 证据 |
+|---|---|---|---|
+| R-41 | P0 必修（Week 1）：启动期主题初始化、删 `backgroundColor` 硬编码、隐私协议 + 服务条款 + 关于页、意见反馈 API 与入口、分享 hook、deeplink 失败兜底 | 合规 / 增长 | `miniapp/src/app.ts`、`pages/about/`、`api/feedback.py`、`docs/legal/*`、迁移 `0008` |
+| R-42 | P1 重要（Week 2）：新用户引导 onboarding、订阅消息、客服入口、版本号与强制更新、请求 AbortSignal、埋点 SDK | 留存 / 可观测 | `pages/onboarding/`、`lib/{subscribe,events,build,customer-service}.ts`、`api/{subscribe,build,events}.py`、迁移 `0009`~`0011` |
+| R-43 | P2 增强（Week 3）：邀请裂变、菜谱详情页、历史菜单、周菜单搜索 | 内容厚度 | `pages/{invite,recipe-detail,menu-history}/`、`components/search-bar.tsx`、`api/invite.py`、迁移 `0012` |
+| R-44 | V3.0 数据源脚手架 + 内测收口（Week 4）：`Scraper` 抽象类与注册表（各平台 stub）、`product_price` 表、内测部署、GitHub Actions CI、`/api/health` 扩展、灰度 Runbook | 工程 | `services/scraper_registry.py`、迁移 `0013`、`.github/workflows/*`、`deploy/internal-test.md` |
+
 ### 需求汇总
 
 | 版本 | 需求数 | 状态 |
@@ -175,7 +199,9 @@
 | V2.1 | 2 | 已完成（R-29 / R-30） |
 | V2.3 | 4 | 已完成（R-31 ~ R-34） |
 | V2.4 | 5 | 已完成（R-35 ~ R-39） |
-| **合计** | **39** | V2.4 及以前全部完成 |
+| V2.5 | 1 | 已完成（R-40） |
+| V2.6 | 4 | 已完成（R-41 ~ R-44，小程序上线交付） |
+| **合计** | **44** | V2.6 及以前全部完成 |
 
 ---
 
@@ -294,12 +320,12 @@
 | V2.2 数据与智能 | V2.2 | 开启 |
 | V2.3 菜谱库与本地优先生成 | V2.3 | 已关闭 |
 | V2.4 合并与外观收口 | V2.4 | 已关闭 |
-| V2.5 真·深色主题 | V2.5 | 规划中 |
+| V2.5 真·深色主题 | V2.5 | 已落地（提交 `4f6ed75`） |
 | V3.0 二期数据源 | V3.0 | 开启 |
 
 ### 6.2 需求与任务
 
-- **需求（Story）**：按第三章台账建 39 条，命名 `R-xx 需求名`，描述写入「版本 / 模块 / 证据 / 验收」，归属对应迭代。
+- **需求（Story）**：按第三章台账建 44 条，命名 `R-xx 需求名`，描述写入「版本 / 模块 / 证据 / 验收」，归属对应迭代。
 - **任务（Task）**：每条需求拆 2–3 条任务，状态用 TAPD 的 `未开始 / 进行中 / 已完成`；已开发需求的任务直接置为已完成。
 
 ### 6.3 缺陷（Bug）

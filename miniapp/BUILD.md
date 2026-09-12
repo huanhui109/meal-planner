@@ -53,5 +53,27 @@ Taro 4 不支持按平台分 `outputRoot`，`miniapp/config/index.ts` 显式把�
 
 「预览」模式会校验 request 合法域名，http 一定被拦；只有「真机调试」会自动跳过。
 生产环境必须用 `MP_API_BASE=https://...` 的备案域名，并在小程序后台登记。
-</content>
-</invoke>
+
+---
+
+## 7. 微信基础库版本（audit B8 收口）
+
+`project.config.json` 与 `project.private.config.json` 的 `libVersion` 当前锁 **`3.17.1`**，
+这是**有意保持**，不是漏升级。
+
+**为什么不动**：
+
+- `libVersion` 是开发者工具「详情 → 本地设置」里的调试基准库，**改高会抬高用户可打开
+  小程序的最低微信版本门槛**，改低则用不了新 API —— 属产品 / 运营决策，不属技术清理范围。
+- 本项目用到的 API（`setBackgroundColor` / `setNavigationBarColor` / `requestSubscribeMessage` /
+  `chooseMedia` / `getUserProfile`）在 3.17.1 上全部可用，没有必须升级的诉求。
+- 审查报告 B8 只写「建议提升」，未给出目标版本与依据，因此不做无依据的改动。
+
+**什么时候该动**：
+
+1. 微信官方把 3.17.1 标记为停止维护（EOL）；
+2. 业务需要 3.17.1 不支持的新 API（届时同步评估被挡在门外的用户占比）；
+3. 灰度数据里出现「因版本过低打不开」的反馈且占比 > 1%。
+
+**怎么改**：开发者工具 → 详情 → 本地设置 → 调试基础库，改完两个 `project*.config.json`
+的 `libVersion` 会同步；提交前在真机上用最低目标微信版本实测一遍。

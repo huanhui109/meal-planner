@@ -260,36 +260,41 @@
 
 ### ⚠️ 中等缺陷
 
-**B3.【中】app.config.ts backgroundColor 写死** — P1
+**B3.【中】app.config.ts backgroundColor 写死** — P1 — ✅ **已修**（2026-09-12）
 
-- 现状：`window.backgroundColor: '#e9e9ee'` 硬编码冷灰色。
-- 影响：深色模式下，用户下拉刷新时背景闪一下冷灰，体验不连贯。
-- 修复：动态设置 `Taro.setBackgroundColor`（需要基础库支持），或干脆去掉 backgroundColor 让 page 颜色接管。
+- 原状：`app.config.ts` 与 6 个 `pages/*/index.config.ts` 写死 `#ffffff` / `#e9e9ee`。
+- 根因更正：`lib/theme.ts` 的 `applyTheme` **只调了 `setNavigationBarColor`，从未调 `setBackgroundColor`** ——
+  那个 `backgroundColor: nav.background` 是导航条色，不是窗口背景。所以「删掉字段」是错的：
+  删了会回落微信默认白，深色下比原来更糟。
+- 修法：① `applyTheme` 补第 4 步 `Taro.setBackgroundColor` + `setBackgroundTextStyle`（下拉 loading 图深色下反色）；
+  ② 7 个 config 的静态值统一改成 `DEFAULT_THEME='cream'` 的 `#FBF9F4`，运行期被覆盖。
 
-**B4.【中】today 页 handleCook 类型强转** — P2
+**B4.【中】today 页 handleCook 类型强转** — P2 — ✅ **已修**（2026-09-12）
 
-- 现状：
-  ```ts
-  const menuLike = { id: data.menu_id } as never
-  await markCooked(menuLike as never, data.tonight.meal_id)
-  ```
-- 影响：跳过类型检查，如果 `markCooked` 改成读 `menu.week_start_date`，运行时炸。
-- 修复：让 `markCooked` 接受 `{ id: number }` 子类型而非 `MenuDetail`。
+- 原状：`markCooked(menuLike as never, ...)` 双重 `as never`。
+- 修法：`markCooked` 参数收窄为 `Pick<MenuDetail, 'id'>`（它只用 `menu.id`），
+  清掉 `today/index.tsx` 与 `recipe-detail/index.tsx` 的 `as never`；
+  `today` 的 `showModal({editable})` 改用局部类型增强 `EditableModalOption` /
+  `EditableModalResult`，保留已知字段检查。
+- 顺带修了同源问题 `lib/request.ts` 的 `saveSession(envelope.data as never)` → 把信封直接标成
+  `ApiEnvelope<TokenBundle>`，去掉强转。**全仓 `as never` 现为 0 处。**
 
-**B5.【中】profile 解构 useTheme 丢弃第三个返回值** — P2
+**B5.【中】profile 解构 useTheme 丢弃第三个返回值** — P2 — ⚪ **已评估，无需修改**（2026-09-12）
 
-- 现状：
-  ```ts
-  const [theme, setTheme] = useTheme()
-  ```
-  实际签名是 `[ThemeName, setter, PaletteName]`，第三个 `applied` 被丢弃。
-- 修复：要么只取两个并改 useTheme 签名，要么明确 `const [theme, setTheme, applied] = useTheme()`（将来需要时再用）。
+- 结论：profile 四个主题按钮要高亮的是**存储偏好值**（含 `auto`）；若改用 `applied`
+  （auto 解析后的实际主题），`auto` 按钮永远选不中。现状是对的。
+- 真正消费 `applied` 的是 Logo 选择（`login/index.tsx`、`about/index.tsx`），那里已经取了第三个值。
 
 ### 💡 兼容性缺陷
 
 - B6. **iOS 14 以下不支持 `showModal editable:true`**：今日页「外卖参考价」用 `Taro.showModal({ editable: true })`，老 iOS 微信会忽略 editable。**修复**：改用自绘 sheet（已有 RecognizeSheet 可复用模式）。
+  - 2026-09-12 更新：类型侧已改成局部类型增强（不再 `as never`），运行期行为不变 ——
+    老 iOS 只是**不显示输入框**，不会崩。自绘 sheet 属体验优化，列入内测后 backlog。
 - B7. **Taro.chooseMedia 在某些 Android 厂商内核（OPPO ColorOS 11 之前的某些版本）不支持**：已 fallback chooseImage，正确。
 - B8. **base library 3.17.1 vs libVersion**：package.json `browserslist` 写压 ES5，但 `libVersion` 字段写 3.17.1（2026 年当前最新稳定在 3.x）。建议提升到 3.x.x latest。
+  - 2026-09-12 结论：**保持 3.17.1，不做无依据的改动**。`libVersion` 决定用户可打开的
+    最低微信版本门槛，属产品 / 运营决策；当前用到的 API 在 3.17.1 上全部可用。
+    决策理由与「何时该动」的触发条件已写入 `miniapp/BUILD.md` §7。
 
 ---
 

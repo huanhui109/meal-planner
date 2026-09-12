@@ -77,13 +77,16 @@ APP__SCHEDULER__ENABLED=true
 
 ## 3. 验收清单
 
+> 标记说明：✅ = 本机已实测通过（2026-09-12）；未标记 = 需要隧道 / 真机环境才能验。
+
 - [ ] 浏览器访问 `https://<ngrok域名>/` 看到 H5 首页, 200
 - [ ] H5 登录成功跳转回首页
-- [ ] curl `https://<ngrok域名>/api/health` 返回 `{status:"ok", version:"0.5.0", ...}`
-- [ ] curl `https://<ngrok域名>/api/feedback` POST 提交一条, 状态 201
-- [ ] curl `https://<ngrok域名>/api/build-info` 返回版本信息 (默认兜底)
-- [ ] curl `https://<ngrok域名>/api/subscribe/templates` 返回 3 个模板
+- [x] `GET /api/health` 返回 `{status:"ok", version:"0.5.0", database:"ok", ...}` ✅（本机 uvicorn 实测）
+- [x] `POST /api/feedback` 提交一条, 状态 201 ✅
+- [x] `GET /api/build-info` 返回版本信息 (默认兜底 0.5.0 / 0.5.0 / 不强制) ✅
+- [x] `GET /api/subscribe/templates` 返回 3 个模板 ✅
 - [ ] 开发者工具导入 `miniapp/`, 编译通过, 真机扫码能跑到主页
+      （编译已验证：`npm run build:weapp` 通过 + `miniapp/dist/app.json` 生成；真机待验）
 - [ ] 5 个核心路径冒烟 (登录 → 生成菜单 → 标记已做 → 拍照识别 → 退登)
 
 ## 4. 已知限制

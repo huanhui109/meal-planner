@@ -19,22 +19,24 @@
 ### 代码
 
 - [ ] `make ci` 全绿（ruff + pytest + check-tokens + check-logo + test-frontend + build-frontend + check-miniapp）
-- [ ] `npm --prefix miniapp run build:weapp` 成功，`miniapp/dist/app.json` 存在
-- [ ] 后端 `alembic current` == `alembic heads`（迁移链无分叉）
-- [ ] `GET /api/health` 返回 `{status, version, database, scheduler_running, last_event_at, last_menu_generate_at}`
+- [x] `npm --prefix miniapp run build:weapp` 成功，`miniapp/dist/app.json` 存在
+- [x] 后端 `alembic current` == `alembic heads`（均为 `0013_product_price (head)`，无分叉）
+- [x] `GET /api/health` 返回 `{status, version, database, scheduler_running, last_event_at, last_menu_generate_at}`
 
 ### 功能（30 条审查发现）
 
-- [ ] Week 1 P0：启动主题初始化 / 删 backgroundColor 硬编码 / 隐私条款 / 关于页 / 反馈 / 分享 / deeplink 兜底
-- [ ] Week 2 P1：onboarding / 订阅消息 / 客服 / 版本号强制更新 / AbortSignal / 埋点
-- [ ] Week 3 P2：邀请裂变 / 菜谱详情 / 历史菜单 / 搜索（Logo SVG 化已延后）
-- [ ] Week 4：V3.0 脚手架（`scraping.enabled=false`）/ 内测部署 / 法务 / CI / health
+- [x] Week 1 P0：启动主题初始化 / 删 backgroundColor 硬编码 / 隐私条款 / 关于页 / 反馈 / 分享 / deeplink 兜底
+- [x] Week 2 P1：onboarding / 订阅消息 / 客服 / 版本号强制更新 / AbortSignal / 埋点
+- [x] Week 3 P2：邀请裂变 / 菜谱详情 / 历史菜单 / 搜索（**Logo SVG 化已延后**，纯体积优化收益低于成本）
+- [x] Week 4：V3.0 脚手架（`scraping.enabled=false`）/ 内测部署 / CI / health（**法务签字未到位，见下**）
 
 ### 合规
 
 - [ ] `docs/legal/privacy.md` / `terms.md` 已放入小程序（关于页可访问）
+      ⚠️ 入口已存在（关于页「合规」分组），但点击只弹 modal 提示"内测期间请向开发者索取 Markdown"，
+      文档正文未托管也未内联 —— 上线前必须二选一：静态托管 `docs/legal/*.md` 转成页面，或打包进小程序。
 - [ ] `docs/legal/REVIEW.md` 第五节模板已发给法务
-- [ ] 内测期豁免项已登记（`REVIEW.md` 第六节）
+- [x] 内测期豁免项已登记（`REVIEW.md` 第六节）
 
 ### 配置
 
