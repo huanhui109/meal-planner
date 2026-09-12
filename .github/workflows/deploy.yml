@@ -1,0 +1,43 @@
+name: Deploy
+
+# 只允许 main 触发; 手动可触发为 dev 环境验证
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install backend
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ai_meal_planner.egg-info/requires.txt
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci || npm install
+          npm run build
+      - name: Build miniapp
+        working-directory: miniapp
+        run: |
+          npm ci || npm install
+          npm run build:weapp
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-bundle
+          path: |
+            backend/
+            frontend/dist/
+            miniapp/dist/
+            deploy/

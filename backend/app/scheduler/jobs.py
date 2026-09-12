@@ -321,13 +321,27 @@ async def generate_weekly_menu(settings: Optional[Settings] = None) -> int:
 
 
 async def daily_scrape_products(settings: Optional[Settings] = None) -> int:
-    """商品采集属于二期, 这里只留明确的日志, 不做任何事"""
+    """商品价格采集调度入口 (V3.0 脚手架)
+
+    scraping.enabled=false 时只记一条日志直接返回; 打开后走 scraper_registry 遍历
+    所有已注册 scraper。现阶段所有 scraper 都是 stub, 所以真实采集量恒为 0。
+    """
     settings = settings or get_settings()
-    if not settings.platforms.xiaoxiang.enabled:
-        logger.info("小象采集未启用 (APP__PLATFORMS__XIAOXIANG__ENABLED=false), 跳过")
+    if not settings.scraping.enabled:
+        logger.info("商品采集未启用 (APP__SCRAPING__ENABLED=false), 跳过")
         return 0
-    logger.info("商品采集功能将在二期实现, 本次跳过")
-    return 0
+
+    from app.services.scraper_registry import run_daily_scrape
+
+    summary = await run_daily_scrape()
+    logger.info(
+        "商品采集完成: 平台 %s 个, 商品 %s, 价格 %s, 失败 %s",
+        len(summary.get("platforms", [])),
+        summary.get("products", 0),
+        summary.get("prices", 0),
+        summary.get("errors", 0),
+    )
+    return int(summary.get("products", 0))
 
 
 __all__ = [

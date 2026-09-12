@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+  pull_request:
+    branches: [main]
+
+# 取消进行中的同分支重复 run, 节省资源
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: meal_planner_test
+          MYSQL_USER: meal
+          MYSQL_PASSWORD: meal
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -u root -proot" --health-interval=10s
+          --health-timeout=5s --health-retries=10
+    env:
+      APP__DATABASE__URL: mysql+aiomysql://meal:meal@127.0.0.1:3306/meal_planner_test
+      APP__AUTH__JWT_SECRET: ci-test-secret-not-for-production-use
+      APP__APP__DEBUG: "true"
+      APP__APP__CORS_ORIGINS: "[]"
+      APP__APP__NAME: meal-planner-ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install backend deps
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          # egg-info 已有 requires.txt, 装它即可
+          test -f pyproject.toml || (cd .. && pip install -e ./backend || true)
+          pip install -r ai_meal_planner.egg-info/requires.txt || true
+      - name: Run ruff
+        working-directory: backend
+        run: |
+          pip install ruff
+          ruff check app tests || true
+      - name: Run pytest
+        working-directory: backend
+        run: |
+          pip install pytest pytest-asyncio httpx
+          pytest tests/ -x --tb=short -q
+
+  shared-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check design tokens
+        run: |
+          node scripts/gen_tokens.mjs --check
+      - name: Check logo assets
+        run: |
+          node scripts/gen_logo.mjs --check
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci || npm install
+      - name: Lint
+        run: npm run lint --silent
+      - name: Test (vitest)
+        run: npm run test --silent
+      - name: Build
+        run: npm run build --silent
+
+  miniapp:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: miniapp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: miniapp/package-lock.json
+      - name: Install
+        run: npm ci || npm install
+      - name: Typecheck
+        run: npm run typecheck --silent
+      - name: Build weapp
+        run: npm run build:weapp --silent
+      - name: Build h5
+        run: npm run build:h5 --silent

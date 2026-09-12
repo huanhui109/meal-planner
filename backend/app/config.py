@@ -199,6 +199,8 @@ class PlatformSettings(BaseModel):
 class ScrapingSettings(BaseModel):
     """采集配置"""
 
+    #: V3.0 脚手架总开关: 默认关闭, 调度器注册了 daily_scrape_products 但不会真实采集
+    enabled: bool = False
     headless: bool = True
     timeout: int = 30000
     retry_count: int = 2

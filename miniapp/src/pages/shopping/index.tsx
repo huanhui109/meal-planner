@@ -4,7 +4,7 @@
  * 后端已经把"菜谱需求量 - 冰箱库存量"的差集算好了, 这里只负责按品类分组展示
  * 与一键复制 (复制成纯文本, 直接粘到买菜 App 或发给家人)。
  */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Text, View } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 
@@ -14,7 +14,7 @@ import { orderStatusText, orderSummaryText } from '@shared/today'
 import type { MenuDetail, OrderSuggestion, ShoppingItem, ShoppingList } from '@shared/types'
 
 import { Banner, Card, LoadingStack, PageHead, PillButton, SectionTitle } from '../../components/ui'
-import { getCurrentMenu, getOrderSuggestion, getShoppingList } from '../../lib/api'
+import { getCurrentMenu, getOrderSuggestion, getShoppingList, searchProducts } from '../../lib/api'
 import { openPurchaseLink, missingText } from '../../lib/deeplink'
 import { ensureLogin, goTo, syncTabBar, toast } from '../../lib/nav'
 
@@ -31,23 +31,33 @@ export default function ShoppingPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  /** 页面卸载后丢弃 setState, 避免 "setState on unmounted" 警告 */
+  const aliveRef = useRef(true)
+  useEffect(() => () => { aliveRef.current = false }, [])
+
   const load = useCallback(async () => {
     if (!ensureLogin()) return
     setError('')
     try {
       const current = await getCurrentMenu()
+      if (!aliveRef.current) return
       setMenu(current)
       setList(current?.id ? await getShoppingList(current.id) : null)
       try {
-        setOrder(current?.id ? await getOrderSuggestion(current.id) : null)
+        const next = current?.id ? await getOrderSuggestion(current.id) : null
+        if (!aliveRef.current) return
+        setOrder(next)
       } catch {
-        setOrder(null)
+        if (aliveRef.current) setOrder(null)
       }
     } catch (err) {
+      if (!aliveRef.current) return
       setError((err as Error).message)
     } finally {
-      setLoading(false)
-      Taro.stopPullDownRefresh()
+      if (aliveRef.current) {
+        setLoading(false)
+        Taro.stopPullDownRefresh()
+      }
     }
   }, [])
 
@@ -72,6 +82,27 @@ export default function ShoppingPage() {
       .map(([category, items]) => ({ category, items }))
       .sort((a, b) => categoryRank(a.category) - categoryRank(b.category))
   }, [toBuy])
+
+  /** V3.0 实价查询: 后端 scraper 全是 stub, 命中不到数据时显式说明"即将上线" */
+  const checkRealPrice = async (name: string) => {
+    try {
+      const res = await searchProducts(name)
+      if (res.total === 0) {
+        Taro.showToast({ title: res.v3_status || '实价查询 V3.0 即将上线', icon: 'none' })
+        return
+      }
+      Taro.showModal({
+        title: `${name} · 实时报价`,
+        content: res.items
+          .slice(0, 5)
+          .map((p) => `${p.name} — ¥${p.price}${p.unit ? '/' + p.unit : ''} (${p.platform})`)
+          .join('\n'),
+        showCancel: false,
+      })
+    } catch {
+      Taro.showToast({ title: '暂时查不到, 稍后再试', icon: 'none' })
+    }
+  }
 
   const copyList = async () => {
     if (!menu || groups.length === 0) {
@@ -198,6 +229,15 @@ export default function ShoppingPage() {
                   </View>
                   <Text className="shop-row__qty">
                     {item.quantitative ? formatAmount(item.deficit, item.unit) : '按需'}
+                  </Text>
+                  <Text
+                    className="shop-row__price"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void checkRealPrice(item.name)
+                    }}
+                  >
+                    查实价
                   </Text>
                 </View>
               )

@@ -53,3 +53,21 @@ class ProductService:
             query = query.where(Product.category == category)
         result = await self.db.execute(query)
         return list(result.scalars().all())
+
+    async def search_by_ingredient(self, ingredient: str, limit: int = 10) -> List[Product]:
+        """按食材名模糊搜索商品 (audit T4.1 V3.0)
+
+        真实场景应该走 ProductMapping 表做 join, 此处先用 LIKE
+        """
+        if not ingredient:
+            return []
+        pattern = f"%{ingredient}%"
+        query = (
+            select(Product)
+            .where(Product.is_active.is_(True))
+            .where(Product.name.like(pattern))
+            .order_by(Product.price_changed.desc(), Product.price.asc())
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())

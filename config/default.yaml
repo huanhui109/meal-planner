@@ -57,6 +57,11 @@ scheduler:
   daily_scrape: "09:00"
   expiry_check: "10:00"
 
+scraping:
+  # V3.0 脚手架总开关。脚手架已就位 (Scraper 抽象类 + registry + product/product_price 表),
+  # 但所有平台 scraper 仍是 stub, 打开也不会有数据。真实采集留 V3.x 各平台单独 PR。
+  enabled: false
+
 llm:
   # 主选: 智谱 GLM-4, api_key 由 GLM4_API_KEY 注入
   primary:

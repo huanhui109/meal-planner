@@ -55,6 +55,20 @@ class MenuService:
         )
         return result.scalar_one_or_none()
 
+    async def list_history(self, user_id: int, weeks: int = 4) -> list[Menu]:
+        """历史菜单 (audit T3.3) - 按 week_start_date 倒序取最近 weeks 周"""
+        from datetime import date, timedelta
+
+        cutoff = date.today() - timedelta(weeks=weeks)
+        result = await self.db.execute(
+            select(Menu)
+            .options(selectinload(Menu.menu_items))
+            .where(Menu.user_id == user_id, Menu.week_start_date >= cutoff)
+            .order_by(Menu.week_start_date.desc(), Menu.id.desc())
+            .limit(weeks * 2)
+        )
+        return list(result.scalars().all())
+
     async def get_current_menu(self, user_id: int) -> Optional[Menu]:
         """最近一份未完成的菜单"""
         result = await self.db.execute(

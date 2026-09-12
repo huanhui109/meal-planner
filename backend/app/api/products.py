@@ -41,3 +41,38 @@ async def list_products(
             ],
         },
     )
+
+
+@router.get("/search", response_model=SuccessResponse)
+async def search_products(
+    ingredient: str = "",
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """按食材名模糊搜索商品 (audit T4.1 V3.0)
+
+    数据来自 Scraper 定时抓取, 平台真实接入前返回空数组
+    """
+    products = await ProductService(db).search_by_ingredient(ingredient)
+    return SuccessResponse(
+        code=0,
+        message="success",
+        data={
+            "ingredient": ingredient,
+            "total": len(products),
+            "items": [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "category": p.category,
+                    "price": p.price,
+                    "unit": p.unit,
+                    "in_stock": p.in_stock,
+                    "price_changed": p.price_changed,
+                    "platform": p.source_platform,
+                }
+                for p in products
+            ],
+            "v3_status": "stub data only - real scraping pending",
+        },
+    )

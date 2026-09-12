@@ -180,6 +180,38 @@ async def get_current_menu(
     return SuccessResponse(code=0, message="success", data=await service.serialize(menu, goal, budget))
 
 
+@router.get("/history", response_model=SuccessResponse)
+async def get_menu_history(
+    weeks: int = 4,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """历史菜单 (audit T3.3)
+
+    weeks: 回溯周数 (默认 4, 上限 12, 防大结果集)
+    注意路由顺序: 必须定义在 /{menu_id} 之前, 否则 FastAPI 会把 "history" 当 menu_id
+    """
+    weeks = max(1, min(12, weeks))
+    service = MenuService(db)
+    menus = await service.list_history(user.id, weeks)
+    items = []
+    for menu in menus:
+        goal, budget = await _load_profile(db, user.id)
+        data = await service.serialize(menu, goal, budget)
+        items.append(
+            {
+                "id": menu.id,
+                "week_start_date": str(menu.week_start_date) if menu.week_start_date else None,
+                "status": menu.status,
+                "is_confirmed": menu.status == MenuStatus.CONFIRMED
+                if hasattr(MenuStatus, "CONFIRMED")
+                else False,
+                "totals": data.get("totals", {}),
+            }
+        )
+    return SuccessResponse(code=0, message="success", data={"weeks": weeks, "total": len(items), "items": items})
+
+
 @router.get("/{menu_id}", response_model=SuccessResponse)
 async def get_menu(
     menu_id: int,

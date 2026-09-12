@@ -140,6 +140,21 @@ build-frontend:
 build-miniapp:
 	cd miniapp && npm run build:weapp
 
+# 内测灰度: 一次性构建 H5 + 小程序产物, 再打印隧道配置指引 (详见 deploy/internal-test.md)
+deploy-internal-test:
+	@if [ -z "$(MP_API_BASE)" ]; then \
+		echo "用法: make deploy-internal-test MP_API_BASE=https://<隧道域名>/api"; \
+		exit 1; \
+	fi
+	$(MAKE) build-frontend
+	cd miniapp && MP_API_BASE=$(MP_API_BASE) npm run build:weapp
+	@echo ""
+	@echo "产物已就绪:"
+	@echo "  H5       frontend/dist"
+	@echo "  小程序   miniapp/dist  (用微信开发者工具导入 miniapp/ 目录, 不是 dist/)"
+	@echo ""
+	@echo "接下来: ngrok http 8000 → 把域名填进小程序后台 / .env / MP_API_BASE"
+
 # 由 shared/tokens.ts 生成 frontend/src/styles/tokens.css 与 miniapp/src/styles/_tokens.scss
 gen-tokens:
 	node scripts/gen_tokens.mjs

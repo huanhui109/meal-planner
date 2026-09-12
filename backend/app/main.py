@@ -91,7 +91,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 @app.get("/api/health")
 async def health_check():
-    """健康检查 - 含数据库连通性探活"""
+    """健康检查 - 含数据库连通性 / 调度器 / 最近事件 / 最近生成 / 当前版本"""
     database = "ok"
     try:
         async with engine.connect() as conn:
@@ -99,11 +99,33 @@ async def health_check():
     except Exception:  # noqa: BLE001 - 健康检查不应抛异常
         database = "error"
         logger.exception("数据库探活失败")
+
+    scheduler_running = scheduler_manager.running if hasattr(scheduler_manager, "running") else None
+
+    # 最近事件 + 最近生成时间 — 给运维判断 "服务是否还活着" 用
+    last_event_at: str | None = None
+    last_menu_generate_at: str | None = None
+    try:
+        async with engine.connect() as conn:
+            row = await conn.execute(text("SELECT MAX(received_at) FROM event"))
+            v = row.scalar()
+            if v is not None:
+                last_event_at = v.isoformat() if hasattr(v, "isoformat") else str(v)
+            row = await conn.execute(text("SELECT MAX(created_at) FROM menu"))
+            v = row.scalar()
+            if v is not None:
+                last_menu_generate_at = v.isoformat() if hasattr(v, "isoformat") else str(v)
+    except Exception:
+        pass
+
     payload = {
         "status": "ok" if database == "ok" else "degraded",
         "app": settings.app.name,
         "database": database,
         "version": app.version,
+        "scheduler_running": scheduler_running,
+        "last_event_at": last_event_at,
+        "last_menu_generate_at": last_menu_generate_at,
     }
     if database != "ok":
         return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=payload)
