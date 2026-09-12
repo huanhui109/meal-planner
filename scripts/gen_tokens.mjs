@@ -5,19 +5,27 @@
  *   node scripts/gen_tokens.mjs          写入生成物
  *   node scripts/gen_tokens.mjs --check  只校验是否与源一致 (CI 用)
  *
- * 输出结构 (V2.4 合并 V2.3 的双调色板 + 保留 V2.0 的全令牌):
- *   - :root { --color-*: dark 默认色;  --radius/font/shadow/motion/layout/brand: 静态令牌 }
- *   - :root[data-theme="light"] { --color-*: 亮色色 }
+ * 输出结构 (V2.5 三调色板 + 保留 V2.0 的全令牌):
+ *   - :root { --color-*: cool 默认;  --radius/font/shadow/motion/layout/brand: 静态令牌 }
+ *   - :root[data-theme="cream"] { --color-*: cream 覆盖 }
+ *   - :root[data-theme="dark"]  { --color-*: dark 覆盖 (含 card-2/card-3/ink-disabled 扩展) }
+ *
+ * 命名约定 (V2.5 命名收敛):
+ *   - 旧 `dark`  → **`cool`** (冷灰, 旧 V2.0 默认)
+ *   - 旧 `light` → **`cream`** (奶油, 旧明亮主题)
+ *   - 新 `dark`  → 真·深色, 遵循 Apple HIG / HarmonyOS 暗色规范
  *
  * 设计依据:
  *   * 现有页面样式 95% 都是 var(--color-*) + var(--radius-*) + var(--font-*);
  *     把它们都进 :root, 切换主题时只需要重新覆盖颜色一组变量即可,
- *     老用户升级零感知 (默认主题的 :root 与旧版逐字节相同)。
- *   * 静态令牌 (圆角/字号/阴影/动效/布局/品牌色) 在两套主题下保持不变,
- *     不暴露 `[data-theme="light"]` 覆盖块, 减少重复。
- *   * 黑色胶囊 (pill--ink / .next-step / .app-tab.is-active) 在两套下都用
- *     var(--color-ink); 亮色下 ink = #2C2C2A (几乎与 #1c1c1e 不可辨),
- *     黑色胶囊的"品牌识别"自然跨主题稳住。
+ *     老用户升级零感知 (默认主题的 :root 与 V2.0 逐字节相同)。
+ *   * 静态令牌 (圆角/字号/阴影/动效/布局/品牌色) 在三套主题下保持不变,
+ *     不暴露 `[data-theme="..."]` 覆盖块, 减少重复。
+ *   * `data-theme="auto"` 由 useThemeStore 在运行时根据 prefers-color-scheme
+ *     解析为 cool 或 dark, 不需要 CSS 端 `@media` (避免与显式选择冲突)。
+ *   * 黑色胶囊 (pill--ink / .next-step / .app-tab.is-active) 在 cool/cream 下用
+ *     var(--color-ink) 保持黑底; 在 dark 下用 var(--color-on-ink) 翻成白底黑字
+ *     (Apple 暗色下系统色按钮反色)。
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -57,11 +65,19 @@ function flatten(node, prefix = []) {
 }
 
 // ---------------------------------------------------------------------------
-// 颜色: --color-* (双调色板: :root 默认暗 + :root[data-theme=light] 亮)
+// 颜色: --color-* (三调色板: :root 默认 cool + cream / dark 覆盖)
 // ---------------------------------------------------------------------------
 
 const colorEntries = flatten(tokens.color, ['color'])
-const lightColorEntries = flatten(palettes.light, ['color'])
+const creamColorEntries = flatten(palettes.cream, ['color'])
+const darkColorEntries = flatten(palettes.dark, ['color'])
+
+// dark 调色板比 cool/cream 多三个字段 (card-2 / card-3 / ink-disabled),
+// 它们是深色模式专属的"二级/三级 surface"和"禁用态"; 在 :root 默认块里
+// 也要给出回退值, 否则 cool/cream 主题下 var(--color-card-2) 会失效
+const darkOnlyColorNames = darkColorEntries
+  .map(([name]) => name)
+  .filter((name) => !colorEntries.some(([n]) => n === name))
 
 // ---------------------------------------------------------------------------
 // 静态令牌: radius / font / shadow / motion / layout / brand (只一份, 不分主题)
@@ -76,11 +92,44 @@ const staticEntries = [
   ...flatten(tokens.brand, ['brand']),
 ]
 
-const rootEntries = [...colorEntries, ...staticEntries]
+// :root 默认块: 全部颜色 (cool) + dark 专属颜色的 cool 回退 + 全部静态令牌
+const rootEntries = [
+  ...colorEntries,
+  // dark 专属字段在 :root 用 cool 调色板里的"相邻字段"做回退, 避免 var(--color-card-2) 在浅色下失效
+  ...darkOnlyColorNames.map((name) => {
+    // card-2 / card-3 → card; ink-disabled → ink3
+    const fallbackKey = name === 'color-card-2' || name === 'color-card-3'
+      ? 'color-card'
+      : name === 'color-ink-disabled'
+        ? 'color-ink3'
+        : null
+    const fallback = fallbackKey ? colorEntries.find(([n]) => n === fallbackKey) : null
+    return [name, fallback ? fallback[1] : 'transparent']
+  }),
+  ...staticEntries,
+]
 
 // ---------------------------------------------------------------------------
-// CSS: :root { 全部 } + :root[data-theme=light] { --color-* }
+// CSS: :root { 全部 } + :root[data-theme=cream] { --color-* } + :root[data-theme=dark] { --color-* }
 // ---------------------------------------------------------------------------
+
+function buildOverrideBlock(selector, paletteEntries) {
+  // paletteEntries 与 colorEntries 顺序一一对应 (flatten 顺序与 Object.entries 一致)
+  // 但 dark 可能多出字段, 用名字匹配而不是 index 匹配更稳
+  return [
+    selector + ' {',
+    ...colorEntries.map(([name]) => {
+      const found = paletteEntries.find(([n]) => n === name)
+      return `  --${name}: ${found ? found[1] : 'inherit'};`
+    }),
+    // dark 多出的字段也写进 dark 覆盖块; cream 覆盖块不带这些
+    ...paletteEntries
+      .filter(([name]) => !colorEntries.some(([n]) => n === name))
+      .map(([name, value]) => `  --${name}: ${value};`),
+    '}',
+    '',
+  ]
+}
 
 const cssLines = [
   HEADER_CSS,
@@ -88,18 +137,28 @@ const cssLines = [
   ...rootEntries.map(([name, value]) => `  --${name}: ${value};`),
   '}',
   '',
-  ':root[data-theme="light"] {',
-  ...colorEntries.map(([name], index) => {
-    const [, lightValue] = lightColorEntries[index]
-    return `  --${name}: ${lightValue};`
-  }),
-  '}',
-  '',
+  ...buildOverrideBlock(':root[data-theme="cream"]', creamColorEntries),
+  ...buildOverrideBlock(':root[data-theme="dark"]', darkColorEntries),
 ]
 
 // ---------------------------------------------------------------------------
-// SCSS: 全部 token (含 $color-*) + page{} (暗) + page.theme-light{} (亮)
+// SCSS: 全部 token (含 $color-*) + page{} (cool) + page.theme-cream{} + page.theme-dark{}
 // ---------------------------------------------------------------------------
+
+function buildScssOverrideBlock(selector, paletteEntries) {
+  return [
+    selector + ' {',
+    ...colorEntries.map(([name]) => {
+      const found = paletteEntries.find(([n]) => n === name)
+      return `  --${name}: ${found ? found[1] : 'inherit'};`
+    }),
+    ...paletteEntries
+      .filter(([name]) => !colorEntries.some(([n]) => n === name))
+      .map(([name, value]) => `  --${name}: ${value};`),
+    '}',
+    '',
+  ]
+}
 
 const scssLines = [
   HEADER_SCSS,
@@ -110,13 +169,8 @@ const scssLines = [
   ...colorEntries.map(([name, value]) => `  --${name}: ${value};`),
   '}',
   '',
-  'page.theme-light {',
-  ...colorEntries.map(([name], index) => {
-    const [, lightValue] = lightColorEntries[index]
-    return `  --${name}: ${lightValue};`
-  }),
-  '}',
-  '',
+  ...buildScssOverrideBlock('page.theme-cream', creamColorEntries),
+  ...buildScssOverrideBlock('page.theme-dark', darkColorEntries),
 ]
 
 const targets = [
@@ -141,7 +195,7 @@ for (const [relative, content] of targets) {
   }
   mkdirSync(dirname(absolute), { recursive: true })
   writeFileSync(absolute, content, 'utf8')
-  console.log(`写入 ${relative} (${rootEntries.length} 个令牌, ${colorEntries.length} 个颜色 × 2 调色板)`)
+  console.log(`写入 ${relative} (${rootEntries.length} 个令牌, ${colorEntries.length} 个颜色 × 3 调色板)`)
 }
 
 if (check && failed) process.exit(1)

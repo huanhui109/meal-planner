@@ -22,9 +22,9 @@ export default function LoginPage() {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [theme] = useTheme()
-  // 暗色 UI 配 inverse (白容框), 亮色 UI 配 default (深容框), 与 H5 LogoMark 规则一致
-  const logoSrc = theme === 'dark' ? LOGO_MARK_DATA_URI_DARK : LOGO_MARK_DATA_URI
+  const [theme, , applied] = useTheme()
+  // 暗色 / 明亮 UI 配 inverse (白容框), 冷色 UI 配 default (深容框), 与 H5 LogoMark 规则一致
+  const logoSrc = applied !== 'cool' ? LOGO_MARK_DATA_URI_DARK : LOGO_MARK_DATA_URI
 
   const enter = useCallback(() => {
     Taro.switchTab({ url: '/pages/today/index' })

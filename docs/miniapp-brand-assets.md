@@ -102,14 +102,16 @@ import { LOGO_MARK_DATA_URI } from '../../lib/logo'
 - [ ] 改文案：只改 `shared/brand.ts`（+ `config/default.yaml`）。
 - [ ] 提交前跑两个 `--check`，避免 CI 挂。
 
-## 5. 双调色板（暗色 / 明亮）
+## 5. 调色板（V2.5: 冷色 / 明亮 / 真·深色 + auto）
 
-两套色板都从 `shared/tokens.ts` 的 `palettes.{dark, light}` 一处取，生成器同时产出覆盖块：
+V2.5 起调色板命名收敛: `dark` → `cool`、`light` → `cream`、新 `dark` = 真·深色, 详见 [`docs/requirements-v2.5-dark-mode.md`](requirements-v2.5-dark-mode.md)。
 
-| 端 | 默认块 | 切换块 |
-| --- | --- | --- |
-| H5 `frontend/src/styles/tokens.css` | `:root { --color-* }` | `:root[data-theme="light"] { --color-* }` |
-| 小程序 `miniapp/src/styles/_tokens.scss` | `page { --color-* }` | `page.theme-light { --color-* }` |
+三套色板都从 `shared/tokens.ts` 的 `palettes.{cool, cream, dark}` 一处取, 生成器同时产出三组覆盖块:
+
+| 端 | 默认块 (=cool) | cream 覆盖 | dark 覆盖 |
+| --- | --- | --- | --- |
+| H5 `frontend/src/styles/tokens.css` | `:root { --color-* }` | `:root[data-theme="cream"] { --color-* }` | `:root[data-theme="dark"] { --color-* }` |
+| 小程序 `miniapp/src/styles/_tokens.scss` | `page { --color-* }` | `page.theme-cream { --color-* }` | `page.theme-dark { --color-* }` |
 
 ### 5.1 两套语义色映射
 
@@ -136,7 +138,7 @@ import { LOGO_MARK_DATA_URI } from '../../lib/logo'
 ### 5.3 切换方式
 
 - **H5**：`frontend/src/stores/useThemeStore.ts` 提供 `useThemeStore()`；`initTheme()` 在 `main.tsx` 启动前同步写 `html[data-theme]`，避免首屏闪一下；`main.tsx` 的 `<ThemedProviders>` 读 store 动态给 antd 注 token；「我的」抽屉里有 AppearanceCard 切换按钮。
-- **小程序**：`miniapp/src/lib/theme.ts` 提供 `useTheme()`；`initTheme()` 在 `app` 启动时同步挂 `page.theme-light` + 写 storage + `setNavigationBarColor`；「我的」页有外观分组。
+- **小程序**：`miniapp/src/lib/theme.ts` 提供 `useTheme()`；`initTheme()` 在 `app` 启动时同步挂 `data-theme` (H5 构建) / 写 storage + `setNavigationBarColor`；「我的」页有外观分组（V2.5: 冷色 / 明亮 / 深色 / 自动 四按钮）。
 
 ### 5.4 Logo 跟随主题
 

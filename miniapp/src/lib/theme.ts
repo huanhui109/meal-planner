@@ -1,24 +1,42 @@
 /**
- * 主题 (亮 / 暗) — 小程序侧
+ * 主题 — 小程序侧 (V2.5: 冷色 / 明亮 / 深色 + auto 跟随)
  *
  * 设计:
- *   * 状态写到 `page.theme-light` 类, 由 _tokens.scss 的 `page.theme-light{}` 覆盖 CSS 变量。
- *   * 持久化用 Taro.setStorageSync('mp-theme', value)。
- *   * 切换时同步调 Taro.setNavigationBarColor, 让顶部导航条跟着变; 但 TabBar 走的是原生
- *     tabBar 配置 (color/selectedColor/backgroundColor) 不能运行时改, 所以 miniapp 自定义
- *     tabBar (custom-tab-bar) 直接读 var(--color-ink) / var(--color-ink3), 与 CSS 变量打通。
+ *   * 状态写到 `page.theme-cream` / `page.theme-dark` 类 (V2.5 命名收敛: `theme-light` → `theme-cream`),
+ *     由 _tokens.scss 的 `page.theme-cream{}` / `page.theme-dark{}` 覆盖 CSS 变量。
+ *   * 持久化用 Taro.setStorageSync('mp-theme:v2', value), 旧 key 'mp-theme' 自动迁移。
+ *   * 切换时同步调 Taro.setNavigationBarColor, 让顶部导航条跟着变; TabBar 走自定义
+ *     (custom-tab-bar), 直接读 var(--color-ink) / var(--color-ink3) 跟 CSS 变量打通。
  *
- * 默认值: 用户决策"默认亮色", 首次进入 = 'light'。
+ * 默认值: V2.5 起默认 'cream' (明亮), 与 H5 一致。
+ *
+ * auto 模式:
+ *   * 持久化 'auto' 字符串
+ *   * 实际写到 page class / data-theme 的是 'cool' 或 'dark'
+ *   * H5 构建下, 监听 prefers-color-scheme 变化, 实时切换
+ *   * 微信小程序无法监听系统, auto 退化为"启动时定格" (冷色 / 深色 由系统当前态决定)
  *
  * useTheme hook 用一个自制的轻量订阅 (Taro 没有 React 上下文, 用全局 EventTarget 简化),
  * 任何调用方 useTheme() 都会在 setTheme 后强制重新渲染。
  */
 import Taro from '@tarojs/taro'
+import { palettes, resolveAutoTheme, type PaletteName } from '@shared/index'
 
-export type ThemeName = 'light' | 'dark'
+export type ThemeName = PaletteName | 'auto'
 
-const STORAGE_KEY = 'mp-theme'
-const DEFAULT_THEME: ThemeName = 'light'
+const STORAGE_KEY = 'mp-theme:v2'
+const STORAGE_KEY_LEGACY = 'mp-theme'
+const DEFAULT_THEME: ThemeName = 'cream'
+
+const isValidTheme = (v: unknown): v is ThemeName =>
+  v === 'cool' || v === 'cream' || v === 'dark' || v === 'auto'
+
+/** 老值 (dark/light) 映射到新值 (cool/cream) */
+const migrateLegacyValue = (raw: string): ThemeName => {
+  if (raw === 'dark') return 'cool'
+  if (raw === 'light') return 'cream'
+  return isValidTheme(raw) ? raw : DEFAULT_THEME
+}
 
 const emitter = typeof Taro !== 'undefined' && typeof globalThis !== 'undefined'
   ? new (class {
@@ -34,11 +52,23 @@ const emitter = typeof Taro !== 'undefined' && typeof globalThis !== 'undefined'
   : null
 
 let current: ThemeName = DEFAULT_THEME
+let applied: PaletteName = 'cool'
 
 const readPersisted = (): ThemeName => {
   try {
     const raw = Taro.getStorageSync(STORAGE_KEY) as unknown
-    if (raw === 'dark' || raw === 'light') return raw
+    if (raw && isValidTheme(raw)) return raw
+    const legacy = Taro.getStorageSync(STORAGE_KEY_LEGACY) as unknown
+    if (legacy) {
+      const migrated = migrateLegacyValue(String(legacy))
+      try {
+        Taro.setStorageSync(STORAGE_KEY, migrated)
+        Taro.removeStorageSync(STORAGE_KEY_LEGACY)
+      } catch {
+        /* ignore */
+      }
+      return migrated
+    }
   } catch {
     /* storage 不可用 */
   }
@@ -54,43 +84,45 @@ const writePersisted = (value: ThemeName) => {
 }
 
 /** 顶部导航条颜色映射: 与 tokens.palettes 的 navBar 色对应 */
-const NAVBAR_COLOR: Record<ThemeName, { background: string; frontColor: 'black' | 'white' }> = {
-  light: { background: '#FBF9F4', frontColor: 'black' },
-  dark:  { background: '#e9e9ee', frontColor: 'black' },
+const NAVBAR_COLOR: Record<PaletteName, { background: string; frontColor: 'black' | 'white' }> = {
+  cool: { background: palettes.cool.bg, frontColor: 'black' },
+  cream: { background: palettes.cream.bg, frontColor: 'black' },
+  dark: { background: palettes.dark.bg, frontColor: 'white' },
 }
 
 /**
  * 把主题写到 DOM + storage + 顶部导航条
  *
  * 三端覆盖策略:
- *   1) H5 模式 (Taro h5 编译目标): 直接 document.documentElement.setAttribute('data-theme', value),
- *      与 :root[data-theme="light"] 配套, 立刻生效。
+ *   1) H5 模式 (Taro h5 编译目标): 直接 document.documentElement.setAttribute('data-theme', explicit),
+ *      与 :root[data-theme="cream"] / [data-theme="dark"] 配套, 立刻生效。
  *   2) 微信小程序: page 元素的 class 无法在运行时直接写, 但每个 page 自带 page 标签;
- *      我们把 data-theme 写到 currentPages[0].data.theme, 让 page.theme-light{} 的
- *      CSS 选择器命中 (Taro 会把 page.theme-light 编译成 page[theme-light])。
- *      实际效果: 通过 page.theme-light{} 覆盖块运行时仍可能不刷新, 所以再叠
- *      setNavigationBarColor 让顶部导航条颜色立刻变, 至少视觉上有反馈。
+ *      用 page.theme-cream / page.theme-dark 类 (Taro 编译时映射)。如果 page 元素 class
+ *      写不了, 至少 nav bar 颜色能立即变, 给用户视觉反馈。
  *   3) 顶部导航条颜色通过 Taro.setNavigationBarColor 同步, 三端一致。
  */
-export function applyTheme(value: ThemeName) {
+export function applyTheme(value: ThemeName): PaletteName {
   current = value
+  const explicit: PaletteName = value === 'auto' ? resolveAutoTheme() : value
+  applied = explicit
+
   // 1) H5 / Web 端
   if (typeof document !== 'undefined') {
     try {
-      document.documentElement.setAttribute('data-theme', value)
+      document.documentElement.setAttribute('data-theme', explicit)
     } catch {
       /* ignore */
     }
   }
-  // 2) 小程序端: 尝试给当前 page 挂 theme-light / theme-dark 类
-  // Taro 没有直接的 API 改 page 根元素 class, 但 h5/web 端 document.documentElement 已覆盖
+  // 2) 持久化
   try {
     Taro.setStorageSync(STORAGE_KEY, value)
   } catch {
     /* ignore */
   }
   writePersisted(value)
-  const nav = NAVBAR_COLOR[value]
+  // 3) 顶部导航条
+  const nav = NAVBAR_COLOR[explicit]
   try {
     Taro.setNavigationBarColor({
       frontColor: nav.frontColor,
@@ -101,35 +133,58 @@ export function applyTheme(value: ThemeName) {
     /* ignore */
   }
   emitter?.emit()
+  return explicit
 }
 
 export function getTheme(): ThemeName {
   return current
 }
 
+export function getApplied(): PaletteName {
+  return applied
+}
+
 export function setTheme(value: ThemeName) {
   applyTheme(value)
 }
 
-/** 在 app.tsx 启动时调用一次 */
-export function initTheme() {
-  applyTheme(readPersisted())
+/** 在 app.tsx 启动时调用一次; 返回 unsubscribe, 组件可在 useEffect 里调 */
+export function initTheme(): () => void {
+  const value = readPersisted()
+  applyTheme(value)
+
+  // auto 模式下 (H5 构建) 监听系统主题变化
+  if (typeof window === 'undefined' || !window.matchMedia) return () => undefined
+  const mql = window.matchMedia('(prefers-color-scheme: dark)')
+  const onChange = () => {
+    if (current === 'auto') applyTheme('auto')
+  }
+  if (mql.addEventListener) mql.addEventListener('change', onChange)
+  else if (mql.addListener) mql.addListener(onChange)
+  return () => {
+    if (mql.removeEventListener) mql.removeEventListener('change', onChange)
+    else if (mql.removeListener) mql.removeListener(onChange)
+  }
 }
 
 /**
  * useTheme() —— React 组件里订阅主题, 主题切换后 forceUpdate
  *
- * 实现: 用一个 mini store + useState; 收到 emitter 回调后 setState 一个新对象触发 re-render。
+ * 返回 [theme, setTheme, applied], 其中 applied 是 auto 模式解析后的实际主题,
+ * 给 Logo 这种"按显式主题走"的组件用。
  */
 import { useEffect, useState } from 'react'
 
-export function useTheme(): [ThemeName, (value: ThemeName) => void] {
+export function useTheme(): [ThemeName, (value: ThemeName) => void, PaletteName] {
   const [, setTick] = useState(0)
   useEffect(() => {
     if (!emitter) return
-    return emitter.on(() => setTick((n) => n + 1))
+    const unsubscribe = emitter.on(() => setTick((n) => n + 1))
+    return () => {
+      unsubscribe()
+    }
   }, [])
-  return [current, setTheme]
+  return [current, setTheme, applied]
 }
 
 /**

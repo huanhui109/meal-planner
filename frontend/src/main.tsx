@@ -22,12 +22,13 @@ const queryClient = new QueryClient({
 })
 
 /**
- * 跟随主题的 ConfigProvider 包装: 读 store 里的 theme 字段, 动态产 antd token。
- * html[data-theme] 已经把 var(--color-*) 切了, antd 这一层也跟过来才能整体统一。
+ * 跟随主题的 ConfigProvider 包装: 读 store 里的 `applied` 字段 (而非 `theme`),
+ * 这样 auto 模式下 antd 也能拿到解析后的 cool/dark。html[data-theme] 已经把
+ * var(--color-*) 切了, antd 这一层也跟过来才能整体统一。
  */
 const ThemedProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const theme = useThemeStore((s) => s.theme)
-  return <ConfigProvider theme={buildAntdTheme(theme)} locale={zhCN}>{children}</ConfigProvider>
+  const applied = useThemeStore((s) => s.applied)
+  return <ConfigProvider theme={buildAntdTheme(applied)} locale={zhCN}>{children}</ConfigProvider>
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

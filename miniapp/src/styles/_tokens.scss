@@ -17,6 +17,9 @@ $color-warn-soft: rgba(255, 159, 10, 0.12);
 $color-danger: #ff3b30;
 $color-danger-soft: rgba(255, 59, 48, 0.12);
 $color-glass: rgba(255, 255, 255, 0.82);
+$color-card2: transparent;
+$color-card3: transparent;
+$color-ink-disabled: #c7c7cc;
 $radius-xl: 28px;
 $radius-lg: 22px;
 $radius-md: 16px;
@@ -80,7 +83,7 @@ page {
   --color-glass: rgba(255, 255, 255, 0.82);
 }
 
-page.theme-light {
+page.theme-cream {
   --color-bg: #FBF9F4;
   --color-screen: #FFFFFF;
   --color-card: #FFFFFF;
@@ -99,4 +102,28 @@ page.theme-light {
   --color-danger: #ff3b30;
   --color-danger-soft: rgba(255, 59, 48, 0.12);
   --color-glass: rgba(255, 254, 250, 0.82);
+}
+
+page.theme-dark {
+  --color-bg: #000000;
+  --color-screen: #0A0A0C;
+  --color-card: #1C1C1E;
+  --color-ink: #FFFFFF;
+  --color-ink2: rgba(235, 235, 245, 0.60);
+  --color-ink3: rgba(235, 235, 245, 0.30);
+  --color-line: rgba(84, 84, 88, 0.65);
+  --color-fill: rgba(118, 118, 128, 0.24);
+  --color-on-ink: #000000;
+  --color-accent: #30D158;
+  --color-accent-ink: #30D158;
+  --color-accent-soft: rgba(48, 209, 88, 0.20);
+  --color-warn: #FF9F0A;
+  --color-warn-ink: #FFD60A;
+  --color-warn-soft: rgba(255, 159, 10, 0.20);
+  --color-danger: #FF453A;
+  --color-danger-soft: rgba(255, 69, 58, 0.20);
+  --color-glass: rgba(28, 28, 30, 0.72);
+  --color-card2: #2C2C2E;
+  --color-card3: #3A3A3C;
+  --color-ink-disabled: rgba(235, 235, 245, 0.18);
 }

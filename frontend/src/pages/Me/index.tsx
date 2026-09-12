@@ -189,7 +189,21 @@ const AppearanceCard: React.FC = () => {
       <div className="card-head">
         <div className="card-title">外观</div>
       </div>
-      <div className="theme-switch">
+      <div className="theme-switch theme-switch--4">
+        <PillButton
+          variant={theme === 'cool' ? 'ink' : 'gray'}
+          size="sm"
+          onClick={() => setTheme('cool')}
+        >
+          冷色
+        </PillButton>
+        <PillButton
+          variant={theme === 'cream' ? 'ink' : 'gray'}
+          size="sm"
+          onClick={() => setTheme('cream')}
+        >
+          明亮
+        </PillButton>
         <PillButton
           variant={theme === 'dark' ? 'ink' : 'gray'}
           size="sm"
@@ -198,11 +212,11 @@ const AppearanceCard: React.FC = () => {
           深色
         </PillButton>
         <PillButton
-          variant={theme === 'light' ? 'ink' : 'gray'}
+          variant={theme === 'auto' ? 'ink' : 'gray'}
           size="sm"
-          onClick={() => setTheme('light')}
+          onClick={() => setTheme('auto')}
         >
-          明亮
+          自动
         </PillButton>
       </div>
     </Card>

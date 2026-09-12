@@ -561,7 +561,21 @@ export default function ProfilePage() {
 
       <View className="set-group" style={{ marginTop: 14 }}>
         <View className="set-group__title">外观</View>
-        <View style={{ display: 'flex', gap: px(10), padding: '0 18px 18px' }}>
+        <View style={{ display: 'flex', gap: px(8), padding: '0 18px 18px' }}>
+          <PillButton
+            variant={theme === 'cool' ? 'ink' : 'gray'}
+            size="sm"
+            onClick={() => setTheme('cool')}
+          >
+            冷色
+          </PillButton>
+          <PillButton
+            variant={theme === 'cream' ? 'ink' : 'gray'}
+            size="sm"
+            onClick={() => setTheme('cream')}
+          >
+            明亮
+          </PillButton>
           <PillButton
             variant={theme === 'dark' ? 'ink' : 'gray'}
             size="sm"
@@ -570,11 +584,11 @@ export default function ProfilePage() {
             深色
           </PillButton>
           <PillButton
-            variant={theme === 'light' ? 'ink' : 'gray'}
+            variant={theme === 'auto' ? 'ink' : 'gray'}
             size="sm"
-            onClick={() => setTheme('light')}
+            onClick={() => setTheme('auto')}
           >
-            明亮
+            自动
           </PillButton>
         </View>
       </View>

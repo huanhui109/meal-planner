@@ -1837,6 +1837,67 @@ select {
   flex: 1;
 }
 
+.theme-switch--4 {
+  gap: 8px;
+}
+
+.theme-switch--4 .pill {
+  font-size: 13px;
+  padding: 0 6px;
+}
+
+/* ===== 真·深色主题覆盖 (V2.5) =====
+ * 在 cool/cream 下靠 token 即可; dark 模式下还需要改:
+ *   - 阴影弱化 (阴影在纯黑底上看不见, 用 1px hairline 描边代替)
+ *   - 玻璃底加深
+ *   - 主按钮 (pill--ink) 反色: 黑底白字 → 白底黑字
+ *   - AppShell 顶栏 / TabBar 加底色, 避免与卡片混淆
+ *   - 滚动条 / 选中态 微调
+ */
+:root[data-theme="dark"] body {
+  /* 滚动条暗色版 */
+  scrollbar-color: rgba(235, 235, 245, 0.18) transparent;
+}
+
+:root[data-theme="dark"] .card {
+  box-shadow: 0 0 0 1px var(--color-line);
+}
+
+:root[data-theme="dark"] .app-sidebar {
+  background: var(--color-card);
+  border-right-color: var(--color-line);
+}
+
+:root[data-theme="dark"] .app-topbar {
+  background: var(--color-card);
+}
+
+:root[data-theme="dark"] .pill--ink {
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+}
+
+:root[data-theme="dark"] .next-step {
+  box-shadow: 0 0 0 1px var(--color-line);
+}
+
+:root[data-theme="dark"] .next-step .pill--gray {
+  background: rgba(118, 118, 128, 0.24);
+  color: var(--color-ink);
+}
+
+:root[data-theme="dark"] .next-step-head .next-step-label {
+  color: var(--color-ink2);
+}
+
+:root[data-theme="dark"] .bar {
+  background: rgba(118, 118, 128, 0.24);
+}
+
+:root[data-theme="dark"] .bar i {
+  background: var(--color-ink);
+}
+
 .set-value {
   display: flex;
   align-items: center;

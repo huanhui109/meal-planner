@@ -26,8 +26,8 @@ const TABS: TabItem[] = [
   { pagePath: '/pages/fridge/index', text: '冰箱', icon: 'box' },
 ]
 
-// 颜色直接走 CSS 变量 —— 主题切换时 var(--color-ink) 会跟着 page.theme-light 一起变。
-// 这里给的是非颜色态的"格式", 真正的色值由 _tokens.scss 的 page{} / page.theme-light{} 提供。
+// 颜色直接走 CSS 变量 —— 主题切换时 var(--color-ink) 会跟着 page.theme-* 一起变。
+// 这里给的是非颜色态的"格式", 真正的色值由 _tokens.scss 的 page{} / page.theme-cream{} / page.theme-dark{} 提供。
 const ACTIVE = 'var(--color-ink)'
 const IDLE = 'var(--color-ink3)'
 

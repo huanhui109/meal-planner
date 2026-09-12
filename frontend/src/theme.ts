@@ -5,16 +5,22 @@
  * 页面里就不用逐个覆写样式了。设计令牌来自 shared/tokens.ts。
  *
  * 主题跟随: antd 的 token 也需要随 UI 主题切换 (因为 antd 的 Modal/Input 不会读我们的
- * var(--color-*), 必须直接给它 token 值)。所以这里导出 `buildAntdTheme(theme)`,
- * 在 main.tsx 里通过 ThemeProviderWrapper 读 useThemeStore() 动态注入。
+ * var(--color-*), 必须直接给它 token 值)。所以这里导出 `buildAntdTheme(applied)`,
+ * 在 main.tsx 里通过 ThemedProviders 读 useThemeStore().applied 动态注入。
+ *
+ * V2.5: 用 `applied` 字段 (而非 theme) —— auto 模式下 applied 才是实际生效主题,
+ * 否则 antd 看到 'auto' 会用默认色, 跟 html[data-theme] 不一致。
  */
 import type { ThemeConfig } from 'antd'
-import { tokens, palettes } from '@shared/tokens'
+import { theme as antdThemeAlg } from 'antd'
+import { tokens, palettes, type PaletteName } from '@shared/index'
 
-/** antd ThemeConfig 不吃 rgba 字符串以外的"颜色态"; 我们直接传语义色字符串 */
-const buildAntdTheme = (theme: 'light' | 'dark'): ThemeConfig => {
-  const p = palettes[theme]
+const buildAntdTheme = (applied: PaletteName): ThemeConfig => {
+  const p = palettes[applied]
   return {
+    // 真·深色下用 antd 5 自带的 dark algorithm (它会处理 Switch/DatePicker 等
+    // 内部子组件的暗色调; 我们自己的 token 仍由 palettes.dark 提供)
+    algorithm: applied === 'dark' ? antdThemeAlg.darkAlgorithm : antdThemeAlg.defaultAlgorithm,
     token: {
       colorPrimary: p.ink,
       colorInfo: p.ink,
@@ -26,6 +32,7 @@ const buildAntdTheme = (theme: 'light' | 'dark'): ThemeConfig => {
       colorTextTertiary: p.ink3,
       colorBgLayout: p.screen,
       colorBgContainer: p.card,
+      colorBgElevated: applied === 'dark' ? palettes.dark.card2 : p.card,
       colorBorder: p.line,
       colorBorderSecondary: p.line,
       colorFillSecondary: p.fill,
@@ -53,7 +60,7 @@ const buildAntdTheme = (theme: 'light' | 'dark'): ThemeConfig => {
 }
 
 // 旧版默认导出: 保持向后兼容 (调用方可能还在用 default import)
-export const antdTheme: ThemeConfig = buildAntdTheme('light')
+export const antdTheme: ThemeConfig = buildAntdTheme('cool')
 
 export { buildAntdTheme }
 

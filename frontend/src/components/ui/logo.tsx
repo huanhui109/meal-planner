@@ -1,17 +1,19 @@
 /**
- * 品牌标识
+ * 品牌标识 (V2.5: 三主题 + auto 跟随)
  *
  * 图标本体是 assets/logo/logo-mark.svg (由 scripts/gen_logo.mjs 生成),
  * 这里只负责尺寸与无障碍属性, 不在代码里重画一遍几何, 避免 Logo 走样。
  *
- * 主题跟随 (V2.4 修正: 命名与映射对齐用户认知):
- *   - assets/logo/logo-mark.svg        —— 默认版, 深色容框 (深灰/冷色场景使用)
- *   - assets/logo/logo-mark-inverse.svg —— 反白版, 白色容框 (明亮/奶油场景使用)
+ * 主题跟随:
+ *   - assets/logo/logo-mark.svg        —— 默认版, 深色容框 (冷色场景使用)
+ *   - assets/logo/logo-mark-inverse.svg —— 反白版, 白色容框 (明亮/真·深色场景使用)
  *   - 显式传 `inverse`   时强制白底容框, 优先级最高 (给硬性深色场景如启动封面/分享卡)
  *   - 显式传 `lightFrame` 强制深容框, 用于深色 UI 上的固定位置
  *
- * 自动推断: 明亮主题 = 白底容框 (亮色 UI 上的 logo 与奶油底融为一体, 只露出锅/蛋黄);
- *           深色主题 = 深色容框 (深色 UI 上的 logo 整体压暗, 保持品牌识别)。
+ * 自动推断 (按 `applied` 字段, auto 模式下用解析后的实际主题):
+ *   - cool  → 深色容框 (深色框压在冷灰底上, 品牌识别稳)
+ *   - cream → 白底容框 (白框融入奶油底, 只露出锅/蛋黄/木柄)
+ *   - dark  → 白底容框 (白框融入 #000, 只露出锅/蛋黄, 深色态下"反白"是 Apple HIG 惯例)
  */
 import React from 'react'
 import { brand } from '@shared/index'
@@ -33,10 +35,10 @@ export const LogoMark: React.FC<LogoMarkProps> = ({
   lightFrame,
   className = '',
 }) => {
-  const theme = useThemeStore((s) => s.theme)
+  // 用 applied (而非 theme) —— auto 模式下 applied 才是实际生效的 cool/dark
+  const applied = useThemeStore((s) => s.applied)
   // 优先级: explicit inverse > explicit lightFrame > 主题推断
-  // 推断规则: 明亮主题 → 白底容框 (与奶油背景融为一体), 深色主题 → 深色容框
-  const useInverse = inverse ?? (lightFrame ? false : theme === 'light')
+  const useInverse = inverse ?? (lightFrame ? false : applied !== 'cool')
   return (
     <img
       className={`logo-mark ${className}`.trim()}
