@@ -18,6 +18,7 @@
 | 2 | `project.config.json` 的 `urlCheck: true`，本地请求 127.0.0.1 被拦 | 高 | ✅ 已修 |
 | 3 | 后端地址硬编码 `127.0.0.1:8000`，真机必然连不上 | 高 | ✅ 已修（可配置） |
 | 4 | `taro build` 会整体清空 `dist/`，触发工具误报 `app.json 不存在` | 中（自愈） | ✅ 已说明+规避 |
+| 5 | 只跑过 `taro build --type h5`，`dist/` 从未完整构建，工具报"未找到 app.json" | 中 | ✅ 已修（V2.5 收口） |
 
 ---
 
@@ -90,6 +91,37 @@ updateAppCode app.js Error: The file app.json doesn't exist
 
 构建写回文件后这些错误会自愈，但期间工具会显示"app.json 不存在 / 白屏"，
 容易被误判成"小程序坏了"。
+
+### 根因 5（中）：从未跑过 weapp 构建，`dist/` 是空的
+
+`miniapp/` 的 Taro 配置用 `isH5 = process.argv.includes('h5')` 决定 `outputRoot`
+（`dist/` 或 `dist-h5/`）。最近一次开发只跑过 h5，于是 `dist-h5/` 里有完整产物
+（`index.html`、`js/`、`css/`），而 `dist/` 里**只有一个 `project.config.json`**
+（来自 sourceRoot 的 copy），完全缺 `app.json` / `app.js` / `app.wxss` / `pages/`。
+
+开发者工具按 `miniprogramRoot: "dist/"` 去找 `app.json` → 直接报：
+
+```
+根据 project.config.json 中 miniprogramRoot 指定的小程序目录 dist/，
+在该目录下未找到 app.json。
+```
+
+**修复**：
+
+1. 在 `miniapp/config/index.ts` 改用 `process.env.TARO_ENV === 'h5'` 判断
+   （Taro 4 官方约定，CI / 嵌套调用稳定，命令行字符串匹配易误判）；
+2. `miniapp/package.json` 补 `build:h5` / `dev:h5` 两个 npm script，
+   让构建命令成为**唯一**触发入口；
+3. 加 `miniapp/BUILD.md` 一份构建产物地图，避免开发者工具选错导入目录；
+4. 跑一次完整的 `npm run build:weapp`，让 `dist/` 恢复全部产物。
+
+**预防**：
+
+- 始终用 `npm run build:h5` / `build:weapp` / `dev:weapp`，不要直接调 `taro build`。
+- Taro 会整体清空 `outputRoot`，**两个平台不要共用同一个输出目录**（本项目
+  分别用 `dist/` 和 `dist-h5/`）。
+- 开发者工具导入项目时目录选 **`miniapp/`**，**不要选 `miniapp/dist/`**——
+  工具会读 `project.config.json` 里的 `miniprogramRoot` 自动定位。
 
 ---
 

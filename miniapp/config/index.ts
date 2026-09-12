@@ -11,7 +11,14 @@ const sharedDir = path.resolve(__dirname, '..', '..', 'shared')
 // weapp 与 h5 共用 config.outputRoot(全局, 无法按平台分目录);
 // DevTools 的 miniprogramRoot 指向 dist/, 故 weapp 必须留在 dist/,
 // h5 单独输出到 dist-h5, 否则互相覆盖会导致 "dist/app.json 找不到"。
-const isH5 = process.argv.includes('h5')
+//
+// 用 TARO_ENV 而不是 process.argv.includes('h5') 的原因:
+//   1. Taro 4 在调用 defineConfig 之前已经把 --type 解析到 process.env.TARO_ENV,
+//      这是官方约定, 所有内部插件 (mini/h5) 都读这个值
+//   2. argv.includes('h5') 在 CI / scripts / npm 嵌套调用时容易误判 (例如
+//      父脚本名恰好叫 h5.sh), TARO_ENV 是受控环境变量, 更稳
+//   3. 通过 --type=h5 时 TARO_ENV='h5', --type=weapp 时 TARO_ENV='weapp'
+const isH5 = process.env.TARO_ENV === 'h5'
 
 export default defineConfig<'webpack5'>(async (merge) => {
   const baseConfig: UserConfigExport<'webpack5'> = {
