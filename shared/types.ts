@@ -508,3 +508,47 @@ export interface RecognitionResult {
   used_today: number
   daily_limit: number
 }
+
+/** T2.4 启动期版本元信息 (audit F6) */
+export interface BuildInfo {
+  latest_version: string
+  min_version: string
+  force_update: boolean
+  update_url: string | null
+  notes: string | null
+}
+
+/** T2.6 事件批量上报 (audit F2-monitor) */
+export interface EventBatchItem {
+  event_name: string
+  ts: number
+  properties?: Record<string, unknown> | null
+  app_version?: string | null
+  platform?: string | null
+}
+
+export interface EventBatch {
+  events: EventBatchItem[]
+}
+
+export interface EventBatchAck {
+  accepted: number
+  skipped: number
+}
+
+/** T2.2 订阅消息 (audit F2) */
+export interface SubscribeTemplate {
+  template_id: string
+  title: string
+  description: string
+  keywords: string[]
+  persistent: boolean
+  trigger: string
+}
+
+export interface SubscribeStatus {
+  template_id: string
+  granted: boolean
+  last_send_at: string | null
+  last_declined_at: string | null
+}

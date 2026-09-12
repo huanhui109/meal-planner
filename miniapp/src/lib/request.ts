@@ -83,12 +83,20 @@ interface RequestOptions {
   data?: Record<string, unknown> | undefined
   /** 401 时不跳登录页 (登录相关接口自己处理) */
   skipAuthRedirect?: boolean
+  /** AbortSignal: 切页面时 abort 未完成的旧请求, 消除 setState on unmounted 警告 */
+  signal?: AbortSignal | null
 }
 
 async function send<T>(path: string, options: RequestOptions = {}, retry = true): Promise<T> {
   const token = getAccessToken()
   const header: Record<string, string> = { 'Content-Type': 'application/json' }
   if (token) header.Authorization = `Bearer ${token}`
+
+  // Taro.request 4.0+ 支持 signal 参数; 老基础库/旧 H5 构建忽略即可
+  const signal: AbortSignal | undefined = options.signal ?? undefined
+  if (signal?.aborted) {
+    throw new ApiError('请求已取消', 0)
+  }
 
   let response: RawResponse
   try {
@@ -98,8 +106,13 @@ async function send<T>(path: string, options: RequestOptions = {}, retry = true)
       data: options.data,
       header,
       timeout: TIMEOUT,
+      signal,
     })) as unknown as RawResponse
-  } catch {
+  } catch (err) {
+    // 用户主动取消: 静默吞掉, 不弹 toast
+    if (signal?.aborted || (err as { errMsg?: string })?.errMsg?.includes('abort')) {
+      throw new ApiError('请求已取消', 0)
+    }
     throw new ApiError('网络连接失败, 请检查网络后重试', 0)
   }
 

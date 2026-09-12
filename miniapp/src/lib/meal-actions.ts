@@ -9,6 +9,7 @@ import Taro from '@tarojs/taro'
 import type { MealDetail, MenuDetail } from '@shared/types'
 
 import { lockMenuItem, markItemCooked, replaceMenuItem, undoMarkItemCooked, unlockMenuItem } from './api'
+import { track } from './events'
 import { toast } from './nav'
 
 /**
@@ -87,6 +88,7 @@ export async function toggleLock(menu: MenuDetail, itemId: number, locked: boole
 
 /** 标记已做: 后端会按菜谱扣减库存, 然后把扣减/缺料结果说清楚 */
 export async function markCooked(menu: MenuDetail, itemId: number): Promise<boolean> {
+  track('mark_cooked', { menu_id: menu.id, item_id: itemId })
   const result = await markItemCooked(menu.id, itemId)
   if (result.already_cooked) {
     toast('这一餐之前就标记过了')

@@ -5,9 +5,9 @@
  *   预算头 -> 下一步(未就绪才有) -> 补单决策 -> 今晚菜单 -> 自做 vs 外卖
  *   -> 本周概览 -> 今日流程时间线
  */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Text, View } from '@tarojs/components'
-import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
+import Taro, { useDidShow, usePullDownRefresh, useShareAppMessage } from '@tarojs/taro'
 
 import { formatAmount, formatMoney, formatMinutes, formatProgress, formatPercent } from '@shared/format'
 import { mealLabel } from '@shared/labels'
@@ -32,8 +32,9 @@ import {
 import { addInventory, getToday, rememberTakeoutPrice } from '../../lib/api'
 import { ensureLogin, syncTabBar, toast } from '../../lib/nav'
 import { openPurchaseLink, missingText } from '../../lib/deeplink'
-import { getCachedUser } from '../../lib/session'
+import { getCachedUser, isOnboarded } from '../../lib/session'
 import { markCooked } from '../../lib/meal-actions'
+import { track } from '../../lib/events'
 import { RecognizeSheet } from '../../components/recognize-sheet'
 
 const TIMELINE_DOT: Record<string, string> = {
@@ -59,28 +60,53 @@ export default function TodayPage() {
   const [error, setError] = useState('')
   const [recognizeOpen, setRecognizeOpen] = useState(false)
 
+  /** 页面卸载后丢弃 setState, 避免 "setState on unmounted" 警告 */
+  const aliveRef = useRef(true)
+  useEffect(() => () => { aliveRef.current = false }, [])
+
   const user = getCachedUser()
 
   const load = useCallback(async () => {
     if (!ensureLogin()) return
     setError('')
     try {
-      setData(await getToday())
+      const next = await getToday()
+      // 卸载/再次进入页面后丢弃旧请求结果
+      if (!aliveRef.current) return
+      setData(next)
     } catch (err) {
+      if (!aliveRef.current) return
       setError((err as Error).message)
     } finally {
-      setLoading(false)
-      Taro.stopPullDownRefresh()
+      if (aliveRef.current) {
+        setLoading(false)
+        Taro.stopPullDownRefresh()
+      }
     }
   }, [])
 
   useDidShow(() => {
     syncTabBar(0)
+    // audit T2.1: 未走完引导就 reLaunch 到 onboarding
+    if (!isOnboarded()) {
+      Taro.reLaunch({ url: '/pages/onboarding/index' })
+      return
+    }
     void load()
   })
 
   usePullDownRefresh(() => {
     void load()
+  })
+
+  // 分享给好友 (audit F3): 标题带"今天吃 X", 落地路径带 share_from
+  useShareAppMessage(() => {
+    const user = getCachedUser()
+    const name = data?.tonight?.name || '待定'
+    return {
+      title: `今天吃「${name}」, 帮你算好预算 · 每周鲜`,
+      path: `/pages/today/index?share_from=${encodeURIComponent(user?.open_id || 'friend')}&share_date=${data?.date || ''}`,
+    }
   })
 
   const step = useMemo(
@@ -154,11 +180,20 @@ export default function TodayPage() {
 
   const handleOrder = async () => {
     if (!data?.order) return
+    track('order_open', {
+      platform: data.order.platform ?? null,
+      item_count: data.order.items?.length ?? 0,
+    })
     await openPurchaseLink({
       miniappAppId: data.order.miniapp_app_id,
       link: data.order.order_link,
       copyText: missingText(data.order.items),
     })
+  }
+
+  const openRecognize = () => {
+    track('recognize_open', { source: 'today' })
+    setRecognizeOpen(true)
   }
 
   const handlePriceChange = async () => {
@@ -521,7 +556,7 @@ export default function TodayPage() {
       ) : null}
 
       <View style={{ marginTop: 12 }}>
-        <PillButton variant="ghost" block onClick={() => setRecognizeOpen(true)}>
+        <PillButton variant="ghost" block onClick={openRecognize}>
           拍照入库冰箱
         </PillButton>
       </View>

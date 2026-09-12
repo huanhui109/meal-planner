@@ -13,6 +13,9 @@ import type { UserPreferenceSummary } from '@shared/types'
 
 import { Banner, Card, cx, LoadingStack, PageHead, PillButton, SetGroup, SetRow } from '../../components/ui'
 import { AutomationCard } from '../../components/automation-card'
+import { FeedbackSheet } from '../../components/feedback-sheet'
+import { openCustomerServiceChat } from '../../lib/customer-service'
+import { track } from '../../lib/events'
 import { ChipGroup, NumberField, TextField } from '../../components/ui/form'
 import {
   getAutomationStatus,
@@ -94,6 +97,12 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [automation, setAutomation] = useState<AutomationStatus | null>(null)
   const [automationError, setAutomationError] = useState('')
+  const [subscribeStats, setSubscribeStats] = useState({
+    hasAccepted: false,
+    hasDeclined: false,
+  })
+  const [subscribing, setSubscribing] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
 
   const [household, setHousehold] = useState<HouseholdForm>(DEFAULT_HOUSEHOLD)
   const [diet, setDiet] = useState<DietForm>({
@@ -221,6 +230,7 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     const modal = await Taro.showModal({ title: '退出登录', content: '确认退出当前账号?' })
     if (!modal.confirm) return
+    track('logout')
     try {
       await logout()
     } catch {
@@ -231,6 +241,69 @@ export default function ProfilePage() {
     Taro.reLaunch({ url: '/pages/login/index' })
   }
 
+  const openSubscribeSheet = async () => {
+    setSubscribing(true)
+    try {
+      const { ensureLogin } = await import('../../lib/nav')
+      if (!ensureLogin()) return
+      const { getSubscribeTemplates, getSubscribeStatus } = await import('../../lib/api')
+      const { requestSubscribe } = await import('../../lib/subscribe')
+      const { items } = await getSubscribeTemplates()
+      // 看用户已有授权状态
+      const statuses = await Promise.all(
+        items.map(async (t) => {
+          try {
+            return await getSubscribeStatus(t.template_id)
+          } catch {
+            return null
+          }
+        }),
+      )
+      const grantedCount = statuses.filter((s) => s?.granted).length
+      const declinedCount = statuses.filter((s) => s && !s.granted).length
+      setSubscribeStats({
+        hasAccepted: grantedCount > 0,
+        hasDeclined: declinedCount > 0 && grantedCount === 0,
+      })
+
+      const choices = items.map((t, i) => ({
+        id: t.template_id,
+        title: `${t.title}（${t.persistent ? '长期' : '一次性'}）`,
+        desc: t.description,
+        grant: statuses[i]?.granted ?? false,
+      }))
+
+      const idsToAsk = choices.filter((c) => !c.grant).map((c) => c.id)
+      if (idsToAsk.length === 0) {
+        await Taro.showModal({ title: '已全部订阅', content: '后续菜单 / 临期 / 库存提醒都会推送给您', showCancel: false })
+        return
+      }
+      const decisions = await requestSubscribe({ tmplIds: idsToAsk.slice(0, 3) })
+      // 重新拉一次状态更新 UI
+      const refreshed = await Promise.all(
+        items.map(async (t) => {
+          try {
+            return await getSubscribeStatus(t.template_id)
+          } catch {
+            return null
+          }
+        }),
+      )
+      const newGranted = refreshed.filter((s) => s?.granted).length
+      setSubscribeStats({
+        hasAccepted: newGranted > 0,
+        hasDeclined: refreshed.every((s) => s && !s.granted) && refreshed.length > 0,
+      })
+      const acceptedIds = idsToAsk.filter((id) => decisions[id] === 'accept')
+      if (acceptedIds.length > 0) {
+        await Taro.showToast({ title: `已开通 ${acceptedIds.length} 项`, icon: 'success' })
+      }
+    } catch (err) {
+      Taro.showToast({ title: (err as Error).message || '加载失败', icon: 'none' })
+    } finally {
+      setSubscribing(false)
+    }
+  }
   if (loading) {
     return (
       <View className="page">
@@ -599,6 +672,52 @@ export default function ProfilePage() {
         当前部署: {BRAND_HOST}
       </View>
 
+      <View style={{ marginTop: 14 }}>
+        <SetGroup title="更多">
+          <SetRow
+            label="邀请好友"
+            value="得 AI 额度"
+            onClick={() => Taro.navigateTo({ url: '/pages/invite/index' })}
+          />
+          <SetRow
+            label="历史菜单"
+            value="查看"
+            onClick={() => Taro.navigateTo({ url: '/pages/menu-history/index' })}
+          />
+        </SetGroup>
+      </View>
+
+      <View style={{ marginTop: 14 }}>
+        <SetGroup title="通知">
+          <SetRow
+            label="消息订阅"
+            value={subscribing ? '加载中…' : '管理'}
+            onClick={openSubscribeSheet}
+            state={subscribeStats.hasAccepted ? 'ok' : subscribeStats.hasDeclined ? 'warn' : 'none'}
+          />
+        </SetGroup>
+      </View>
+
+      <View style={{ marginTop: 14 }}>
+        <SetGroup title="关于">
+          <SetRow
+            label="关于每周鲜"
+            value="查看"
+            onClick={() => Taro.navigateTo({ url: '/pages/about/index' })}
+          />
+          <SetRow label="意见反馈" value="提交" onClick={() => setFeedbackOpen(true)} />
+          <SetRow
+            label="在线客服"
+            value="咨询"
+            onClick={() => {
+              void openCustomerServiceChat(() =>
+                Taro.showToast({ title: '请到「我的 → 意见反馈」留言', icon: 'none', duration: 2500 }),
+              )
+            }}
+          />
+        </SetGroup>
+      </View>
+
       <View style={{ marginTop: 18 }}>
         <PillButton variant="ghost" block onClick={handleLogout}>
           退出登录
@@ -606,6 +725,8 @@ export default function ProfilePage() {
       </View>
 
       <View style={{ height: 24 }} />
+
+      <FeedbackSheet open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </View>
   )
 }

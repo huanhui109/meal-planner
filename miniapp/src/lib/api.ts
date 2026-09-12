@@ -5,8 +5,12 @@ import { ENDPOINTS } from '@shared/endpoints'
 import type {
   AuthProviders,
   AutomationStatus,
+  BuildInfo,
   ConsumeResult,
   CurrentUser,
+  EventBatch,
+  EventBatchAck,
+  EventBatchItem,
   GenerateAccepted,
   GenerationMode,
   GenerationTask,
@@ -15,6 +19,8 @@ import type {
   OrderSuggestion,
   RecognitionResult,
   ShoppingList,
+  SubscribeStatus,
+  SubscribeTemplate,
   TodayOverview,
   UserPreferenceSummary,
 } from '@shared/types'
@@ -68,6 +74,20 @@ export const getGenerationTask = (taskId: number) =>
   http.get<GenerationTask>(ENDPOINTS.generationTask(taskId))
 
 export const getCurrentMenu = () => http.get<MenuDetail | null>(ENDPOINTS.currentMenu)
+
+/** 历史菜单 (audit T3.3) - 回溯 weeks 周 (默认 4, 上限 12) */
+export const getMenuHistory = (weeks = 4) =>
+  http.get<{
+    weeks: number
+    total: number
+    items: Array<{
+      id: number
+      week_start_date: string | null
+      status: string
+      is_confirmed: boolean
+      totals: Record<string, unknown>
+    }>
+  }>(`${ENDPOINTS.menuHistory}?weeks=${weeks}`)
 
 export const getMenu = (menuId: number) => http.get<MenuDetail>(ENDPOINTS.menu(menuId))
 
@@ -167,3 +187,114 @@ export const addInventory = (data: Record<string, unknown>) =>
 
 export const deleteInventory = (itemId: number) =>
   http.del<null>(ENDPOINTS.inventoryItem(itemId))
+
+// ---------- 反馈 ----------
+
+export type FeedbackCategory = 'bug' | 'suggestion' | 'recipe' | 'other'
+
+export interface FeedbackAck {
+  id: number
+  category: string
+  status: string
+  created_at: string | null
+}
+
+const CATEGORY_VALUES: FeedbackCategory[] = ['bug', 'suggestion', 'recipe', 'other']
+
+const sanitizeCategory = (value: string): FeedbackCategory =>
+  CATEGORY_VALUES.includes(value as FeedbackCategory) ? (value as FeedbackCategory) : 'other'
+
+/** 提交反馈 (匿名也允许: getCurrentUser_optional 后端处理) */
+export const submitFeedback = (data: {
+  category: FeedbackCategory
+  content: string
+  contact?: string
+  device_info?: string
+}) =>
+  http.post<FeedbackAck>(ENDPOINTS.feedback, {
+    category: sanitizeCategory(data.category),
+    content: data.content.trim(),
+    contact: data.contact?.trim() || undefined,
+    device_info: data.device_info,
+  })
+
+/** 我的反馈历史 (匿名返回空列表) */
+export const listMyFeedback = () =>
+  http.get<{ total: number; items: Array<{ id: number; category: string; content: string; status: string; created_at: string | null }> }>(
+    ENDPOINTS.feedbackMine,
+  )
+
+// ---------- 版本检测 ----------
+
+/** 启动期拉版本元信息: 决定是否强制升级 / 弹升级 toast */
+export const getBuildInfo = () =>
+  http.get<BuildInfo>(ENDPOINTS.buildInfo, { skipAuthRedirect: true })
+
+// ---------- 埋点 ----------
+
+/** 批量上报: 单批最多 50 条 */
+export const reportEvents = (events: Array<{
+  event_name: string
+  ts: number
+  properties?: Record<string, unknown> | null
+  app_version?: string | null
+  platform?: string | null
+}>) =>
+  http.post<EventBatchAck>(
+    ENDPOINTS.events,
+    { events },
+    { skipAuthRedirect: true },
+  )
+
+// ---------- 订阅消息 ----------
+
+export const getSubscribeTemplates = () =>
+  http.get<{ items: SubscribeTemplate[] }>(ENDPOINTS.subscribeTemplates)
+
+export const grantSubscribe = (data: {
+  template_id: string
+  grant: boolean
+  accepted?: 'accept' | 'deny' | 'ban' | null
+}) =>
+  http.post<null>(ENDPOINTS.subscribeGrant, data)
+
+export const getSubscribeStatus = (templateId: string) =>
+  http.get<SubscribeStatus>(ENDPOINTS.subscribeStatus(templateId))
+
+// ---------- V3.0 实价查询 ----------
+
+/** 按食材名搜索商品 (audit T4.1)
+ * 当前 (Stub) 返回空数组 + v3_status 字段, 真实数据待 V3.x 接入
+ */
+export const searchProducts = (ingredient: string) =>
+  http.get<{
+    ingredient: string
+    total: number
+    items: Array<{
+      id: number
+      name: string
+      category: string | null
+      price: number
+      unit: string | null
+      in_stock: boolean
+      price_changed: boolean
+      platform: string
+    }>
+    v3_status?: string
+  }>(`${ENDPOINTS.productSearch}?ingredient=${encodeURIComponent(ingredient)}`)
+
+// ---------- 邀请裂变 ----------
+
+export const getInviteCode = () =>
+  http.get<{
+    code: string
+    share_path: string
+    invite_count: number
+    reward_granted: number
+  }>(ENDPOINTS.inviteCode)
+
+export const redeemInviteCode = (code: string) =>
+  http.post<{ ok: boolean; message: string; reward: number | null }>(
+    ENDPOINTS.inviteRedeem,
+    { code },
+  )

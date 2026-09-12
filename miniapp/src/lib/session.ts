@@ -56,3 +56,20 @@ export function clearSession(): void {
   Taro.removeStorageSync(REFRESH_KEY)
   Taro.removeStorageSync(USER_KEY)
 }
+
+// ---------- 引导状态 (audit T2.1) ----------
+
+const ONBOARDED_KEY = 'mp_onboarded'
+
+/** 是否已经走过 onboarding 引导 (3 步选人数 / 选菜系 / 生成第一份菜单) */
+export function isOnboarded(): boolean {
+  return Boolean(Taro.getStorageSync(ONBOARDED_KEY))
+}
+
+export function setOnboarded(value = true): void {
+  Taro.setStorageSync(ONBOARDED_KEY, value)
+}
+
+export function clearOnboarded(): void {
+  Taro.removeStorageSync(ONBOARDED_KEY)
+}

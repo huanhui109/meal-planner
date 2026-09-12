@@ -21,6 +21,7 @@ export const ENDPOINTS = {
 
   generateMenu: '/menus/generate',
   currentMenu: '/menus/current',
+  menuHistory: '/menus/history',
   generationTask: (taskId: number) => `/menus/generation-tasks/${taskId}`,
   menu: (menuId: number) => `/menus/${menuId}`,
   confirmMenu: (menuId: number) => `/menus/${menuId}/confirm`,
@@ -34,6 +35,22 @@ export const ENDPOINTS = {
   inventory: '/inventory',
   inventoryItem: (itemId: number) => `/inventory/${itemId}`,
   inventoryRecognize: '/inventory/recognize',
+
+  feedback: '/feedback',
+  feedbackMine: '/feedback/mine',
+
+  buildInfo: '/build-info',
+
+  events: '/events',
+
+  subscribeTemplates: '/subscribe/templates',
+  subscribeGrant: '/subscribe/grant',
+  subscribeStatus: (templateId: string) => `/subscribe/status/${templateId}`,
+
+  productSearch: '/products/search',
+
+  inviteCode: '/invite/code',
+  inviteRedeem: '/invite/redeem',
 
   today: '/today',
   takeoutPrice: '/today/takeout-price',

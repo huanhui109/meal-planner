@@ -1,11 +1,17 @@
 export default defineAppConfig({
   pages: [
+    'pages/onboarding/index',
     'pages/today/index',
     'pages/menu/index',
     'pages/shopping/index',
     'pages/fridge/index',
     'pages/profile/index',
     'pages/login/index',
+    'pages/about/index',
+    'pages/update/index',
+    'pages/recipe-detail/index',
+    'pages/menu-history/index',
+    'pages/invite/index',
   ],
   window: {
     backgroundTextStyle: 'dark',

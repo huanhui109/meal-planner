@@ -4,7 +4,7 @@
  * 库存是"闭环"的入口: 采购清单算的是菜谱需求减库存, 标记已做又反过来扣库存,
  * 所以这里的数据质量直接决定那两处准不准。
  */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Input, Picker, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 
@@ -41,23 +41,32 @@ export default function FridgePage() {
   const [expiry, setExpiry] = useState('')
   const [saving, setSaving] = useState(false)
 
+  /** 页面卸载后丢弃 setState, 避免 "setState on unmounted" 警告 */
+  const aliveRef = useRef(true)
+  useEffect(() => () => { aliveRef.current = false }, [])
+
   const load = useCallback(async () => {
     if (!ensureLogin()) return
     setError('')
     try {
       const result = await listInventory()
+      if (!aliveRef.current) return
       setItems(result.items || [])
     } catch (err) {
+      if (!aliveRef.current) return
       setError((err as Error).message)
     } finally {
-      setLoading(false)
-      Taro.stopPullDownRefresh()
+      if (aliveRef.current) {
+        setLoading(false)
+        Taro.stopPullDownRefresh()
+      }
     }
     try {
       const today = await getToday()
+      if (!aliveRef.current) return
       setTonightNames((today.tonight?.ingredients ?? []).map((ing) => ing.name))
     } catch {
-      setTonightNames([])
+      if (aliveRef.current) setTonightNames([])
     }
   }, [])
 

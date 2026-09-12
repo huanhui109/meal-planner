@@ -12,7 +12,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
+import Taro, { useDidShow, usePullDownRefresh, useShareAppMessage } from '@tarojs/taro'
 
 import {
   currentWeekStart,
@@ -34,10 +34,12 @@ import {
   PageHead,
   PillButton,
 } from '../../components/ui'
+import { SearchBar } from '../../components/search-bar'
 import { confirmMenu, getCurrentMenu } from '../../lib/api'
 import { ensureLogin, goTo, syncTabBar, toast } from '../../lib/nav'
 import { px } from '../../lib/px'
 import { askReplaceRecipe, markCooked, toggleLock, undoCook, UNDO_WINDOW_MS } from '../../lib/meal-actions'
+import { track } from '../../lib/events'
 import { startGeneration, waitForGeneration } from '../../lib/menu'
 
 /** 生成来源 -> 展示文案与标签色 (本地多 = 好, 所以本地给 accent) */
@@ -58,25 +60,35 @@ export default function MenuPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState(todayIso())
+  /** 搜索关键字 (audit T3.4) */
+  const [keyword, setKeyword] = useState('')
 
   /** 刚"做完了"的餐次 id: 在 UNDO_WINDOW_MS 内显示"撤销", 形成可逆闭环 */
   const [undoItemId, setUndoItemId] = useState<number | null>(null)
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  /** 页面卸载后丢弃 setState, 避免 "setState on unmounted" 警告 */
+  const aliveRef = useRef(true)
+  useEffect(() => () => { aliveRef.current = false }, [])
 
   const load = useCallback(async () => {
     if (!ensureLogin()) return
     setError('')
     try {
       const data = await getCurrentMenu()
+      if (!aliveRef.current) return
       setMenu(data)
       if (data && !data.days.some((day) => day.date === selected)) {
         setSelected(data.days[0]?.date ?? selected)
       }
     } catch (err) {
+      if (!aliveRef.current) return
       setError((err as Error).message)
     } finally {
-      setLoading(false)
-      Taro.stopPullDownRefresh()
+      if (aliveRef.current) {
+        setLoading(false)
+        Taro.stopPullDownRefresh()
+      }
     }
   }, [selected])
 
@@ -100,10 +112,31 @@ export default function MenuPage() {
     void load()
   })
 
+  // 分享给好友 (audit F3): 标题带周次, path 加 share_from 让对方看到「XX 转给你的」banner
+  useShareAppMessage(() => {
+    const meals = menu?.days?.reduce((sum, day) => sum + (day.meals?.length || 0), 0) || 0
+    const weekLabel = menu?.week_start_date ? `这周 ${menu.week_start_date.slice(5)}` : '这周'
+    return {
+      title: `${weekLabel} 一共 ${meals} 餐, 营养 / 预算都算好 · 每周鲜`,
+      path: `/pages/menu/index?share_from=${encodeURIComponent(menu?.id ? `menu-${menu.id}` : 'friend')}&share_week=${menu?.week_start_date || ''}`,
+    }
+  })
+
   const day: MenuDay | undefined = useMemo(
     () => menu?.days.find((item) => item.date === selected),
     [menu, selected],
   )
+
+  /** 搜索过滤 (audit T3.4): 命中菜名或任一食材名即保留 */
+  const shownMeals = useMemo(() => {
+    const all = day?.meals ?? []
+    if (!keyword) return all
+    const kw = keyword.toLowerCase()
+    return all.filter((m) => {
+      if (m.recipe?.name?.toLowerCase().includes(kw)) return true
+      return (m.recipe?.ingredients ?? []).some((i) => i.name?.toLowerCase().includes(kw))
+    })
+  }, [day, keyword])
 
   const today = todayIso()
   const onToday = selected === today
@@ -142,6 +175,7 @@ export default function MenuPage() {
   }, [])
 
   const handleGenerate = async (force = false) => {
+    track('generate_menu', { week_start: currentWeekStart(), force })
     setBusy(true)
     try {
       const accepted = await startGeneration(currentWeekStart(), force)
@@ -178,8 +212,41 @@ export default function MenuPage() {
     }
   }
 
+  const openRecipeDetail = (meal: MealDetail, menuId: number) => {
+    if (!meal.recipe) {
+      toast('这道菜还没有菜谱信息')
+      return
+    }
+    track('recipe_detail_open', { menu_id: menuId, meal_id: meal.id })
+    const payload = {
+      meal_id: meal.id,
+      menu_id: menuId,
+      meal_type: meal.meal_type,
+      name: meal.recipe.name,
+      steps: meal.recipe.steps ?? null,
+      cuisine: meal.recipe.cuisine ?? null,
+      difficulty: meal.recipe.difficulty ?? null,
+      cook_minutes: meal.recipe.cook_minutes ?? null,
+      calories: meal.recipe.calories ?? null,
+      protein_g: meal.recipe.protein_g ?? null,
+      carb_g: meal.recipe.carb_g ?? null,
+      fat_g: meal.recipe.fat_g ?? null,
+      estimated_cost: meal.estimated_cost ?? null,
+      is_cooked: meal.is_cooked,
+      ingredients: (meal.recipe.ingredients ?? []).map((i) => ({
+        name: i.name,
+        quantity: i.quantity ?? null,
+        unit: i.unit ?? null,
+      })),
+    }
+    Taro.navigateTo({
+      url: `/pages/recipe-detail/index?data=${encodeURIComponent(JSON.stringify(payload))}`,
+    })
+  }
+
   const handleReplace = async (meal: MealDetail) => {
     if (!menu) return
+    track('replace_item', { menu_id: menu.id, meal_id: meal.id })
     try {
       const updated = await askReplaceRecipe(menu, meal)
       if (updated) setMenu(updated)
@@ -260,6 +327,21 @@ export default function MenuPage() {
       />
 
       {error ? <Banner tone="danger">{error}</Banner> : null}
+
+      {/* 搜索 (audit T3.4): 命中菜名或食材名即过滤当天菜品 */}
+      <View style={{ marginBottom: 12 }}>
+        <SearchBar
+          placeholder="搜菜名或食材 (如: 番茄)"
+          value={keyword}
+          onChange={setKeyword}
+        />
+      </View>
+      {keyword ? (
+        <View className="card__hint" style={{ marginBottom: 8 }}>
+          匹配「{keyword}」的餐次: {shownMeals.length} 个
+          {shownMeals.length === 0 ? ' · 换个关键词试试' : ''}
+        </View>
+      ) : null}
 
       <Card>
         <View className="card__head">
@@ -356,7 +438,7 @@ export default function MenuPage() {
         </View>
 
         {MEAL_ORDER.map((mealType) => {
-          const meal = day?.meals.find((item) => item.meal_type === mealType)
+          const meal = shownMeals.find((item) => item.meal_type === mealType)
           if (!meal) return null
           const canUndo = undoItemId === meal.id
           return (
@@ -368,7 +450,9 @@ export default function MenuPage() {
                   {meal.is_cooked ? <Text className="chip chip--accent">已做</Text> : null}
                 </View>
               </View>
-              <View className="meal__name">{meal.recipe?.name ?? '待定'}</View>
+              <View className="meal__name" onClick={() => openRecipeDetail(meal, menu.id)}>
+                {meal.recipe?.name ?? '待定'}
+              </View>
               <View className="meal__meta">
                 {[
                   meal.recipe?.calories ? `${Math.round(meal.recipe.calories)} kcal` : null,

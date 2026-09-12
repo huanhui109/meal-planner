@@ -13,6 +13,7 @@ import type { AuthProviders } from '@shared/types'
 
 import { Banner, LoadingStack, PillButton } from '../../components/ui'
 import { devLogin, getAuthProviders, wechatMiniLogin } from '../../lib/api'
+import { track } from '../../lib/events'
 import { getCachedUser, isLoggedIn, saveSession } from '../../lib/session'
 import { LOGO_MARK_DATA_URI, LOGO_MARK_DATA_URI_DARK } from '../../lib/logo'
 import { useTheme } from '../../lib/theme'
@@ -54,6 +55,7 @@ export default function LoginPage() {
       if (!result.code) throw new Error('没能拿到微信登录凭证, 请重试')
       const bundle = await wechatMiniLogin(result.code)
       saveSession(bundle)
+      track('login', { method: 'wechat' })
       enter()
     } catch (err) {
       setError((err as Error).message)
@@ -73,6 +75,7 @@ export default function LoginPage() {
     try {
       const bundle = await devLogin(trimmed)
       saveSession(bundle)
+      track('login', { method: 'dev' })
       enter()
     } catch (err) {
       setError((err as Error).message)
