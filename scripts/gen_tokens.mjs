@@ -6,6 +6,18 @@
  *   node scripts/gen_tokens.mjs --check  只校验是否与源一致 (CI 用)
  *
  * 生成物是"源"的下游, 不要手改: 改令牌请改 shared/tokens.ts。
+ *
+ * 双调色板输出结构:
+ *   H5   - :root { --color-*: <dark> }                          默认暗色, 与旧版逐字节相同
+ *         :root[data-theme="light"] { --color-*: <light> }      亮色覆盖
+ *   小程序 - 与 H5 同结构, 只是挂在 page{} / page.theme-light{}
+ *
+ * 设计依据:
+ *   * 现有页面样式几乎全是 var(--color-*); 只需要一份 :root 默认值 + 一份 light 覆盖
+ *     就能在两套主题间切换, 老用户升级零感知。
+ *   * 黑色胶囊 (pill--ink / .next-step / .app-tab.is-active 等) 在两套下都用
+ *     var(--color-ink); 亮色下 ink = #2C2C2A (几乎与 #1c1c1e 不可辨), 胶囊跨主题仍是黑的,
+ *     保留品牌识别。
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -13,9 +25,10 @@ import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '..')
-const { tokens } = await import(resolve(repoRoot, 'shared/tokens.ts'))
+const { tokens, palettes } = await import(resolve(repoRoot, 'shared/tokens.ts'))
 
-const HEADER = '/* 自动生成, 请勿手改: 源文件是 shared/tokens.ts (node scripts/gen_tokens.mjs) */'
+const HEADER_CSS = '/* 自动生成, 请勿手改: 源文件是 shared/tokens.ts (node scripts/gen_tokens.mjs) */'
+const HEADER_SCSS = '// 自动生成, 请勿手改: 源文件是 shared/tokens.ts (node scripts/gen_tokens.mjs)'
 
 /** camelCase 键名转 kebab-case: pageMax -> page-max, ink2 -> ink2 */
 function kebab(key) {
@@ -43,23 +56,51 @@ function flatten(node, prefix = []) {
   return out
 }
 
-const flat = flatten(tokens)
+// ---------------------------------------------------------------------------
+// 默认 :root{} 块 (暗色) + :root[data-theme="light"]{} 覆盖块
+// ---------------------------------------------------------------------------
+
+/** 暗色块的色值条目 (= tokens.color, 带 'color' 前缀) */
+const colorEntries = flatten(tokens.color, ['color'])
+
+/** 亮色块色值条目 (= palettes.light), 顺序与暗色一一对应 */
+const lightColorEntries = flatten(palettes.light, ['color'])
 
 const cssLines = [
-  HEADER,
+  HEADER_CSS,
   ':root {',
-  ...flat.map(([name, value]) => `  --${name}: ${value};`),
+  ...colorEntries.map(([name, value]) => `  --${name}: ${value};`),
+  '}',
+  '',
+  ':root[data-theme="light"] {',
+  ...colorEntries.map(([name], index) => {
+    const [, lightValue] = lightColorEntries[index]
+    return `  --${name}: ${lightValue};`
+  }),
   '}',
   '',
 ]
 
+// ---------------------------------------------------------------------------
+// SCSS: 全部 token (含 $color-*) + page{} / page.theme-light{} 的 CSS 变量
+// ---------------------------------------------------------------------------
+
+const flatAll = flatten(tokens)
+
 const scssLines = [
-  '// 自动生成, 请勿手改: 源文件是 shared/tokens.ts (node scripts/gen_tokens.mjs)',
-  ...flat.map(([name, value]) => `$${name}: ${value};`),
+  HEADER_SCSS,
+  ...flatAll.map(([name, value]) => `$${name}: ${value};`),
   '',
   '// 小程序里同时暴露一份 CSS 变量, 运行时要覆盖时用 var(--x)',
   'page {',
-  ...flat.map(([name, value]) => `  --${name}: ${value};`),
+  ...colorEntries.map(([name, value]) => `  --${name}: ${value};`),
+  '}',
+  '',
+  'page.theme-light {',
+  ...colorEntries.map(([name], index) => {
+    const [, lightValue] = lightColorEntries[index]
+    return `  --${name}: ${lightValue};`
+  }),
   '}',
   '',
 ]
@@ -86,7 +127,7 @@ for (const [relative, content] of targets) {
   }
   mkdirSync(dirname(absolute), { recursive: true })
   writeFileSync(absolute, content, 'utf8')
-  console.log(`写入 ${relative} (${flat.length} 个令牌)`)
+  console.log(`写入 ${relative} (${colorEntries.length} 个颜色令牌 × 2 调色板)`)
 }
 
 if (check && failed) process.exit(1)

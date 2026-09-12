@@ -626,7 +626,10 @@ const targets = [
     [
       '/* 自动生成, 请勿手改: node scripts/gen_logo.mjs (几何定义在 scripts/gen_logo.mjs) */',
       '/* 小程序里不用 <Image src="xxx.svg">: base64 PNG 在 iOS/Android 上表现最稳, 且不需要配 loader */',
+      '/* LOGO_MARK_DATA_URI        = default 主题 (深容框 + 浅锅), 给亮色 UI 用 (cream 底上立得住) */',
+      '/* LOGO_MARK_DATA_URI_DARK   = inverse 主题 (白容框 + 深锅), 给暗色 UI 用 (深底上立得住) */',
       `export const LOGO_MARK_DATA_URI = 'data:image/png;base64,${renderMark(96, 'default').toString('base64')}'`,
+      `export const LOGO_MARK_DATA_URI_DARK = 'data:image/png;base64,${renderMark(96, 'inverse').toString('base64')}'`,
       '',
     ].join('\n'),
   ],

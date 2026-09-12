@@ -21,6 +21,7 @@ import { getAutomationStatus } from '../../api/automation'
 import FeishuConfigCard from './FeishuConfigCard'
 import { logout } from '../../api/auth'
 import { usePreferenceStore } from '../../stores/usePreferenceStore'
+import { useThemeStore } from '../../stores/useThemeStore'
 import { brand } from '@shared/brand'
 import { formatMoney } from '@shared/format'
 import type { AutomationStatus, CurrentUser } from '../../types'
@@ -165,6 +166,8 @@ const MePanel: React.FC<MePanelProps> = ({ user, onNavigate }) => {
         </>
       )}
 
+      <AppearanceCard />
+
       <div className="page-footnote">
         {brand.localDataNote}
         <br />
@@ -175,6 +178,43 @@ const MePanel: React.FC<MePanelProps> = ({ user, onNavigate }) => {
         <LogoutOutlined /> 退出登录
       </PillButton>
     </div>
+  )
+}
+
+const AppearanceCard: React.FC = () => {
+  const theme = useThemeStore((s) => s.theme)
+  const setTheme = useThemeStore((s) => s.setTheme)
+  return (
+    <Card tight>
+      <div className="card-head">
+        <div className="card-title">外观</div>
+        <Chip tone="gray">两套随时可切</Chip>
+      </div>
+      <div className="set-group">
+        <button
+          type="button"
+          className="set-row set-row--btn"
+          onClick={() => setTheme('dark')}
+        >
+          <div className="set-text">
+            <b>深色 · 黑色胶囊</b>
+            <span>沿用冷灰底, 主按钮仍是品牌黑</span>
+          </div>
+          <span className={`state-dot ${theme === 'dark' ? '' : 'is-off'}`} />
+        </button>
+        <button
+          type="button"
+          className="set-row set-row--btn"
+          onClick={() => setTheme('light')}
+        >
+          <div className="set-text">
+            <b>明亮 · 暖色奶油</b>
+            <span>奶油底 + 暖橙提示色, 更接近早餐店氛围</span>
+          </div>
+          <span className={`state-dot ${theme === 'light' ? '' : 'is-off'}`} />
+        </button>
+      </div>
+    </Card>
   )
 }
 

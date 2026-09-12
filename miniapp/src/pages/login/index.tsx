@@ -14,13 +14,17 @@ import type { AuthProviders } from '@shared/types'
 import { Banner, LoadingStack, PillButton } from '../../components/ui'
 import { devLogin, getAuthProviders, wechatMiniLogin } from '../../lib/api'
 import { getCachedUser, isLoggedIn, saveSession } from '../../lib/session'
-import { LOGO_MARK_DATA_URI } from '../../lib/logo'
+import { LOGO_MARK_DATA_URI, LOGO_MARK_DATA_URI_DARK } from '../../lib/logo'
+import { useTheme } from '../../lib/theme'
 
 export default function LoginPage() {
   const [providers, setProviders] = useState<AuthProviders | null>(null)
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [theme] = useTheme()
+  // 暗色 UI 配 inverse (白容框), 亮色 UI 配 default (深容框), 与 H5 LogoMark 规则一致
+  const logoSrc = theme === 'dark' ? LOGO_MARK_DATA_URI_DARK : LOGO_MARK_DATA_URI
 
   const enter = useCallback(() => {
     Taro.switchTab({ url: '/pages/today/index' })
@@ -82,7 +86,7 @@ export default function LoginPage() {
   return (
     <View className="login-page">
       <View className="login-card">
-        <Image className="login-logo" src={LOGO_MARK_DATA_URI} mode="aspectFit" />
+        <Image className="login-logo" src={logoSrc} mode="aspectFit" />
         <Text className="login-title">{brand.name}</Text>
         <View className="login-sub">{brand.fullName}</View>
         <View className="login-desc">{brand.description}</View>

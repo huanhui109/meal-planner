@@ -11,7 +11,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { formatMoney, formatPercent } from '@shared/format'
 import type { UserPreferenceSummary } from '@shared/types'
 
-import { Banner, Card, LoadingStack, PageHead, PillButton, SetGroup, SetRow } from '../../components/ui'
+import { Banner, Card, cx, LoadingStack, PageHead, PillButton, SetGroup, SetRow } from '../../components/ui'
 import { AutomationCard } from '../../components/automation-card'
 import { ChipGroup, NumberField, TextField } from '../../components/ui/form'
 import {
@@ -28,6 +28,7 @@ import { ensureLogin, toast } from '../../lib/nav'
 import { px } from '../../lib/px'
 import { BRAND_HOST } from '../../lib/config'
 import { getCachedUser } from '../../lib/session'
+import { useTheme } from '../../lib/theme'
 import { brand } from '@shared/brand'
 import type { AutomationStatus } from '@shared/types'
 
@@ -122,6 +123,7 @@ export default function ProfilePage() {
   })
 
   const user = getCachedUser()
+  const [theme, setTheme] = useTheme()
 
   const load = useCallback(async () => {
     if (!ensureLogin()) return
@@ -556,6 +558,50 @@ export default function ProfilePage() {
       </View>
 
       <AutomationCard status={automation} error={automationError} />
+
+      <View className="set-group" style={{ marginTop: 14 }}>
+        <View className="set-group__title">外观</View>
+        <View
+          className={cx('set-row', 'set-row--btn', 'tap')}
+          onClick={() => setTheme('dark')}
+        >
+          <View className="set-row__label">深色 · 黑色胶囊</View>
+          <View
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              minHeight: 24,
+            }}
+          >
+            <View
+              className={cx('state-dot', theme !== 'dark' && 'state-dot--warn')}
+              style={theme === 'dark' ? { background: 'var(--color-ink)' } : undefined}
+            />
+            <View className="set-row__value">{theme === 'dark' ? '当前' : '切换'}</View>
+          </View>
+        </View>
+        <View
+          className={cx('set-row', 'set-row--btn', 'tap')}
+          onClick={() => setTheme('light')}
+        >
+          <View className="set-row__label">明亮 · 暖色奶油</View>
+          <View
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              minHeight: 24,
+            }}
+          >
+            <View
+              className={cx('state-dot', theme !== 'light' && 'state-dot--warn')}
+              style={theme === 'light' ? { background: 'var(--color-ink)' } : undefined}
+            />
+            <View className="set-row__value">{theme === 'light' ? '当前' : '切换'}</View>
+          </View>
+        </View>
+      </View>
 
       <View className="page-footnote">
         {brand.localDataNote}

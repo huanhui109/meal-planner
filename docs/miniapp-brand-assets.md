@@ -101,3 +101,55 @@ import { LOGO_MARK_DATA_URI } from '../../lib/logo'
 - [ ] 改标：只改 `scripts/gen_logo.mjs`（几何/取色）→ `node scripts/gen_logo.mjs` → 提交 SVG/PNG/`logo.ts`。
 - [ ] 改文案：只改 `shared/brand.ts`（+ `config/default.yaml`）。
 - [ ] 提交前跑两个 `--check`，避免 CI 挂。
+
+## 5. 双调色板（暗色 / 明亮）
+
+两套色板都从 `shared/tokens.ts` 的 `palettes.{dark, light}` 一处取，生成器同时产出覆盖块：
+
+| 端 | 默认块 | 切换块 |
+| --- | --- | --- |
+| H5 `frontend/src/styles/tokens.css` | `:root { --color-* }` | `:root[data-theme="light"] { --color-* }` |
+| 小程序 `miniapp/src/styles/_tokens.scss` | `page { --color-* }` | `page.theme-light { --color-* }` |
+
+### 5.1 两套语义色映射
+
+| 令牌 | 暗色（沿用现状） | 明亮（来自 `pan-egg/preview.html`） |
+| --- | --- | --- |
+| `--color-bg` | `#e9e9ee` | `#FBF9F4` |
+| `--color-screen` | `#f7f7f9` | `#FFFFFF` |
+| `--color-card` | `#ffffff` | `#FFFFFF` |
+| `--color-ink` | `#1c1c1e` | `#2C2C2A` |
+| `--color-ink2` | `#8e8e93` | `#6B6B6B` |
+| `--color-ink3` | `#c7c7cc` | `rgba(0,0,0,.20)` |
+| `--color-line` | `#efeff2` | `rgba(0,0,0,.10)` |
+| `--color-fill` | `#f2f2f4` | `#F2EDE4` |
+| `--color-glass` | `rgba(255,255,255,.82)` | `rgba(255,254,250,.82)` |
+| `--color-warn` | `#ff9f0a` | `#E0955A`（品牌暖橙） |
+| `--color-warn-ink` | `#c77800` | `#A8642F` |
+| `--color-warn-soft` | `rgba(255,159,10,.12)` | `rgba(224,149,90,.15)` |
+| `--color-accent` / `--color-danger` | 保留 | 保留（语义色） |
+
+### 5.2 "黑胶囊" 在两套下都稳住
+
+`pill--ink` / `.next-step` / `.app-tab.is-active` / `.day-pill--active` / `.chip-option--on` 这些**黑底按钮**在亮色 UI 上仍是深色（`var(--color-ink)` = `#2C2C2A` 与 `#1c1c1e` 几乎不可辨），品牌的"黑色胶囊识别"跨主题守住。无需额外 override 类。
+
+### 5.3 切换方式
+
+- **H5**：`frontend/src/stores/useThemeStore.ts` 提供 `useThemeStore()`；`initTheme()` 在 `main.tsx` 启动前同步写 `html[data-theme]`，避免首屏闪一下；`main.tsx` 的 `<ThemedProviders>` 读 store 动态给 antd 注 token；「我的」抽屉里有 AppearanceCard 切换按钮。
+- **小程序**：`miniapp/src/lib/theme.ts` 提供 `useTheme()`；`initTheme()` 在 `app` 启动时同步挂 `page.theme-light` + 写 storage + `setNavigationBarColor`；「我的」页有外观分组。
+
+### 5.4 Logo 跟随主题
+
+- 暗色 UI 用 `inverse` 版（白容框 + 深锅，在深底上立得住）
+- 亮色 UI 用 `default` 版（深容框 + 浅锅，在奶油底上立得住）
+
+| 端 | 选择逻辑 |
+| --- | --- |
+| H5 `frontend/src/components/ui/logo.tsx` | `LogoMark` 读 `useThemeStore()` 自动选 `/logo-mark.svg` 或 `/logo-mark-inverse.svg`；显式 `inverse` prop 仍可强制反白 |
+| 小程序 `miniapp/src/lib/logo.ts` | `gen_logo.mjs` 一次性产两个 base64: `LOGO_MARK_DATA_URI` (default) + `LOGO_MARK_DATA_URI_DARK` (inverse)；`pages/login/index.tsx` 用 `useTheme()` 选 |
+| 自定义 TabBar 图标 | `custom-tab-bar/index.tsx` 不再硬写 `#1c1c1e` / `#c7c7cc`，改为 `var(--color-ink)` / `var(--color-ink3)`；订阅主题变化 forceUpdate |
+
+### 5.5 变更 Checklist (补充)
+
+- [ ] 改两套色：只改 `shared/tokens.ts` 的 `palettes.{dark, light}` → 跑 `gen_tokens.mjs` → 提交生成物 → 提交。
+- [ ] 默认主题：现在是 `'light'`；如要做"老用户沿用历史 / 新用户跟随系统"，把 `useThemeStore.ts` 的 `DEFAULT_THEME` 改成读 `localStorage` 兜底。
