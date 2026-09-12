@@ -115,8 +115,8 @@ async def health_check():
             v = row.scalar()
             if v is not None:
                 last_menu_generate_at = v.isoformat() if hasattr(v, "isoformat") else str(v)
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 - 健康检查不应抛异常, 但要留痕
+        logger.exception("查询最近事件/最近生成时间失败")
 
     payload = {
         "status": "ok" if database == "ok" else "degraded",
