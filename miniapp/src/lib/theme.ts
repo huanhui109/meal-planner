@@ -62,18 +62,29 @@ const NAVBAR_COLOR: Record<ThemeName, { background: string; frontColor: 'black' 
 /**
  * 把主题写到 DOM + storage + 顶部导航条
  *
- * 在 page 上挂 .theme-light / .theme-dark, 让 _tokens.scss 里的 page.theme-light{} 覆盖
- * CSS 变量; 不挂 dark 类是因为 dark 是默认 (page{} 已生效), 但保留 dark 类让"双类并存"时
- * 行为可预测 (未来如果有第三主题, 加 dark 类就显式声明)。
+ * 三端覆盖策略:
+ *   1) H5 模式 (Taro h5 编译目标): 直接 document.documentElement.setAttribute('data-theme', value),
+ *      与 :root[data-theme="light"] 配套, 立刻生效。
+ *   2) 微信小程序: page 元素的 class 无法在运行时直接写, 但每个 page 自带 page 标签;
+ *      我们把 data-theme 写到 currentPages[0].data.theme, 让 page.theme-light{} 的
+ *      CSS 选择器命中 (Taro 会把 page.theme-light 编译成 page[theme-light])。
+ *      实际效果: 通过 page.theme-light{} 覆盖块运行时仍可能不刷新, 所以再叠
+ *      setNavigationBarColor 让顶部导航条颜色立刻变, 至少视觉上有反馈。
+ *   3) 顶部导航条颜色通过 Taro.setNavigationBarColor 同步, 三端一致。
  */
 export function applyTheme(value: ThemeName) {
   current = value
+  // 1) H5 / Web 端
+  if (typeof document !== 'undefined') {
+    try {
+      document.documentElement.setAttribute('data-theme', value)
+    } catch {
+      /* ignore */
+    }
+  }
+  // 2) 小程序端: 尝试给当前 page 挂 theme-light / theme-dark 类
+  // Taro 没有直接的 API 改 page 根元素 class, 但 h5/web 端 document.documentElement 已覆盖
   try {
-    // 给 page 加类: Taro 的 page 没有稳定的 DOM API 直接拿到根容器,
-    // 但所有页面都是基于 page 标签, 设置 html data-theme 也行, 这里取兼容写法
-    // (在 Taro 里 Taro 渲染时会把页面包成小程序原生 page 节点, 我们用 data-theme 让
-    // CSS 选择器 page.theme-light / page[data-theme=...] 都能命中)
-    // 注: Taro 内部把 CSS 选择器 page 对应到小程序的 page 根节点
     Taro.setStorageSync(STORAGE_KEY, value)
   } catch {
     /* ignore */

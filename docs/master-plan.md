@@ -139,7 +139,7 @@
 | R-29 | 换一道本地优先：点一下自动换 —— 先按当前菜单设定（热量贴合 / 库存命中 / 偏好菜系打分，硬过滤过敏源、忌口、超烹饪时长、本周与近 4 周重复）从本地 `recipe` 表挑一道；无候选再同步调 AI 生成单菜并落库；两条路径都替换同一餐次，响应 `replacement.source` 标注 `local` / `ai`。AI 路径才写 `is_regeneration` 任务（与「重新生成」共用额度），传 `recipe_id` 可直接「换回上一道」且不占额度 | 菜单 | `services/replacement_service.py`、`config/prompts/dish_replacement.txt`、`api/menus.py` |
 | R-30 | 换一道交互改造：弹框由「手输菜名 + 热量/时长/做法」改为「加载中 → 新菜名 + 来源 + 就它了 / 换回上一道」，H5 保留 5 秒 Toast 撤销，小程序在弹框内提供撤销 | 交互 | `miniapp/src/lib/meal-actions.ts`、`frontend/src/pages/Menus/WeeklyView.tsx` |
 
-### V2.3 —— 菜谱库与本地优先生成（进行中，分支 `feat/recipe-library`，版本 `0.4.0`）
+### V2.3 —— 菜谱库与本地优先生成（已落地，分支 `feat/recipe-library`，版本 `0.4.0`）
 
 > 把 V2.1 单菜维度的「换一道本地优先」扩展到**整周生成**：本地菜谱库先行，AI 只补缺口。
 > 需求全文见 [`docs/requirements-v2.3.md`](requirements-v2.3.md)。
@@ -151,6 +151,20 @@
 | R-33 | 本地优先菜单生成与 AI 兜底：整周逐格按打分（热量 50 / 库存 30 / 菜系 20）编排，硬过滤过敏源/忌口/超时长/重复；填充率达标即 `source=local`，不足则携带候选短名单交给 LLM（`source=mixed`）；`mode=ai` 完全跳过本地（`source=ai`） | 菜单 | `services/generation_service.py`、`schemas/recipe.py`、`api/menus.py`、迁移 `0007_menu_source.py`、`models/menu.py` |
 | R-34 | 小程序来源标注与 AI 换一道入口：两端展示来源 chip（本地 / 本地+AI / AI）；「换一道」改 action sheet，本地换来的结果额外提供「让 AI 再换一道」（`force_ai=true`）与「换回上一道」 | 交互 | `shared/types.ts`、`miniapp/src/lib/{api,menu,meal-actions}.ts`、`miniapp/src/pages/menu/index.tsx`、`frontend/src/api/menu.ts`、`frontend/src/pages/Menus/WeeklyView.tsx` |
 
+### V2.4 —— 合并与外观收口（已落地，分支 `feat/v2.4-merge-and-theme`，版本 `0.5.0`）
+
+> 把本地两个版本分支（`codex/menu-replace-local-first` = V2.1，`feat/recipe-library` = V2.3）
+> 合并到 `main` 主线，并把 V2.3 引入的外观系统回归修干净。需求全文见
+> [`docs/requirements-v2.4.md`](requirements-v2.4.md)。
+
+| 需求 ID | 需求 | 模块 | 证据 |
+|---|---|---|---|
+| R-35 | V2.1 + V2.3 分支合入主线并迭代到 V2.4：保留 V2.1「换一道本地优先」与 V2.3「菜谱库本地优先生成」的全部功能，统一版本号 0.5.0 / 产品版本 V2.4 | 工程 | 合并提交 `a7923bd` / `3eeeb24`、`pyproject.toml`、`frontend/miniapp/shared/package.json` |
+| R-36 | 修复外观系统回归：`scripts/gen_tokens.mjs` 仅输出 `--color-*` 导致 `var(--font-*)` / `var(--shadow-*)` / `var(--layout-*)` / `var(--brand-*)` 全部失效；改为同时输出全令牌 + 双调色板颜色覆盖 | 设计 | `scripts/gen_tokens.mjs`、`frontend/src/styles/tokens.css`、`miniapp/src/styles/_tokens.scss`（58 个令牌） |
+| R-37 | 修两套颜色 Logo 映射反掉的问题：明亮（奶油底）→ `logo-mark-inverse.svg`（白底容框），深色（冷灰底）→ `logo-mark.svg`（深色容框），让 Logo 在两套主题下都不"贴错颜色" | 品牌 | `frontend/src/components/ui/logo.tsx` 主题推断 |
+| R-38 | 外观切换极简化：H5「我的」与小程序 profile 里的"外观"块，从"深色 · 黑色胶囊 / 明亮 · 暖色奶油"两行说明改为两枚胶囊按钮（深色 / 明亮），未选中态为灰底，选中态为黑底白字；保持 Apple 风格的纯黑胶囊主按钮 + 毛玻璃悬浮 TabBar | 交互 | `frontend/src/pages/Me/index.tsx`、`miniapp/src/pages/profile/index.tsx`、`frontend/src/global.css`（`.theme-switch`） |
+| R-39 | 小程序主题切换与 H5 对齐：`miniapp/src/lib/theme.ts` 写 `document.documentElement[data-theme]`（H5 构建生效），顶部导航条颜色同步 `setNavigationBarColor`；自定义 TabBar 通过 `subscribeTheme` 强制刷新 | 设计 | `miniapp/src/lib/theme.ts`、`miniapp/src/custom-tab-bar/index.tsx`、`miniapp/src/styles/_tokens.scss` |
+
 ### 需求汇总
 
 | 版本 | 需求数 | 状态 |
@@ -158,9 +172,10 @@
 | V1.0 | 3 | 已完成 |
 | V1.1 | 4 | 已完成 |
 | V2.0 | 21 | 已完成 |
-| V2.1 | 2 | 进行中（R-29 / R-30 已落地） |
-| V2.3 | 4 | 进行中（R-31 ~ R-34 已落地） |
-| **合计** | **34** | V2.0 及以前全部完成 |
+| V2.1 | 2 | 已完成（R-29 / R-30） |
+| V2.3 | 4 | 已完成（R-31 ~ R-34） |
+| V2.4 | 5 | 已完成（R-35 ~ R-39） |
+| **合计** | **39** | V2.4 及以前全部完成 |
 
 ---
 
@@ -233,6 +248,19 @@
 
 **验收**：采集失败时主链路自动回落到参考价，用户无感；匹配准确率达标。
 
+### V2.4 —— 合并与外观收口（第 6 周）
+
+**目标**：把本地两个版本分支（V2.1 / V2.3）合并到主线，并修干净 V2.3 引入的外观系统回归。
+
+- V2.1「换一道本地优先」与 V2.3「整周菜谱库本地优先」全量合入（R-29 ~ R-34 已落地）
+- 修复外观系统回归：`scripts/gen_tokens.mjs` 重新输出全令牌，奶油底 / 暖橙 / 字号 / 阴影 / 圆角全链路恢复
+- 修 Logo 颜色映射（明亮主题 = 白底容框，深色主题 = 深色容框）
+- 外观切换极简化：两枚胶囊按钮替代"两行文字说明"
+- 小程序主题切换与 H5 对齐（H5 构建时 `document.documentElement[data-theme]` 生效）
+- 版本号统一：pyproject / frontend / miniapp / shared = 0.5.0，FastAPI `/api/health` 同步
+
+**验收**：`make ci` 全绿；`node scripts/gen_tokens.mjs --check` 与 `node scripts/gen_logo.mjs --check` 通过；H5 切换明亮主题可看到奶油底 + 暖橙 + 白底 Logo；小程序 profile 切主题后顶部导航条颜色同步。
+
 ### 明确不做
 
 微信 / 支付宝支付、多语言、SSE 流式输出、法定节假日与调休表、社区与积分、多平台比价。
@@ -241,7 +269,7 @@
 
 ## 六、TAPD 项目管理落地映射
 
-### 6.1 迭代（8 个）
+### 6.1 迭代（9 个）
 
 | 迭代名 | 对应版本 | 状态 |
 |---|---|---|
@@ -249,14 +277,15 @@
 | M2 多端与共享层 | V1.1 | 已关闭 |
 | M3 V2.0 功能闭环 | V2.0 | 已关闭 |
 | M4 工程收口 | V2.0 | 已关闭 |
-| V2.1 体验与稳定 | V2.1 | 开启 |
+| V2.1 体验与稳定 | V2.1 | 已关闭 |
 | V2.2 数据与智能 | V2.2 | 开启 |
-| V2.3 菜谱库与本地优先生成 | V2.3 | 开启 |
+| V2.3 菜谱库与本地优先生成 | V2.3 | 已关闭 |
+| V2.4 合并与外观收口 | V2.4 | 已关闭 |
 | V3.0 二期数据源 | V3.0 | 开启 |
 
 ### 6.2 需求与任务
 
-- **需求（Story）**：按第三章台账建 34 条，命名 `R-xx 需求名`，描述写入「版本 / 模块 / 证据 / 验收」，归属对应迭代。
+- **需求（Story）**：按第三章台账建 39 条，命名 `R-xx 需求名`，描述写入「版本 / 模块 / 证据 / 验收」，归属对应迭代。
 - **任务（Task）**：每条需求拆 2–3 条任务，状态用 TAPD 的 `未开始 / 进行中 / 已完成`；已开发需求的任务直接置为已完成。
 
 ### 6.3 缺陷（Bug）

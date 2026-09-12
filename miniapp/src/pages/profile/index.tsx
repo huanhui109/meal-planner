@@ -561,45 +561,21 @@ export default function ProfilePage() {
 
       <View className="set-group" style={{ marginTop: 14 }}>
         <View className="set-group__title">外观</View>
-        <View
-          className={cx('set-row', 'set-row--btn', 'tap')}
-          onClick={() => setTheme('dark')}
-        >
-          <View className="set-row__label">深色 · 黑色胶囊</View>
-          <View
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              minHeight: 24,
-            }}
+        <View style={{ display: 'flex', gap: px(10), padding: '0 18px 18px' }}>
+          <PillButton
+            variant={theme === 'dark' ? 'ink' : 'gray'}
+            size="sm"
+            onClick={() => setTheme('dark')}
           >
-            <View
-              className={cx('state-dot', theme !== 'dark' && 'state-dot--warn')}
-              style={theme === 'dark' ? { background: 'var(--color-ink)' } : undefined}
-            />
-            <View className="set-row__value">{theme === 'dark' ? '当前' : '切换'}</View>
-          </View>
-        </View>
-        <View
-          className={cx('set-row', 'set-row--btn', 'tap')}
-          onClick={() => setTheme('light')}
-        >
-          <View className="set-row__label">明亮 · 暖色奶油</View>
-          <View
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              minHeight: 24,
-            }}
+            深色
+          </PillButton>
+          <PillButton
+            variant={theme === 'light' ? 'ink' : 'gray'}
+            size="sm"
+            onClick={() => setTheme('light')}
           >
-            <View
-              className={cx('state-dot', theme !== 'light' && 'state-dot--warn')}
-              style={theme === 'light' ? { background: 'var(--color-ink)' } : undefined}
-            />
-            <View className="set-row__value">{theme === 'light' ? '当前' : '切换'}</View>
-          </View>
+            明亮
+          </PillButton>
         </View>
       </View>
 

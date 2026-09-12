@@ -1827,6 +1827,16 @@ select {
   background: var(--color-fill);
 }
 
+/* ===== 我的: 外观切换 ===== */
+.theme-switch {
+  display: flex;
+  gap: 10px;
+}
+
+.theme-switch .pill {
+  flex: 1;
+}
+
 .set-value {
   display: flex;
   align-items: center;

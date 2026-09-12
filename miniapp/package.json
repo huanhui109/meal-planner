@@ -1,7 +1,7 @@
 {
   "name": "meal-planner-miniapp",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.5.0",
   "description": "每周鲜 · AI 营养菜谱 - 微信小程序 (Taro 4 + React), 与 H5 共用 shared/ 业务层",
   "templateInfo": {
     "name": "default",

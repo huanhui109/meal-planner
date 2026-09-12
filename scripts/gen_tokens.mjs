@@ -5,19 +5,19 @@
  *   node scripts/gen_tokens.mjs          写入生成物
  *   node scripts/gen_tokens.mjs --check  只校验是否与源一致 (CI 用)
  *
- * 生成物是"源"的下游, 不要手改: 改令牌请改 shared/tokens.ts。
- *
- * 双调色板输出结构:
- *   H5   - :root { --color-*: <dark> }                          默认暗色, 与旧版逐字节相同
- *         :root[data-theme="light"] { --color-*: <light> }      亮色覆盖
- *   小程序 - 与 H5 同结构, 只是挂在 page{} / page.theme-light{}
+ * 输出结构 (V2.4 合并 V2.3 的双调色板 + 保留 V2.0 的全令牌):
+ *   - :root { --color-*: dark 默认色;  --radius/font/shadow/motion/layout/brand: 静态令牌 }
+ *   - :root[data-theme="light"] { --color-*: 亮色色 }
  *
  * 设计依据:
- *   * 现有页面样式几乎全是 var(--color-*); 只需要一份 :root 默认值 + 一份 light 覆盖
- *     就能在两套主题间切换, 老用户升级零感知。
- *   * 黑色胶囊 (pill--ink / .next-step / .app-tab.is-active 等) 在两套下都用
- *     var(--color-ink); 亮色下 ink = #2C2C2A (几乎与 #1c1c1e 不可辨), 胶囊跨主题仍是黑的,
- *     保留品牌识别。
+ *   * 现有页面样式 95% 都是 var(--color-*) + var(--radius-*) + var(--font-*);
+ *     把它们都进 :root, 切换主题时只需要重新覆盖颜色一组变量即可,
+ *     老用户升级零感知 (默认主题的 :root 与旧版逐字节相同)。
+ *   * 静态令牌 (圆角/字号/阴影/动效/布局/品牌色) 在两套主题下保持不变,
+ *     不暴露 `[data-theme="light"]` 覆盖块, 减少重复。
+ *   * 黑色胶囊 (pill--ink / .next-step / .app-tab.is-active) 在两套下都用
+ *     var(--color-ink); 亮色下 ink = #2C2C2A (几乎与 #1c1c1e 不可辨),
+ *     黑色胶囊的"品牌识别"自然跨主题稳住。
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -57,19 +57,35 @@ function flatten(node, prefix = []) {
 }
 
 // ---------------------------------------------------------------------------
-// 默认 :root{} 块 (暗色) + :root[data-theme="light"]{} 覆盖块
+// 颜色: --color-* (双调色板: :root 默认暗 + :root[data-theme=light] 亮)
 // ---------------------------------------------------------------------------
 
-/** 暗色块的色值条目 (= tokens.color, 带 'color' 前缀) */
 const colorEntries = flatten(tokens.color, ['color'])
-
-/** 亮色块色值条目 (= palettes.light), 顺序与暗色一一对应 */
 const lightColorEntries = flatten(palettes.light, ['color'])
+
+// ---------------------------------------------------------------------------
+// 静态令牌: radius / font / shadow / motion / layout / brand (只一份, 不分主题)
+// ---------------------------------------------------------------------------
+
+const staticEntries = [
+  ...flatten(tokens.radius, ['radius']),
+  ...flatten(tokens.font, ['font']),
+  ...flatten(tokens.shadow, ['shadow']),
+  ...flatten(tokens.motion, ['motion']),
+  ...flatten(tokens.layout, ['layout']),
+  ...flatten(tokens.brand, ['brand']),
+]
+
+const rootEntries = [...colorEntries, ...staticEntries]
+
+// ---------------------------------------------------------------------------
+// CSS: :root { 全部 } + :root[data-theme=light] { --color-* }
+// ---------------------------------------------------------------------------
 
 const cssLines = [
   HEADER_CSS,
   ':root {',
-  ...colorEntries.map(([name, value]) => `  --${name}: ${value};`),
+  ...rootEntries.map(([name, value]) => `  --${name}: ${value};`),
   '}',
   '',
   ':root[data-theme="light"] {',
@@ -82,14 +98,12 @@ const cssLines = [
 ]
 
 // ---------------------------------------------------------------------------
-// SCSS: 全部 token (含 $color-*) + page{} / page.theme-light{} 的 CSS 变量
+// SCSS: 全部 token (含 $color-*) + page{} (暗) + page.theme-light{} (亮)
 // ---------------------------------------------------------------------------
-
-const flatAll = flatten(tokens)
 
 const scssLines = [
   HEADER_SCSS,
-  ...flatAll.map(([name, value]) => `$${name}: ${value};`),
+  ...rootEntries.map(([name, value]) => `$${name}: ${value};`),
   '',
   '// 小程序里同时暴露一份 CSS 变量, 运行时要覆盖时用 var(--x)',
   'page {',
@@ -127,7 +141,7 @@ for (const [relative, content] of targets) {
   }
   mkdirSync(dirname(absolute), { recursive: true })
   writeFileSync(absolute, content, 'utf8')
-  console.log(`写入 ${relative} (${colorEntries.length} 个颜色令牌 × 2 调色板)`)
+  console.log(`写入 ${relative} (${rootEntries.length} 个令牌, ${colorEntries.length} 个颜色 × 2 调色板)`)
 }
 
 if (check && failed) process.exit(1)

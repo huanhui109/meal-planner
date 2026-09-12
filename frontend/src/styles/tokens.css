@@ -18,6 +18,46 @@
   --color-danger: #ff3b30;
   --color-danger-soft: rgba(255, 59, 48, 0.12);
   --color-glass: rgba(255, 255, 255, 0.82);
+  --radius-xl: 28px;
+  --radius-lg: 22px;
+  --radius-md: 16px;
+  --radius-sm: 12px;
+  --radius-pill: 999px;
+  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  --font-title: 29px;
+  --font-heading: 19px;
+  --font-body: 15px;
+  --font-label: 13px;
+  --font-caption: 12px;
+  --font-micro: 11px;
+  --font-number: 26px;
+  --font-tracking: -0.01em;
+  --font-tracking-tight: -0.03em;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.025), 0 10px 30px -18px rgba(0, 0, 0, 0.12);
+  --shadow-float: 0 12px 32px -12px rgba(0, 0, 0, 0.18);
+  --shadow-lift: 0 18px 40px -18px rgba(0, 0, 0, 0.45);
+  --motion-ease: cubic-bezier(0.22, 0.9, 0.3, 1);
+  --motion-press: 0.965;
+  --motion-fast: 0.14s;
+  --motion-base: 0.24s;
+  --layout-page-max: 1120px;
+  --layout-tabbar-height: 74px;
+  --layout-tap-target: 44px;
+  --brand-frame: #ffffff;
+  --brand-frame-line: #ededed;
+  --brand-frame-dark: #1c1c1e;
+  --brand-pan: #3b4048;
+  --brand-pan-rim: #6b7280;
+  --brand-pan-inner: #2b2f35;
+  --brand-pan-light: #e8e8ea;
+  --brand-pan-light-rim: #f4f4f6;
+  --brand-pan-light-inner: #c9c9ce;
+  --brand-wood: #c9824a;
+  --brand-yolk: #f6a623;
+  --brand-yolk-light: #ffc861;
+  --brand-motion: #f2b872;
+  --brand-egg: #ffffff;
+  --brand-egg-line: #dadada;
 }
 
 :root[data-theme="light"] {
