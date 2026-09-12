@@ -72,3 +72,28 @@ async def get_current_user(
             detail="用户不存在, 请重新登录",
         )
     return user
+
+
+async def get_current_user_optional(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """与 get_current_user 一致, 但未登录时返回 None 而非 401
+
+    用于允许匿名访问的接口 (例如反馈提交、首次启动状态探测)
+    """
+    token = _extract_token(request)
+    if not token:
+        return None
+    try:
+        payload = decode_token(token, expected_type="access")
+    except TokenError:
+        return None
+    if not payload or not payload.get("sub"):
+        return None
+    try:
+        user_id = int(payload["sub"])
+    except (TypeError, ValueError):
+        return None
+    result = await db.execute(select(User).where(User.id == user_id))
+    return result.scalar_one_or_none()
