@@ -71,7 +71,7 @@ export default function RecipeDetailPage() {
     if (recipe.is_cooked) return
     setBusy(true)
     try {
-      const ok = await markCooked({ id: recipe.menu_id } as never, recipe.meal_id)
+      const ok = await markCooked({ id: recipe.menu_id }, recipe.meal_id)
       if (ok) {
         toast('已标记, 库存已扣减', 'success')
         setRecipe({ ...recipe, is_cooked: true })

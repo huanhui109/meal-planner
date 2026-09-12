@@ -86,8 +86,13 @@ export async function toggleLock(menu: MenuDetail, itemId: number, locked: boole
   return true
 }
 
-/** 标记已做: 后端会按菜谱扣减库存, 然后把扣减/缺料结果说清楚 */
-export async function markCooked(menu: MenuDetail, itemId: number): Promise<boolean> {
+/**
+ * 标记已做: 后端会按菜谱扣减库存, 然后把扣减/缺料结果说清楚
+ *
+ * 只需要菜单 id, 所以参数收窄成 Pick<MenuDetail, 'id'> —— 今日页 / 菜谱详情页手上只有
+ * menu_id, 之前靠 `as never` 强转绕过, 一旦这里多读一个字段就会运行时炸 (audit B4)。
+ */
+export async function markCooked(menu: Pick<MenuDetail, 'id'>, itemId: number): Promise<boolean> {
   track('mark_cooked', { menu_id: menu.id, item_id: itemId })
   const result = await markItemCooked(menu.id, itemId)
   if (result.already_cooked) {

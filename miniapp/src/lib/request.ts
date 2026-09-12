@@ -10,6 +10,7 @@ import { ENDPOINTS } from '@shared/endpoints'
 import type { ApiEnvelope } from '@shared/types'
 
 import { clearSession, getAccessToken, getRefreshToken, saveSession } from './session'
+import type { TokenBundle } from './session'
 
 /** 由 config/dev.ts / config/prod.ts 注入 */
 const BASE_URL = typeof API_BASE_URL === 'string' ? API_BASE_URL : 'http://127.0.0.1:8000/api'
@@ -63,9 +64,11 @@ async function refreshSession(): Promise<boolean> {
       timeout: TIMEOUT,
       header: { 'Content-Type': 'application/json' },
     })
-    const envelope = response.data as ApiEnvelope<Record<string, unknown>>
+    // 续期接口返回的 data 就是 TokenBundle, 直接在信封上标类型,
+    // 省掉后面一次强转 (之前是 as never, 完全不检查)
+    const envelope = response.data as ApiEnvelope<TokenBundle>
     if (response.statusCode >= 400 || !envelope?.data?.access_token) return false
-    saveSession(envelope.data as never)
+    saveSession(envelope.data)
     return true
   } catch {
     return false

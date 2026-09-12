@@ -100,6 +100,8 @@ const NAVBAR_COLOR: Record<PaletteName, { background: string; frontColor: 'black
  *      用 page.theme-cream / page.theme-dark 类 (Taro 编译时映射)。如果 page 元素 class
  *      写不了, 至少 nav bar 颜色能立即变, 给用户视觉反馈。
  *   3) 顶部导航条颜色通过 Taro.setNavigationBarColor 同步, 三端一致。
+ *   4) 窗口背景 (下拉刷新露出的那块) 通过 Taro.setBackgroundColor 同步 —— app.json /
+ *      page.json 里的 backgroundColor 是编译期写死值, 只能运行期覆盖 (audit B3)。
  */
 export function applyTheme(value: ThemeName): PaletteName {
   current = value
@@ -131,6 +133,21 @@ export function applyTheme(value: ThemeName): PaletteName {
     })
   } catch {
     /* ignore */
+  }
+  // 4) 窗口背景 (下拉刷新露出的那块)
+  //    app.json / page.json 的 backgroundColor 是编译期写死的, 只能在这里运行期覆盖;
+  //    否则深色主题下拉会闪出 config 里的冷灰 / 白色 (audit B3)。
+  try {
+    const bg = palettes[explicit].bg
+    Taro.setBackgroundColor({
+      backgroundColor: bg,
+      backgroundColorTop: bg,
+      backgroundColorBottom: bg,
+    })
+    // 下拉 loading 图的样式: 深底下要反色成浅色, 否则看不见
+    Taro.setBackgroundTextStyle({ textStyle: explicit === 'dark' ? 'light' : 'dark' })
+  } catch {
+    /* 部分基础库 / H5 端不支持, 忽略 */
   }
   emitter?.emit()
   return explicit

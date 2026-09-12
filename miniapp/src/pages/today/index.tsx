@@ -44,6 +44,19 @@ const TIMELINE_DOT: Record<string, string> = {
   off: 'off',
 }
 
+/**
+ * Taro 的 showModal 类型没带 editable / placeholderText / content, 但微信基础库支持。
+ * 这里用局部类型增强补上, 比 `as never` + `as unknown as` 双重强转安全 ——
+ * 已知的 title / confirmText 等字段仍然参与类型检查 (audit B4)。
+ *
+ * 注意: iOS 14 以下会忽略 editable, 只显示普通弹窗, 不崩 (audit B6, 平台限制)。
+ */
+type EditableModalOption = Taro.showModal.Option & {
+  editable?: boolean
+  placeholderText?: string
+}
+type EditableModalResult = Taro.showModal.SuccessCallbackResult & { content?: string }
+
 function greeting(): string {
   const hour = new Date().getHours()
   if (hour < 6) return '夜深了'
@@ -166,10 +179,7 @@ export default function TodayPage() {
     if (!data?.menu_id || !data.tonight?.meal_id) return
     setBusy(true)
     try {
-      const menuLike = {
-        id: data.menu_id,
-      } as never
-      await markCooked(menuLike as never, data.tonight.meal_id)
+      await markCooked({ id: data.menu_id }, data.tonight.meal_id)
       await load()
     } catch (err) {
       toast((err as Error).message)
@@ -204,7 +214,7 @@ export default function TodayPage() {
       placeholderText: `现在 ${data.budget.takeout_reference_price} 元一顿`,
       confirmText: '记住',
       cancelText: '取消',
-    } as never)) as unknown as { confirm: boolean; content?: string }
+    } as EditableModalOption)) as EditableModalResult
     if (!modal.confirm) return
     const price = Number((modal.content || '').trim())
     if (!Number.isFinite(price) || price < 0 || price > 500) {

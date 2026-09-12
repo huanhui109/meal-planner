@@ -26,7 +26,9 @@ export default defineAppConfig({
     custom: true,
     color: '#8e8e93',
     selectedColor: '#1c1c1e',
-    backgroundColor: '#ffffff',
+    // custom: true 时原生 tabBar 不渲染, 此值基本不生效; 与 DEFAULT_THEME='cream' 对齐,
+    // 避免万一回退到原生 tabBar 时在深色主题下闪白
+    backgroundColor: '#FBF9F4',
     borderStyle: 'white',
     // 4 Tab: 今日 / 周菜单 / 采购 / 冰箱 —— 「我的」从 TabBar 移出, 走今日页右上角头像
     list: [
