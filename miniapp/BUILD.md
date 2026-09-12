@@ -36,14 +36,22 @@ Taro 4 不支持按平台分 `outputRoot`，`miniapp/config/index.ts` 显式把�
 
 ## 真机调试的后端地址
 
-`config/dev.ts` 默认 `http://127.0.0.1:8000/api`，模拟器可用，**真机预览不可用**
-（手机访问不到电脑 127.0.0.1）。真机调试需要把电脑 IP 传给构建：
+后端地址由环境变量 `MP_API_BASE` 驱动，**默认是 `http://127.0.0.1:8000/api`**，
+模拟器开箱即用。
 
-```bash
-MP_API_BASE=http://192.168.1.23:8000/api npm run dev:weapp
-```
+| 场景 | 命令 |
+| --- | --- |
+| 模拟器（默认） | `npm run dev:weapp` |
+| 真机调试（局域网） | `MP_API_BASE=http://192.168.x.x:8000/api npm run dev:weapp` |
+| 生产发布（HTTPS 备案域名） | `MP_API_BASE=https://app.example.com/api npm run build:weapp` |
+
+启动期若检测到 `https://127.0.0.1` 或「生产构建但默认 HTTP」会在终端打 warn，
+提醒你显式指定 `MP_API_BASE`。
+
+`config/base.ts` 集中处理 URL 解析与告警；旧的 `dev.ts` / `prod.ts` 已经合并掉，
+因为它们的唯一差异就是这个默认值。
 
 「预览」模式会校验 request 合法域名，http 一定被拦；只有「真机调试」会自动跳过。
-生产环境必须用 `config/prod.ts` 的 HTTPS 备案域名，并在小程序后台登记。
+生产环境必须用 `MP_API_BASE=https://...` 的备案域名，并在小程序后台登记。
 </content>
 </invoke>

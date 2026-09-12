@@ -19,6 +19,7 @@
 | 3 | 后端地址硬编码 `127.0.0.1:8000`，真机必然连不上 | 高 | ✅ 已修（可配置） |
 | 4 | `taro build` 会整体清空 `dist/`，触发工具误报 `app.json 不存在` | 中（自愈） | ✅ 已说明+规避 |
 | 5 | 只跑过 `taro build --type h5`，`dist/` 从未完整构建，工具报"未找到 app.json" | 中 | ✅ 已修（V2.5 收口） |
+| 6 | `prod.ts` 默认 `https://127.0.0.1:8000/api`，本地无 SSL，运行时 `ERR_SSL_PROTOCOL_ERROR` | 中（自愈） | ✅ 已修（V2.5.2 合并 dev/prod） |
 
 ---
 
@@ -123,6 +124,40 @@ updateAppCode app.js Error: The file app.json doesn't exist
 - 开发者工具导入项目时目录选 **`miniapp/`**，**不要选 `miniapp/dist/`**——
   工具会读 `project.config.json` 里的 `miniprogramRoot` 自动定位。
 
+### 根因 6（中）：prod 默认 HTTPS，本地无 SSL
+
+模拟器跑起来后，控制台立刻报：
+
+```
+WAServiceMainContext…t=wechat&v=3.17.1:1
+  GET https://127.0.0.1:8000/api/auth/providers
+  net::ERR_SSL_PROTOCOL_ERROR
+```
+
+**根因**：`config/prod.ts` 默认 `https://127.0.0.1:8000/api`，Taro 默认按
+`NODE_ENV=production` 走 prod 配置（不带 `--watch` 的 `taro build` 就是 production），
+产物里硬编码了 HTTPS URL。但本地后端 `uvicorn` 没启 SSL，请求失败。
+
+更糟的是：旧 `dev.ts` 默认 HTTP，旧 `prod.ts` 默认 HTTPS，**两个文件唯一差异就是这个默认值**——
+却没有合并，分裂是万恶之源。
+
+**修复**：
+
+1. `config/dev.ts` 与 `config/prod.ts` **合并**成 `config/base.ts`；
+2. URL 默认 `http://127.0.0.1:8000/api`（本地一定能跑），通过环境变量 `MP_API_BASE` 切到
+   真机 IP 或 HTTPS 备案域名；
+3. `base.ts` 启动期打两处 warn：
+   - 仍指向 `https://127.0.0.1` 时提示「本地后端无 SSL，请传 `MP_API_BASE=http://...`」；
+   - `NODE_ENV=production` 但默认 HTTP 时提示「上线前请用 HTTPS 备案域名」；
+4. `config/index.ts` 不再 `if (NODE_ENV === 'development')` 分支，所有环境都走同一个 base。
+
+**预防**：
+
+- **不要再手写 `dev.ts` / `prod.ts`**——任何 URL 上的差异用 `MP_API_BASE` 驱动。
+- 真机调试：`MP_API_BASE=http://<电脑IP>:8000/api npm run dev:weapp`
+- 生产发布：`MP_API_BASE=https://<备案域名>/api npm run build:weapp`
+- 「预览」模式强制校验 request 合法域名，http 必然被拦；只有「真机调试」自动跳过。
+
 ---
 
 ## 三、已做的修改
@@ -133,6 +168,11 @@ updateAppCode app.js Error: The file app.json doesn't exist
 | `miniapp/project.config.json` | `urlCheck` → `false`；补 `libVersion: "3.17.1"`（原来只在被 gitignore 的私有配置里）；`packOptions.ignore` 排除 `.DS_Store` |
 | `miniapp/config/dev.ts` | 后端地址支持 `MP_API_BASE` 环境变量覆盖，注释里写清真机该填什么 |
 | `miniapp/dist/` | 已用新配置重新构建 |
+| `miniapp/package.json` | 新增 `build:h5` / `dev:h5` 两个 npm script（H5 构建入口） |
+| `miniapp/config/index.ts` | `outputRoot` 平台判断从 `process.argv.includes('h5')` 改为 `process.env.TARO_ENV === 'h5'`（Taro 4 官方约定）；删除 dev/prod 分支，统一走 `base.ts` |
+| `miniapp/BUILD.md` | 新增构建产物地图（H5 ↔ weapp ↔ 开发者工具导入目录的对应关系）+ API 地址章节 |
+| `miniapp/dist/` | 用 `npm run build:weapp` 重新构建（修复根因 5） |
+| `miniapp/config/{dev,prod}.ts` → `config/base.ts` | 合并 dev/prod；URL 默认 HTTP；`MP_API_BASE` 切 HTTPS；启动期两处 warn（修复根因 6） |
 
 ### 修复后校验
 

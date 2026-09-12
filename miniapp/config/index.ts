@@ -1,8 +1,7 @@
 import path from 'node:path'
 import { defineConfig, type UserConfigExport } from '@tarojs/cli'
 
-import devConfig from './dev'
-import prodConfig from './prod'
+import sharedConfig from './base'
 
 // shared/ 在 miniapp/ 之外, 需要显式告诉 Taro 的 babel 也要编译它,
 // 否则 webpack 会把 TS 源码原样当 JS 解析, 报 "Unexpected token"。
@@ -15,7 +14,7 @@ const sharedDir = path.resolve(__dirname, '..', '..', 'shared')
 // 用 TARO_ENV 而不是 process.argv.includes('h5') 的原因:
 //   1. Taro 4 在调用 defineConfig 之前已经把 --type 解析到 process.env.TARO_ENV,
 //      这是官方约定, 所有内部插件 (mini/h5) 都读这个值
-//   2. argv.includes('h5') 在 CI / scripts / npm 嵌套调用时容易误判 (例如
+//   2. argv.includes('h5') 在 CI / scripts / 嵌套调用时容易误判 (例如
 //      父脚本名恰好叫 h5.sh), TARO_ENV 是受控环境变量, 更稳
 //   3. 通过 --type=h5 时 TARO_ENV='h5', --type=weapp 时 TARO_ENV='weapp'
 const isH5 = process.env.TARO_ENV === 'h5'
@@ -73,8 +72,9 @@ export default defineConfig<'webpack5'>(async (merge) => {
     },
   }
 
-  if (process.env.NODE_ENV === 'development') {
-    return merge({}, baseConfig, devConfig)
-  }
-  return merge({}, baseConfig, prodConfig)
+  // sharedConfig 承担"所有平台共享的部分" (alias / shared 路径 / API 地址)。
+  // 旧的 dev/prod 区分已经合并进 base.ts, 由 MP_API_BASE 驱动;
+  // NODE_ENV 不再影响产物的 URL, 避免老 prod.ts 把默认 URL 写成 https://127.0.0.1
+  // 导致本地后端无 SSL 时 ERR_SSL_PROTOCOL_ERROR。
+  return merge({}, baseConfig, sharedConfig)
 })
