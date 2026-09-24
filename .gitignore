@@ -73,3 +73,6 @@ deploy/.env.*
 
 # Agent 记忆/工作目录
 .workbuddy/
+
+# Vite 临时产物
+*.timestamp-*
