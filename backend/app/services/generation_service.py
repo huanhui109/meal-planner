@@ -39,6 +39,7 @@ from app.schemas.recipe import (
     WeekMenuGenerate,
 )
 from app.services.budget_service import BudgetService
+from app.services.dish_rules import dish_only
 from app.services.diversity_service import DiversityReport, DiversityService
 from app.services.menu_service import MenuService
 from app.services.nutrition_service import NutritionReport
@@ -59,10 +60,18 @@ MODE_AUTO = "auto"
 MODE_LOCAL = "local"
 MODE_AI = "ai"
 
-# 本地编排打分权重 (与 replacement_service 口径一致)
+# 本地编排打分权重
+# 只有 SCORE_CUISINE 与 replacement_service 同源(两边都归零); SCORE_CALORIE /
+# SCORE_INVENTORY 各自独立, 改一边不会带着另一边 —— 别按"整块一致"去理解。
 SCORE_CALORIE = 50.0
 SCORE_INVENTORY = 30.0
-SCORE_CUISINE = 20.0
+# 暂停(不是废弃), 理由与 config.py 的 DecideSettings.score_cuisine 一致: recipe.cuisine
+# 存的是菜品分类而不是菜系, 命中率 2/396, 带着 20 分只是假装在打分。
+# 恢复条件: recipe.cuisine 由凌晨 LLM 富集任务标注成真菜系并回填完成, 且 config.py
+# 恢复清单里的 6 处一起改(本处是模块级硬编码, 那天最容易漏)。
+# 恢复目标 20.0(原值); 恢复前先解决[幅度 > random_band]的约束, 否则会塌缩成只在
+# 命中菜系的菜里挑。
+SCORE_CUISINE = 0.0
 DEFAULT_WEEKDAY_COOK_MINUTES = 30
 DEFAULT_WEEKEND_COOK_MINUTES = 60
 # 给 LLM 的本地候选短名单长度 (mixed 模式)
@@ -379,11 +388,14 @@ class MenuGenerationPipeline:
         return [(day, meal) for day in range(MAX_MENU_DAYS) for meal in meal_types]
 
     async def _load_local_candidates(self, ctx: GenerationContext) -> List[Recipe]:
+        """候选加载。dish_only() 与决策主链路共用同一道闸 —— 周菜单排的是正餐,
+        把调味品排进一周的晚饭比推错一次更难被察觉"""
         async with session_scope() as session:
             stmt = (
                 select(Recipe)
                 .options(selectinload(Recipe.recipe_ingredients).selectinload(RecipeIngredient.ingredient))
                 .where(
+                    dish_only(),
                     Recipe.calories.is_not(None),
                     Recipe.cook_minutes.is_not(None),
                     Recipe.steps.is_not(None),

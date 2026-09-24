@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { message } from 'antd'
 import { ChipSelect, Field, FormCard, NumberInput } from '../../components/ui/form'
 import { usePreferenceStore } from '../../stores/usePreferenceStore'
@@ -9,8 +9,11 @@ const EQUIPMENT_OPTIONS = [
 ]
 
 const HouseholdForm: React.FC = () => {
-  const { summary, updateHousehold } = usePreferenceStore()
+  const { summary, syncToken, updateHousehold } = usePreferenceStore()
   const [loading, setLoading] = useState(false)
+
+  /** 已同步过的 syncToken, -1 表示还没同步过 */
+  const syncedRef = useRef(-1)
 
   const [form, setForm] = useState({
     member_count: 1,
@@ -21,6 +24,9 @@ const HouseholdForm: React.FC = () => {
   })
 
   useEffect(() => {
+    // 只在真正从服务端重新拉取时同步一次: 保存别的卡片不应该覆盖这张卡正在编辑的内容
+    if (syncedRef.current === syncToken) return
+    syncedRef.current = syncToken
     if (summary?.household) {
       const h = summary.household
       setForm({
@@ -31,7 +37,7 @@ const HouseholdForm: React.FC = () => {
         weekend_cook_minutes: h.weekend_cook_minutes,
       })
     }
-  }, [summary])
+  }, [syncToken, summary])
 
   const toggleEquipment = (eq: string) => {
     setForm((prev) => ({

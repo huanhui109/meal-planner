@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -25,4 +25,8 @@ class ProductPrice(Base):
         DateTime, server_default=text("CURRENT_TIMESTAMP"), nullable=False
     )
     # 抓取来源 (scheduler / manual / specific platform spider)
-    source: Mapped[Optional[str]] = mapped_column(default="scheduler", nullable=True)
+    # 长度必须显式写: 不写时 SQLAlchemy 推出的是"无长度 VARCHAR",
+    # MySQL 直接拒绝 (VARCHAR requires a length), 而 SQLite 不检查 ——
+    # 这是 create_all 只在 SQLite 上跑过才会漏掉的一类不一致。
+    # 迁移 0013 里这一列就是 String(50), 模型必须跟它对齐。
+    source: Mapped[Optional[str]] = mapped_column(String(50), default="scheduler", nullable=True)

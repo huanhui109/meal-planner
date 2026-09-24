@@ -72,6 +72,7 @@ class PreferenceService:
             existing.spice_level = data.spice_level
             existing.flavor_preference = data.flavor_preference
             existing.staple_preference = data.staple_preference
+            existing.scene_tags = dumps_list(data.scene_tags)
             return existing
         pref = DietPreference(
             user_id=user_id,
@@ -79,6 +80,7 @@ class PreferenceService:
             spice_level=data.spice_level,
             flavor_preference=data.flavor_preference,
             staple_preference=data.staple_preference,
+            scene_tags=dumps_list(data.scene_tags),
         )
         self.db.add(pref)
         await self.db.flush()

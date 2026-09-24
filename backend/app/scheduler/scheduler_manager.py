@@ -90,6 +90,7 @@ class SchedulerManager:
             ("daily_expiry_check", config.expiry_check, jobs.daily_expiry_check),
             ("generate_weekly_menu", config.weekly_generation, jobs.generate_weekly_menu),
             ("daily_scrape_products", config.daily_scrape, jobs.daily_scrape_products),
+            ("enrich_recipes", config.recipe_enrich, jobs.enrich_recipes),
         ]
 
     def start(self) -> None:

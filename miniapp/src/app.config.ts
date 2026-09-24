@@ -1,7 +1,12 @@
 export default defineAppConfig({
+  // ⚠ pages[0] 就是小程序的启动页。之前 onboarding 排在第一位, 而它自己又不判断
+  //   "是不是老用户", 导致已完成引导的用户每次冷启动都要重走一遍 3 步引导。
+  //   改成 today 打头: 新用户由 today 的 useDidShow 按「我的 → 用户信息」里的
+  //   引导开关决定是否 reLaunch 到 onboarding, 老用户直接进首页。
+  entryPagePath: 'pages/today/index',
   pages: [
-    'pages/onboarding/index',
     'pages/today/index',
+    'pages/onboarding/index',
     'pages/menu/index',
     'pages/shopping/index',
     'pages/fridge/index',
@@ -12,12 +17,13 @@ export default defineAppConfig({
     'pages/recipe-detail/index',
     'pages/menu-history/index',
     'pages/invite/index',
+    'pages/fandecide/index',
   ],
   window: {
     backgroundTextStyle: 'dark',
     navigationStyle: 'custom',
     // 背景交给 page CSS 接管, 不写死 #e9e9ee —— 深色模式下避免下拉刷新闪冷灰 (audit B3)
-    navigationBarTitleText: '每周鲜',
+    navigationBarTitleText: '饭决',
     navigationBarTextStyle: 'black',
   },
   // 自定义 TabBar: 悬浮毛玻璃胶囊 (参考稿样式), 原生 tabBar 做不出这个效果。

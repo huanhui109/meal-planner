@@ -42,6 +42,8 @@ class DietPreferenceUpdate(BaseModel):
     spice_level: int = Field(default=2, ge=0, le=5, description="辣度 0-5")
     flavor_preference: Optional[str] = Field(default=None, description="口味倾向")
     staple_preference: Optional[str] = Field(default=None, description="主食偏好")
+    # 「饭决」场景标签: 快手 / 常点外卖 / 愿意炖一小时 / 在家做 (引导第 3 问写入)
+    scene_tags: List[str] = Field(default_factory=list, max_length=5, description="场景标签")
 
 
 class DietPreferenceResponse(BaseModel):
@@ -51,8 +53,9 @@ class DietPreferenceResponse(BaseModel):
     spice_level: int
     flavor_preference: Optional[str] = None
     staple_preference: Optional[str] = None
+    scene_tags: List[str] = Field(default_factory=list)
 
-    @field_validator("cuisines", mode="before")
+    @field_validator("cuisines", "scene_tags", mode="before")
     @classmethod
     def _parse_cuisines(cls, value):
         return json_list(value)

@@ -12,6 +12,7 @@ import { formatMoney } from '@shared/format'
 import { Card, Chip, EmptyState, LoadingStack, PageHead, PillButton } from '../../components/ui'
 import { getMenuHistory } from '../../lib/api'
 import { toast } from '../../lib/nav'
+import { useThemeClass } from '../../lib/theme'
 
 interface HistoryItem {
   id: number
@@ -24,6 +25,7 @@ interface HistoryItem {
 const WEEK_OPTIONS = [4, 8, 12]
 
 export default function MenuHistoryPage() {
+  const themeClass = useThemeClass()
   const [weeks, setWeeks] = useState(4)
   const [items, setItems] = useState<HistoryItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -46,21 +48,31 @@ export default function MenuHistoryPage() {
     }
   }
 
+  /**
+   * 「一键复用」之前是个死链 (P0), 三处硬伤:
+   *   1. menu 是 tab 页, `navigateTo` 到 tabbar page 必然失败 (只能 switchTab)
+   *   2. 即使改成 switchTab, tab 页的 url 不允许带 query, 参数还是传不过去
+   *   3. `reuse_from` 全仓库没有任何读取方, 后端生成接口也不支持这个参数
+   *
+   * 在后端支持"按历史菜单复用"之前, 这里退化成一个诚实的跳转: 直接去周菜单页,
+   * 用户在那边重新生成。按钮文案同步改成「去周菜单」, 不留点了没反应的入口。
+   * TODO: 后端 generateMenu 支持 reuse_from 后, 改成 storage 传 id + switchTab,
+   *       由 menu 页在 useDidShow 里读取并消费一次。
+   */
   const handleReuse = (item: HistoryItem) => {
-    // 复用: 把这份菜单的 id 带回去, 让新菜单生成时参考它的锁定项
     Taro.showModal({
       title: '复用这份菜单',
-      content: `会用 ${item.week_start_date || '这份'}的锁定项作为参考, 重新生成一份新菜单`,
-      confirmText: '去生成',
+      content: `会打开本周菜单页, 你可以在那里重新生成 (${item.week_start_date || '这份'}的锁定项会保留)`,
+      confirmText: '去周菜单',
       cancelText: '再看看',
     }).then((res) => {
       if (!res.confirm) return
-      Taro.navigateTo({ url: `/pages/menu/index?reuse_from=${item.id}` })
+      Taro.switchTab({ url: '/pages/menu/index' })
     })
   }
 
   return (
-    <View className="page">
+    <View className={`page ${themeClass}`}>
       <PageHead title="历史菜单" subtitle={`最近 ${weeks} 周`} />
 
       <View className="chip-row">
@@ -103,7 +115,7 @@ export default function MenuHistoryPage() {
           </View>
           <View style={{ marginTop: 12 }}>
             <PillButton size="sm" variant="ghost" onClick={() => handleReuse(item)}>
-              一键复用
+              去周菜单
             </PillButton>
           </View>
         </Card>

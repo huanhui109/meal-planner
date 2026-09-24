@@ -14,11 +14,13 @@ import type { AuthProviders } from '@shared/types'
 import { Banner, LoadingStack, PillButton } from '../../components/ui'
 import { devLogin, getAuthProviders, wechatMiniLogin } from '../../lib/api'
 import { track } from '../../lib/events'
+import { flushPendingGuideDraft } from '../../lib/guide-draft'
 import { getCachedUser, isLoggedIn, saveSession } from '../../lib/session'
 import { LOGO_MARK_DATA_URI, LOGO_MARK_DATA_URI_DARK } from '../../lib/logo'
-import { useTheme } from '../../lib/theme'
+import { useTheme, useThemeClass } from '../../lib/theme'
 
 export default function LoginPage() {
+  const themeClass = useThemeClass()
   const [providers, setProviders] = useState<AuthProviders | null>(null)
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
@@ -27,7 +29,15 @@ export default function LoginPage() {
   // 暗色 / 明亮 UI 配 inverse (白容框), 冷色 UI 配 default (深容框), 与 H5 LogoMark 规则一致
   const logoSrc = applied !== 'cool' ? LOGO_MARK_DATA_URI_DARK : LOGO_MARK_DATA_URI
 
+  /**
+   * 登录后进入首页
+   *
+   * 顺手把引导期暂存的偏好补交上去: 用户可能在没登录时走完了引导,
+   * 那时偏好只存在本地, 不补交的话首页还会让用户再填一遍。
+   * 补交是"尽力而为", 失败不阻塞进首页 (引导偏好随时能在「我的」里改)。
+   */
   const enter = useCallback(() => {
+    void flushPendingGuideDraft().catch(() => undefined)
     Taro.switchTab({ url: '/pages/today/index' })
   }, [])
 
@@ -87,7 +97,7 @@ export default function LoginPage() {
   const cached = getCachedUser()
 
   return (
-    <View className="login-page">
+    <View className={`login-page ${themeClass}`}>
       <View className="login-card">
         <Image className="login-logo" src={logoSrc} mode="aspectFit" />
         <Text className="login-title">{brand.name}</Text>

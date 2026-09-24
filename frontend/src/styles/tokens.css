@@ -1,26 +1,26 @@
 /* 自动生成, 请勿手改: 源文件是 shared/tokens.ts (node scripts/gen_tokens.mjs) */
 :root {
-  --color-bg: #e9e9ee;
-  --color-screen: #f7f7f9;
-  --color-card: #ffffff;
-  --color-ink: #1c1c1e;
-  --color-ink2: #8e8e93;
-  --color-ink3: #c7c7cc;
-  --color-line: #efeff2;
-  --color-fill: #f2f2f4;
-  --color-on-ink: #ffffff;
+  --color-bg: #FBF9F4;
+  --color-screen: #FFFFFF;
+  --color-card: #FFFFFF;
+  --color-ink: #2C2C2A;
+  --color-ink2: #6B6B6B;
+  --color-ink3: rgba(0, 0, 0, 0.20);
+  --color-line: rgba(0, 0, 0, 0.10);
+  --color-fill: #F2EDE4;
+  --color-on-ink: #FFFFFF;
   --color-accent: #34c759;
   --color-accent-ink: #1e7d3c;
   --color-accent-soft: rgba(52, 199, 89, 0.12);
-  --color-warn: #ff9f0a;
-  --color-warn-ink: #c77800;
-  --color-warn-soft: rgba(255, 159, 10, 0.12);
+  --color-warn: #E0955A;
+  --color-warn-ink: #A8642F;
+  --color-warn-soft: rgba(224, 149, 90, 0.15);
   --color-danger: #ff3b30;
   --color-danger-soft: rgba(255, 59, 48, 0.12);
-  --color-glass: rgba(255, 255, 255, 0.82);
+  --color-glass: rgba(255, 254, 250, 0.82);
   --color-card2: transparent;
   --color-card3: transparent;
-  --color-ink-disabled: #c7c7cc;
+  --color-ink-disabled: rgba(0, 0, 0, 0.20);
   --radius-xl: 28px;
   --radius-lg: 22px;
   --radius-md: 16px;
@@ -61,6 +61,27 @@
   --brand-motion: #f2b872;
   --brand-egg: #ffffff;
   --brand-egg-line: #dadada;
+}
+
+:root[data-theme="cool"] {
+  --color-bg: #e9e9ee;
+  --color-screen: #f7f7f9;
+  --color-card: #ffffff;
+  --color-ink: #1c1c1e;
+  --color-ink2: #8e8e93;
+  --color-ink3: #c7c7cc;
+  --color-line: #efeff2;
+  --color-fill: #f2f2f4;
+  --color-on-ink: #ffffff;
+  --color-accent: #34c759;
+  --color-accent-ink: #1e7d3c;
+  --color-accent-soft: rgba(52, 199, 89, 0.12);
+  --color-warn: #ff9f0a;
+  --color-warn-ink: #c77800;
+  --color-warn-soft: rgba(255, 159, 10, 0.12);
+  --color-danger: #ff3b30;
+  --color-danger-soft: rgba(255, 59, 48, 0.12);
+  --color-glass: rgba(255, 255, 255, 0.82);
 }
 
 :root[data-theme="cream"] {

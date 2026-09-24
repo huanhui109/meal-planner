@@ -79,7 +79,7 @@ node scripts/gen_tokens.mjs && node scripts/gen_logo.mjs
 | `assets/logo/logo-mark.svg` | 默认 | 矢量稿（H5/文档用） |
 | `assets/logo/logo-mark-inverse.svg` | 反白（白容框） | 深色背景 |
 | `assets/logo/logo-mono.svg` | 单色白剪影 | 单色印刷 / 深色底 |
-| `assets/logo/logo-full.svg` | 横版「标 + 每周鲜 · AI 营养菜谱」 | 品牌露出 |
+| `assets/logo/logo-full.svg` | 横版「标 + 饭决 FAN·DECIDE」 | 品牌露出 |
 
 ### 小程序里怎么用
 

@@ -71,15 +71,26 @@ async def db_engine(pytestconfig):
             )
 
     from app.models.base import Base
+    from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine
+
+    # drop_all 前后必须先关掉外键检查。
+    # 否则 MySQL 会按 sorted_tables 的顺序删, 一旦某个外键没被 SQLAlchemy 感知到
+    # (跨 metadata / 循环依赖), 就会报 3730
+    # "Cannot drop table 'x' referenced by a foreign key constraint"。
+    # 这是集成测试长久没在真 MySQL 上跑过才留下的问题 —— SQLite 不做这个检查。
+    async def drop_everything(conn) -> None:
+        await conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
 
     engine = create_async_engine(TEST_DATABASE_URL, pool_pre_ping=True)
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        await drop_everything(conn)
         await conn.run_sync(Base.metadata.create_all)
     yield engine
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        await drop_everything(conn)
     await engine.dispose()
 
 

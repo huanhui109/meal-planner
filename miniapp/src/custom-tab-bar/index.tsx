@@ -4,6 +4,11 @@
  * 为什么不用原生 tabBar: 原生 tabBar 只能贴底、纯色背景、不能做圆角悬浮与毛玻璃,
  * 参考稿的观感做不出来。图标用 View 画的极简几何形, 不引图片资源, 包体积为 0,
  * 也能跟着主题色一起变 (颜色直接读 var(--color-ink) / var(--color-ink3))。
+ *
+ * ⚠ 自定义 tabBar **不在页面根节点里面**, 拿不到页面 .theme-root 上的 CSS 变量,
+ *   var(--color-ink) 会一路回落到 page 的默认调色板 (cream) —— 切主题时 tabBar 不变色。
+ *   所以这里自己挂一份 `theme-vars theme-<applied>` (纯变量宿主, 无布局副作用),
+ *   并在主题变化时 forceUpdate 重新求值。
  */
 import { Component } from 'react'
 import Taro from '@tarojs/taro'
@@ -11,7 +16,7 @@ import { Text, View } from '@tarojs/components'
 
 import { cx } from '../components/ui'
 import { px } from '../lib/px'
-import { subscribeTheme } from '../lib/theme'
+import { getApplied, subscribeTheme } from '../lib/theme'
 
 interface TabItem {
   pagePath: string
@@ -26,9 +31,10 @@ const TABS: TabItem[] = [
   { pagePath: '/pages/fridge/index', text: '冰箱', icon: 'box' },
 ]
 
-// 颜色直接走 CSS 变量 —— 主题切换时 var(--color-ink) 会跟着 page.theme-* 一起变。
-// 这里给的是非颜色态的"格式", 真正的色值由 _tokens.scss 的 page{} / page.theme-cream{} / page.theme-dark{} 提供。
-const ACTIVE = 'var(--color-ink)'
+// 颜色走 CSS 变量, 真正的色值由 _tokens.scss 的 .theme-vars{} / .theme-vars.theme-*{} 提供。
+// tabBar 自己挂 theme-vars 宿主 (见文件头注释), 所以这里能拿到当前主题的色值。
+// 选中态用 accent 绿做「少量色彩」点缀, 其余保持中性灰 (苹果式克制配色)。
+const ACTIVE = 'var(--color-accent)'
 const IDLE = 'var(--color-ink3)'
 
 /** 极简几何图标: 只用 View 的圆角/边框搭出来, 不依赖字体或图片 */
@@ -173,14 +179,16 @@ export default class CustomTabBar extends Component<Record<string, never>, { sel
 
   render() {
     const { selected } = this.state
+    // 自己当变量宿主: 不在页面 .theme-root 里, 不挂就拿不到当前主题的 --color-*
+    const themeHost = `theme-vars theme-${getApplied()}`
     return (
-      <View className="tabbar">
+      <View className={`tabbar ${themeHost}`}>
         {TABS.map((tab, index) => {
           const on = index === selected
           return (
             <View
               key={tab.pagePath}
-              className="tabbar__item tap"
+              className={cx('tabbar__item', 'tap', on && 'tabbar__item--on')}
               onClick={() => this.handleSwitch(index)}
             >
               <TabIcon name={tab.icon} color={on ? ACTIVE : IDLE} />

@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { message } from 'antd'
+import React, { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Button, message } from 'antd'
 import { Banner, Card, LoadingStack, PageHead } from '../../components/ui'
 import { usePreferenceStore } from '../../stores/usePreferenceStore'
 import HouseholdForm from './HouseholdForm'
@@ -11,11 +11,26 @@ import BudgetForm from './BudgetForm'
 
 const Preferences: React.FC = () => {
   const { summary, loaded, loading, fetchSummary } = usePreferenceStore()
+  const navigate = useNavigate()
   const [params] = useSearchParams()
   const focus = params.get('focus')
 
+  const [loadError, setLoadError] = useState('')
+
   useEffect(() => {
-    fetchSummary().catch((error: Error) => message.error(error.message))
+    let cancelled = false
+    fetchSummary()
+      .then(() => {
+        if (!cancelled) setLoadError('')
+      })
+      .catch((error: Error) => {
+        if (cancelled) return
+        setLoadError(error.message)
+        message.error(error.message)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [fetchSummary])
 
   // 从「我的」抽屉点进来时自动滚到对应分组, 少一次翻找
@@ -47,6 +62,17 @@ const Preferences: React.FC = () => {
 
       {!loaded && loading ? (
         <LoadingStack rows={5} />
+      ) : loadError && !loaded ? (
+        // ⚠ 加载失败时不能用默认值渲染表单: 那 5 张卡会显示成空/默认值,
+        //   用户随手点一下「保存」就把服务端的真实偏好覆盖成默认值了。
+        <Card>
+          <div className="card__hint">偏好加载失败: {loadError}</div>
+          <div style={{ marginTop: 12 }}>
+            <Button type="primary" onClick={() => void fetchSummary()}>
+              重新加载
+            </Button>
+          </div>
+        </Card>
       ) : (
         <>
           {missing.length > 0 ? (
@@ -61,6 +87,30 @@ const Preferences: React.FC = () => {
               text="AI 生成菜单时会同时校验营养比例、预算上限和过敏源"
             />
           )}
+
+          {/* 需求 8: 口味与约束档案一次设置长期生效, 之后随时能重设。
+              这 3 题是决策引擎真正读的字段, 单独一张卡放在最上面 ——
+              用户改口味不该先去翻五张长表单。 */}
+          <Card tight>
+            <div className="set-group">
+              <button
+                type="button"
+                className="set-row set-row--btn"
+                onClick={() => navigate('/onboarding?from=preferences')}
+              >
+                <div className="set-icon">🍳</div>
+                <div className="set-text">
+                  <b>饭决偏好</b>
+                  <span>
+                    {summary?.diet_preference || summary?.allergy_restriction
+                      ? '口味 / 忌口 / 做饭时间 · 点这重答 3 题'
+                      : '还没设置 · 3 题 30 秒，之后长期生效'}
+                  </span>
+                </div>
+                <span className="set-arrow">›</span>
+              </button>
+            </div>
+          </Card>
 
           <Card tight>
             <div className="set-group">

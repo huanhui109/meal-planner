@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>饭决 · 用户操作台</title>
+<!-- 本工作台通过 WorkBuddy「资料库」skill 搭建、存储和部署 -->
+<!-- 样式沿用项目唯一真源 shared/tokens.ts 生成的 CSS 变量 -->
+<style>
+:root{
+  --color-bg:#FBF9F4; --color-screen:#FFFFFF; --color-card:#FFFFFF;
+  --color-ink:#2C2C2A; --color-ink2:#6B6B6B; --color-ink3:rgba(0,0,0,.20);
+  --color-line:rgba(0,0,0,.10); --color-fill:#F2EDE4; --color-on-ink:#FFFFFF;
+  --color-accent:#34c759; --color-accent-ink:#1e7d3c; --color-accent-soft:rgba(52,199,89,.12);
+  --color-warn:#E0955A; --color-warn-ink:#A8642F; --color-warn-soft:rgba(224,149,90,.15);
+  --color-danger:#ff3b30; --color-danger-soft:rgba(255,59,48,.12);
+  --color-glass:rgba(255,254,250,.82); --color-ink-disabled:rgba(0,0,0,.20);
+  --radius-xl:28px; --radius-lg:22px; --radius-md:16px; --radius-sm:12px; --radius-pill:999px;
+  --font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
+  --font-title:29px; --font-heading:19px; --font-body:15px; --font-label:13px;
+  --font-caption:12px; --font-micro:11px; --font-number:26px;
+  --font-tracking:-.01em; --font-tracking-tight:-.03em;
+  --shadow-card:0 1px 2px rgba(0,0,0,.025),0 10px 30px -18px rgba(0,0,0,.12);
+  --shadow-float:0 12px 32px -12px rgba(0,0,0,.18);
+  --motion-ease:cubic-bezier(.22,.9,.3,1); --motion-press:.965; --motion-fast:.14s; --motion-base:.24s;
+  --layout-page-max:1120px; --layout-tabbar-height:74px; --layout-tap-target:44px;
+  --brand-pan:#3b4048; --brand-pan-rim:#6b7280; --brand-pan-inner:#2b2f35; --brand-pan-light:#e8e8ea;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{background:var(--color-bg);color:var(--color-ink);font-family:var(--font-family);
+  font-size:var(--font-body);line-height:1.6;-webkit-font-smoothing:antialiased;letter-spacing:var(--font-tracking)}
+h1,h2,h3,h4{margin:0;font-weight:650;letter-spacing:var(--font-tracking-tight)}
+p{margin:0}
+button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input,select,textarea{font-family:inherit;font-size:16px;color:var(--color-ink)}
+code,pre,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.app{min-height:100vh;display:flex;flex-direction:column}
+.page{width:100%;max-width:var(--layout-page-max);margin:0 auto;padding:0 20px 40px}
+.appbar{position:sticky;top:0;z-index:50;background:var(--color-glass);
+  backdrop-filter:saturate(180%) blur(14px);-webkit-backdrop-filter:saturate(180%) blur(14px);
+  border-bottom:1px solid var(--color-line)}
+.appbar-in{max-width:var(--layout-page-max);margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:12px}
+.logo{width:34px;height:34px;flex:0 0 34px;border-radius:var(--radius-sm);background:var(--color-fill);
+  display:flex;align-items:center;justify-content:center;border:1px solid var(--color-line)}
+.appbar-t{font-size:var(--font-heading);font-weight:700;letter-spacing:var(--font-tracking-tight)}
+.appbar-s{font-size:var(--font-caption);color:var(--color-ink2)}
+.appbar-sp{flex:1 1 auto}
+.conn{display:flex;align-items:center;gap:7px;min-height:36px;padding:0 13px;border-radius:var(--radius-pill);
+  background:var(--color-fill);border:1px solid var(--color-line);font-size:var(--font-caption);font-weight:600}
+.conn .d{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:var(--color-ink-disabled)}
+.conn.ok .d{background:var(--color-accent)}
+.conn.err .d{background:var(--color-danger)}
+.conn.load .d{background:var(--color-warn)}
+.navbar{position:sticky;top:56px;z-index:40;background:var(--color-bg);padding:12px 0 4px}
+.navbar-in{max-width:var(--layout-page-max);margin:0 auto;padding:0 20px;display:flex;gap:8px;
+  overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.navbar-in::-webkit-scrollbar{display:none}
+.navitem{flex:0 0 auto;display:flex;align-items:center;gap:6px;min-height:var(--layout-tap-target);
+  padding:0 16px;border-radius:var(--radius-pill);background:var(--color-card);
+  border:1px solid var(--color-line);font-size:var(--font-label);font-weight:600;color:var(--color-ink2);
+  transition:transform var(--motion-fast) var(--motion-ease),background var(--motion-fast)}
+.navitem.on{background:var(--color-ink);color:var(--color-on-ink);border-color:var(--color-ink)}
+.navitem:active{transform:scale(var(--motion-press))}
+.head{padding:18px 0 6px}
+.head h1{font-size:var(--font-title);line-height:1.2}
+.head p{color:var(--color-ink2);font-size:var(--font-label);margin-top:6px}
+.card{background:var(--color-card);border:1px solid var(--color-line);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-card);padding:18px;margin-bottom:14px}
+.card-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.card-h h2{font-size:var(--font-heading)}
+.card-h .sp{flex:1 1 auto}
+.hint{font-size:var(--font-caption);color:var(--color-ink2);line-height:1.65}
+.mono{font-size:var(--font-caption)}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.panel{display:none}
+.panel.on{display:block}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:var(--layout-tap-target);
+  padding:0 18px;border-radius:var(--radius-pill);border:1px solid var(--color-line);
+  background:var(--color-card);color:var(--color-ink);font-size:var(--font-body);font-weight:600;
+  transition:transform var(--motion-fast) var(--motion-ease),opacity var(--motion-fast)}
+.btn:active{transform:scale(var(--motion-press))}
+.btn.primary{background:var(--color-ink);border-color:var(--color-ink);color:var(--color-on-ink)}
+.btn.ghost{background:var(--color-fill);border-color:transparent}
+.btn.sm{min-height:36px;padding:0 13px;font-size:var(--font-label)}
+.btn.danger{color:var(--color-danger);border-color:rgba(255,59,48,.3)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn svg{flex:0 0 16px}
+.btnrow{display:flex;gap:9px;flex-wrap:wrap}
+.frow{display:flex;flex-direction:column;gap:6px;padding:9px 0}
+.frow .lb{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+.frow .nm{font-size:var(--font-label);font-weight:600}
+.frow .req{color:var(--color-danger);font-size:var(--font-caption)}
+.frow .ds{font-size:var(--font-caption);color:var(--color-ink2);line-height:1.5}
+.frow input,.frow select,.frow textarea{width:100%;min-height:var(--layout-tap-target);padding:10px 13px;
+  border:1px solid var(--color-line);border-radius:var(--radius-sm);background:var(--color-screen);outline:none}
+.frow textarea{min-height:76px;resize:vertical;line-height:1.6}
+.frow input:focus,.frow select:focus,.frow textarea:focus{border-color:var(--color-ink)}
+.frow.invalid input,.frow.invalid select,.frow.invalid textarea{border-color:var(--color-danger);background:rgba(255,59,48,.04)}
+.frow .err{font-size:var(--font-caption);color:var(--color-danger);display:none}
+.frow.invalid .err{display:block}
+.sw{display:inline-flex;align-items:center;gap:9px;min-height:var(--layout-tap-target)}
+.sw input{position:absolute;opacity:0;width:0;height:0}
+.sw .tr{width:46px;height:28px;flex:0 0 46px;border-radius:var(--radius-pill);background:var(--color-ink-disabled);
+  position:relative;transition:background var(--motion-fast)}
+.sw .tr::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;
+  background:#fff;transition:transform var(--motion-base) var(--motion-ease);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.sw input:checked + .tr{background:var(--color-accent)}
+.sw input:checked + .tr::after{transform:translateX(18px)}
+.sw .tl{font-size:var(--font-label);font-weight:600}
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:var(--font-micro);font-weight:700;
+  padding:3px 9px;border-radius:var(--radius-pill);letter-spacing:.02em;white-space:nowrap}
+.tag.g{background:var(--color-accent-soft);color:var(--color-accent-ink)}
+.tag.w{background:var(--color-warn-soft);color:var(--color-warn-ink)}
+.tag.r{background:var(--color-danger-soft);color:var(--color-danger)}
+.tag.n{background:var(--color-fill);color:var(--color-ink2)}
+.tag.k{background:var(--color-ink);color:var(--color-on-ink)}
+.mth{font-size:var(--font-micro);font-weight:800;padding:2px 7px;border-radius:6px;letter-spacing:.04em}
+.mth.GET{background:var(--color-accent-soft);color:var(--color-accent-ink)}
+.mth.POST{background:var(--color-warn-soft);color:var(--color-warn-ink)}
+.mth.PUT{background:rgba(0,122,255,.10);color:#0057b8}
+.mth.DELETE{background:var(--color-danger-soft);color:var(--color-danger)}
+.op{border:1px solid var(--color-line);border-radius:var(--radius-md);background:var(--color-card);
+  margin-bottom:12px;overflow:hidden}
+.op-h{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:13px 15px;min-height:52px}
+.op-h:hover{background:rgba(0,0,0,.015)}
+.op-h .ico{width:30px;height:30px;flex:0 0 30px;border-radius:9px;background:var(--color-fill);
+  display:flex;align-items:center;justify-content:center}
+.op-h .ttl{font-size:var(--font-body);font-weight:650}
+.op-h .path{font-size:var(--font-caption);color:var(--color-ink2);overflow-wrap:anywhere}
+.op-h .sp{flex:1 1 auto}
+.op-h .arw{transition:transform var(--motion-base) var(--motion-ease);flex:0 0 15px}
+.op.open .op-h .arw{transform:rotate(90deg)}
+.op-b{display:none;padding:2px 15px 15px;border-top:1px solid var(--color-line)}
+.op.open .op-b{display:block}
+.op-res{margin-top:12px}
+.res{border-radius:var(--radius-md);border:1px solid var(--color-line);overflow:hidden}
+.res.ok{border-color:rgba(52,199,89,.34);background:var(--color-accent-soft)}
+.res.err{border-color:rgba(255,59,48,.30);background:var(--color-danger-soft)}
+.res.warn{border-color:rgba(224,149,90,.34);background:var(--color-warn-soft)}
+.res-h{display:flex;align-items:center;gap:9px;padding:11px 13px;flex-wrap:wrap}
+.res-h .st{font-size:var(--font-label);font-weight:700}
+.res.ok .st{color:var(--color-accent-ink)}
+.res.err .st{color:var(--color-danger)}
+.res.warn .st{color:var(--color-warn-ink)}
+.res-h .meta{font-size:var(--font-caption);color:var(--color-ink2)}
+.res-h .sp{flex:1 1 auto}
+.res-b{padding:0 13px 12px}
+.res-msg{font-size:var(--font-body);line-height:1.6;padding:0 13px 10px;word-break:break-word}
+.res-sum{display:flex;gap:8px;flex-wrap:wrap;padding:2px 0 10px}
+.kv{display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-radius:var(--radius-sm);
+  background:var(--color-screen);border:1px solid var(--color-line);min-width:104px;flex:1 1 104px}
+.kv .k{font-size:var(--font-micro);color:var(--color-ink2)}
+.kv .v{font-size:var(--font-label);font-weight:700;overflow-wrap:anywhere}
+pre.json{margin:0;padding:12px;background:var(--color-screen);border-top:1px solid var(--color-line);
+  font-size:var(--font-caption);line-height:1.55;overflow:auto;max-height:320px;white-space:pre-wrap;
+  word-break:break-word;overflow-wrap:anywhere}
+.toggle-json{font-size:var(--font-caption);font-weight:600;color:var(--color-ink2);padding:6px 0}
+.empty-state{text-align:center;padding:26px 14px;color:var(--color-ink2);font-size:var(--font-label)}
+.skel{height:12px;border-radius:6px;background:var(--color-fill);margin:8px 0;animation:pulse 1.1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.spin{width:15px;height:15px;flex:0 0 15px;border:2px solid rgba(0,0,0,.15);border-top-color:var(--color-ink);
+  border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--color-line)}
+.row:last-child{border-bottom:0}
+.row .rf{flex:1 1 auto;min-width:0}
+.row .rt{font-size:var(--font-body);font-weight:600}
+.row .rd{font-size:var(--font-caption);color:var(--color-ink2);overflow-wrap:anywhere}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);
+  background:var(--color-ink);color:var(--color-on-ink);padding:11px 20px;border-radius:var(--radius-pill);
+  font-size:var(--font-label);font-weight:600;opacity:0;pointer-events:none;z-index:99;
+  transition:opacity var(--motion-base) var(--motion-ease),transform var(--motion-base) var(--motion-ease);
+  max-width:86vw;text-align:center;box-shadow:var(--shadow-float)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.38);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.mask.show{display:flex}
+.modal{background:var(--color-card);border-radius:var(--radius-lg);padding:22px;max-width:420px;width:100%;
+  box-shadow:var(--shadow-float)}
+.modal h3{font-size:var(--font-heading);margin-bottom:8px}
+.modal p{font-size:var(--font-body);color:var(--color-ink2);line-height:1.65;overflow-wrap:anywhere}
+.modal .acts{display:flex;gap:9px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+@media (max-width:860px){
+  .g3,.g2{grid-template-columns:1fr}
+  .page{padding:0 14px 60px}
+  .appbar-in{padding:9px 14px}
+  .navbar-in{padding:0 14px}
+  .navbar{top:52px}
+  .head h1{font-size:24px}
+  .card{padding:15px;border-radius:var(--radius-md)}
+}
+@media (max-width:400px){.navitem{padding:0 13px;font-size:var(--font-caption)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="appbar">
+    <div class="appbar-in">
+      <div class="logo" id="logoBox"></div>
+      <div>
+        <div class="appbar-t">饭决 · 用户操作台</div>
+        <div class="appbar-s" id="appbarSub">未连接</div>
+      </div>
+      <div class="appbar-sp"></div>
+      <button class="conn" id="connChip" data-act="goto" data-tab="connect">
+        <span class="d"></span><span id="connTxt">未连接</span>
+      </button>
+    </div>
+  </header>
+
+  <nav class="navbar"><div class="navbar-in" id="nav"></div></nav>
+
+  <main class="page">
+    <section class="panel on" id="panel-connect">
+      <div class="head"><h1>连接与身份</h1>
+        <p>先把操作台接到后端并完成登录，其余能力才会解锁——所有请求都走真实 API</p></div>
+      <div id="connectBody"></div>
+    </section>
+
+    <section class="panel" id="panel-decide">
+      <div class="head"><h1>今天吃啥</h1>
+        <p>决策引擎与今日聚合：一次点击出结果，并给出口服的理由与做法</p></div>
+      <div id="decideBody"></div>
+    </section>
+
+    <section class="panel" id="panel-menu">
+      <div class="head"><h1>周菜单与采购</h1>
+        <p>生成 / 查看 / 编辑菜单，取采购清单与补单建议</p></div>
+      <div id="menuBody"></div>
+    </section>
+
+    <section class="panel" id="panel-fridge">
+      <div class="head"><h1>冰箱库存</h1>
+        <p>库存增删查、临期提醒，以及拍照识别入库</p></div>
+      <div id="fridgeBody"></div>
+    </section>
+
+    <section class="panel" id="panel-pref">
+      <div class="head"><h1>偏好档案</h1>
+        <p>口味档案即约束：这些设定直接决定决策结果与菜单内容</p></div>
+      <div id="prefBody"></div>
+    </section>
+
+    <section class="panel" id="panel-more">
+      <div class="head"><h1>更多能力</h1>
+        <p>反馈、邀请、订阅消息、飞书自动化、商品查询与系统状态</p></div>
+      <div id="moreBody"></div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="mask" id="mask">
+  <div class="modal">
+    <h3 id="mkTitle">确认</h3>
+    <p id="mkBody"></p>
+    <div class="acts"><button class="btn" id="mkNo">取消</button><button class="btn primary" id="mkYes">确定</button></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   饭决 · 用户操作台
+   架构：数据层 → 计算层 → 渲染层，严格单向；统一刷新入口 refreshAll()
+   ============================================================ */
+/* ========================= 数据层 0：图标与工具 ========================= */
+var ICONS = {
+  plug:'<path d="M9 2v6M15 2v6"/><path d="M6 8h12v4a6 6 0 0 1-12 0z"/><path d="M12 18v4"/>',
+  target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>',
+  calendar:'<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  fridge:'<rect x="5" y="2.5" width="14" height="19" rx="3"/><path d="M5 10h14M8 6.5v2.5M8 13.5v3"/>',
+  user:'<circle cx="12" cy="8" r="3.4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
+  dots:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
+  swap:'<path d="M7 7h11l-3-3M17 17H6l3 3"/>',
+  cart:'<circle cx="9.5" cy="20" r="1.4"/><circle cx="17.5" cy="20" r="1.4"/><path d="M2.5 3h2.4l2.6 12h11.2l2.2-8H6.4"/>',
+  chat:'<path d="M20.5 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 20.5 12z"/>',
+  bell:'<path d="M18 9a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7"/><path d="M10.3 20a2 2 0 0 0 3.4 0"/>',
+  heart:'<path d="M20.4 5.8a5 5 0 0 0-7.1 0L12 7.1l-1.3-1.3a5 5 0 0 0-7.1 7.1L12 21l8.4-8.1a5 5 0 0 0 0-7.1z"/>',
+  gift:'<rect x="3" y="8.5" width="18" height="12.5" rx="2"/><path d="M3 13h18M12 8.5V21"/><path d="M12 8.5S10.5 3 8 3a2.5 2.5 0 0 0 0 5.5M12 8.5S13.5 3 16 3a2.5 2.5 0 0 1 0 5.5"/>',
+  camera:'<path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.7l1.3-2h7l1.3 2h1.7A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/><circle cx="12" cy="13" r="3.4"/>',
+  trash:'<path d="M4 6.5h16M9.5 6.5V4h5v2.5M6.5 6.5l1 14h9l1-14"/>',
+  check:'<path d="M4 12.5l5.5 5.5L20 6.5"/>',
+  lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/>',
+  unlock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 7.5-1.8"/>',
+  pot:'<path d="M4 9h16v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M2.5 9h19M9 6.5c0-1.5 1-2 1-3M14 6.5c0-1.5 1-2 1-3"/>',
+  refresh:'<path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/>',
+  save:'<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3M8 14h8v7H8z"/>',
+  send:'<path d="M21 3L3 10.5l7 3 3 7z"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 6.5V12l3.5 2"/>',
+  server:'<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/>',
+  search:'<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
+  pan:'<circle cx="10.5" cy="11" r="4.2"/><circle cx="10.5" cy="11" r="1.4" fill="currentColor" stroke="none"/><path d="M14.7 11h6.3a2.5 2.5 0 0 1-2.5 2.5h-2"/>',
+  power:'<path d="M12 3v9"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/>',
+  link:'<path d="M10.5 13.5a5 5 0 0 0 7.1 0l2.4-2.4a5 5 0 0 0-7.1-7.1L11.5 5.4"/><path d="M13.5 10.5a5 5 0 0 0-7.1 0l-2.4 2.4a5 5 0 0 0 7.1 7.1l1.4-1.4"/>'
+};
+function ic(n, s, c){
+  return '<svg width="'+(s||18)+'" height="'+(s||18)+'" viewBox="0 0 24 24" fill="none" stroke="'+(c||'currentColor')+
+    '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(ICONS[n]||ICONS.dots)+'</svg>';
+}
+function $(id){ return document.getElementById(id); }
+function esc(s){
+  return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+var toastTimer=null;
+function toast(msg){
+  var t=$("toast"); if(!t) return;
+  t.textContent=msg; t.classList.add("show");
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){ t.classList.remove("show"); },2400);
+}
+var confirmCb=null;
+function askConfirm(title,body,cb){
+  $("mkTitle").textContent=title; $("mkBody").textContent=body;
+  confirmCb=cb; $("mask").classList.add("show");
+}
+function closeConfirm(){ $("mask").classList.remove("show"); confirmCb=null; }
+
+/* ---------- 存储层 ---------- */
+var LS_KEY="wb_fandecide_console_v1";
+function lsGet(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"{}")||{}; }catch(e){ return {}; } }
+function lsSet(o){ try{ localStorage.setItem(LS_KEY,JSON.stringify(o)); }catch(e){ toast("本地存储写入失败"); } }
+function persist(){
+  lsSet({base:state.base, token:state.token, user:state.user, openOps:state.openOps, tab:state.tab, loginName:state.loginName});
+}
+
+/* ---------- 全局状态 ---------- */
+var state = {
+  tab:"connect",
+  base:"http://127.0.0.1:8000",
+  loginName:"",
+  token:"",
+  user:null,
+  conn:"idle",          // idle | ok | err | load
+  connMsg:"未连接",
+  openOps:{},           // 能力卡展开状态
+  results:{},           // 能力 id -> 结果对象
+  loading:{},           // 能力 id -> bool
+  menuItems:[],         // 当前菜单餐次（供联动选择）
+  currentMenuId:null,
+  lastDecisionId:null,
+  formVals:{}           // "capId.field" -> 值
+};
+
+var TABS = [
+  {id:"connect", label:"连接", icon:"plug"},
+  {id:"decide",  label:"今天吃啥", icon:"target"},
+  {id:"menu",    label:"周菜单", icon:"calendar"},
+  {id:"fridge",  label:"冰箱", icon:"fridge"},
+  {id:"pref",    label:"偏好档案", icon:"user"},
+  {id:"more",    label:"更多", icon:"dots"}
+];
+/* ========================= 数据层 1：能力清单 =========================
+   每项能力 = 一个可交互的操作卡；cards 由它渲染，请求由它描述。
+   field: {k 名, l 标签, t 类型(text/number/bool/select/textarea/date), d 默认值,
+           req 必填, s 说明, o 选项, from 数据来源(menuItems|inventory)}
+   路径里的 {xxx} 会用工单里同名字段的值替换。
+   keys: 结果摘要优先展示的字段路径。
+====================================================================== */
+/* 未连接也可直接调用的能力（健康检查 / 登录类端点，本就无需鉴权或正是用来换取鉴权） */
+var PUBLIC_CAPS = ["health","providers","devlogin","feishuLoginUrl","authWechat","authRefresh","authLogout"];
+
+var CAPS = [
+/* ---------------- 连接与身份 ---------------- */
+{id:"health", tab:"connect", icon:"server", m:"GET", p:"/api/health", title:"健康检查",
+ desc:"看后端是否活着：数据库连通性、调度器状态、最近事件与最近生成时间。无需登录。",
+ keys:["status","database","version","scheduler_running"]},
+{id:"providers", tab:"connect", icon:"plug", m:"GET", p:"/api/auth/providers", title:"可用登录方式",
+ desc:"列出后端当前启用的登录方式（飞书扫码 / 微信小程序 / 本地开发登录）。"},
+{id:"devlogin", tab:"connect", icon:"user", m:"POST", p:"/api/auth/dev-login", title:"登录（本地开发）",
+ desc:"凭昵称换取 access token。仅后端开启 dev_login 时可用，生产环境应关闭。登录后其余能力解锁。",
+ f:[{k:"name",l:"昵称",t:"text",req:true,s:"同一个昵称会复用同一个账号（open_id 前缀 dev:）"}],
+ body:function(v){ return {name:v.name}; },
+ after:function(d){ if(d && d.access_token){ state.token=d.access_token; state.user={id:d.id,name:d.name,open_id:d.open_id}; persist(); } }},
+{id:"me", tab:"connect", icon:"user", m:"GET", p:"/api/auth/me", title:"我的信息",
+ desc:"用当前 token 换取用户信息，可用来验证登录是否还有效。", keys:["id","name","open_id"]},
+{id:"authRefresh", tab:"connect", icon:"refresh", m:"POST", p:"/api/auth/refresh", title:"刷新令牌",
+ desc:"用 refresh_token 换一份新的 access_token（刷新令牌同时轮换）。浏览器 Cookie 模式可不传请求体。",
+ f:[{k:"refresh_token",l:"refresh_token",t:"textarea",d:"",s:"Bearer 模式（小程序）必填；浏览器走 Cookie 时留空"}],
+ body:function(v){ return v.refresh_token ? {refresh_token:v.refresh_token} : {}; },
+ keys:["access_token","expires_in","user.name"],
+ after:function(d){ if(d && d.access_token){ state.token=d.access_token; if(d.user) state.user=d.user; persist(); } }},
+{id:"authLogout", tab:"connect", icon:"power", m:"POST", p:"/api/auth/logout", title:"退出登录",
+ desc:"吊销当前会话并清除登录 Cookie。成功后本地 token 也会一并清空，其余能力重新上锁。", write:true, danger:true,
+ after:function(d){ state.token=""; state.user=null; state.conn="unknown"; state.connMsg="已退出登录"; persist(); }},
+{id:"authWechat", tab:"connect", icon:"chat", m:"POST", p:"/api/auth/wechat/mini-login", title:"微信小程序登录",
+ desc:"用 wx.login() 的临时 code 换 openid 并直接下发令牌组。服务端未配 AppID/Secret 时返回 503。",
+ f:[{k:"code",l:"code",t:"text",req:true,d:"",s:"wx.login() 返回的临时 code，5 分钟有效"}],
+ body:function(v){ return {code:v.code}; },
+ keys:["access_token","expires_in","user.name"],
+ after:function(d){ if(d && d.access_token){ state.token=d.access_token; if(d.user) state.user=d.user; persist(); } }},
+{id:"feishuLoginUrl", tab:"connect", icon:"link", m:"GET", p:"/api/auth/feishu/login-url", title:"飞书授权地址",
+ desc:"生成飞书扫码授权页地址（PC 出二维码、手机直接唤起飞书）。未配置飞书应用时返回 503。",
+ f:[{k:"redirect",l:"授权后跳回",t:"text",d:"/"}],
+ query:function(v){ return v.redirect ? {redirect:v.redirect} : null; },
+ keys:["authorize_url","state"]},
+
+/* ---------------- 今天吃啥 ---------------- */
+{id:"decide", tab:"decide", icon:"target", m:"POST", p:"/api/decide", title:"饭决：决定这一餐",
+ desc:"产品内核。一次点击出结果：菜品 + 一句话理由 + 3-5 步做法。规则含近 7 天不重复、同品类打散、连续两餐不重样。",
+ f:[{k:"meal_slot",l:"餐次",t:"select",o:["","breakfast","lunch","dinner","late_night"],d:"",s:"留空由服务端按当前时间推断"},
+     {k:"exclude",l:"排除菜名",t:"text",d:"",s:"逗号分隔，硬排除这些菜"}],
+ body:function(v){
+   var b={};
+   if(v.meal_slot) b.meal_slot=v.meal_slot;
+   if(v.exclude) b.exclude=v.exclude.split(/[,，]/).map(function(s){return s.trim();}).filter(Boolean);
+   return b;
+ },
+ keys:["recipe_name","reason","meal_slot","cook_minutes","calories"],
+ after:function(d){ if(d && d.decision_id) state.lastDecisionId=d.decision_id; }},
+{id:"decideLast", tab:"decide", icon:"clock", m:"GET", p:"/api/decide/last", title:"上一次决策",
+ desc:"取最近一次决策结果，刷新页面后也能接着看。", keys:["recipe_name","reason"],
+ after:function(d){ if(d && d.decision_id) state.lastDecisionId=d.decision_id; }},
+{id:"decideProfile", tab:"decide", icon:"user", m:"GET", p:"/api/decide/profile", title:"决策档案",
+ desc:"决策引擎实际读到的约束：菜系、辣度、忌口、过敏源、做饭能力、预算、天气。",
+ keys:["has_profile","spice_level","cook_cap","meal_slot","city"]},
+{id:"decideRecent", tab:"decide", icon:"clock", m:"GET", p:"/api/decide/recent", title:"最近决策历史",
+ desc:"近期的决策记录，用于观察「近 7 天不重复」是否生效。"},
+{id:"decideFeedback", tab:"decide", icon:"heart", m:"POST", p:"/api/decide/{decision_id}/feedback", title:"对结果表态",
+ desc:"给上一次决策点赞或点踩，是调优推荐权重的原始输入。",
+ f:[{k:"decision_id",l:"决策 ID",t:"text",req:true,s:"默认带出上一次决策的 id",dyn:"lastDecision"},
+     {k:"liked",l:"态度",t:"select",o:["true","false"],d:"true",s:"true=喜欢，false=不喜欢"}],
+ body:function(v){ return {liked:String(v.liked)==="true"}; }},
+{id:"today", tab:"decide", icon:"sun", m:"GET", p:"/api/today", title:"今日聚合",
+ desc:"一次请求拿全今日所需：预算、餐次、采购缺口、补单建议、自做 vs 外卖、临期食材、自动流程时间线。",
+ keys:["date","weekday_label","day_type","budget.spent_today"]},
+{id:"takeoutPrice", tab:"decide", icon:"cart", m:"POST", p:"/api/today/takeout-price", title:"记住外卖参考价",
+ desc:"把你在对比卡片上改过的外卖价记下来，下次对比默认用它。", write:true,
+ f:[{k:"price",l:"外卖参考价（元）",t:"number",d:"26",req:true}],
+ body:function(v){ return {price:parseFloat(v.price)}; }},
+
+/* ---------------- 周菜单 ---------------- */
+{id:"menuGenerate", tab:"menu", icon:"refresh", m:"POST", p:"/api/menus/generate", title:"生成一周菜单",
+ desc:"异步任务：提交后返回 task_id，前端轮询进度。同一周已有草稿时直接复用，不重复消耗额度。", write:true,
+ f:[{k:"week_start",l:"周起始日",t:"date",d:"",s:"留空=本周；格式 YYYY-MM-DD"},
+     {k:"force",l:"强制重生成",t:"bool",d:"false",s:"开启会忽略已有草稿，重新编排"},
+     {k:"mode",l:"生成策略",t:"select",o:["auto","local","ai"],d:"auto",s:"auto=本地优先凑不齐才用 AI；local=只用本地库；ai=强制走模型"}],
+ body:function(v){
+   var b={force:String(v.force)==="true", mode:v.mode||"auto"};
+   if(v.week_start){ b.week_start=v.week_start; b.week_start_date=v.week_start; }
+   return b;
+ },
+ keys:["task_id","menu_id","week_start_date","status"],
+ after:function(d){
+   if(d && d.task_id){ state.formVals["menuTask.task_id"]=String(d.task_id); pollTask(d.task_id); }
+   if(d && d.menu_id){ state.currentMenuId=d.menu_id; loadMenuItems(); }
+ }},
+{id:"menuTask", tab:"menu", icon:"clock", m:"GET", p:"/api/menus/generation-tasks/{task_id}", title:"查询生成进度",
+ desc:"轮询任务状态：pending → running → done / failed。生成完成后会自动拉取当前菜单。",
+ f:[{k:"task_id",l:"任务 ID",t:"text",req:true,dyn:"lastTask"}],
+ keys:["status","progress","menu_id","error"],
+ after:function(d){ if(d && d.status==="done" && d.menu_id){ state.currentMenuId=d.menu_id; loadMenuItems(); } }},
+{id:"menuCurrent", tab:"menu", icon:"calendar", m:"GET", p:"/api/menus/current", title:"当前周菜单",
+ desc:"取本周菜单；拿到后下方「换一道 / 锁定 / 标记已做」会自动列出可选餐次。",
+ keys:["id","status","week_start_date"],
+ after:function(d){ if(d && d.id){ state.currentMenuId=d.id; loadMenuItems(); } }},
+{id:"menuHistory", tab:"menu", icon:"clock", m:"GET", p:"/api/menus/history", title:"历史菜单",
+ desc:"按周倒序列出以往菜单。",
+ f:[{k:"weeks",l:"最近几周",t:"number",d:"8"}],
+ keys:["weeks","total"]},
+{id:"menuDetail", tab:"menu", icon:"calendar", m:"GET", p:"/api/menus/{menu_id}", title:"菜单详情",
+ desc:"按菜单 id 取详情，含每一餐的菜品、成本与营养。",
+ f:[{k:"menu_id",l:"菜单 ID",t:"text",req:true,dyn:"currentMenu"}],
+ keys:["id","status","week_start_date"]},
+{id:"menuReplace", tab:"menu", icon:"swap", m:"PUT", p:"/api/menus/{menu_id}/items/{item_id}/replace", title:"换一道",
+ desc:"本地菜谱库优先挑一道，挑不到才让 AI 生成。传 recipe_name 可手动指定。", write:true,
+ f:[{k:"menu_id",l:"菜单 ID",t:"text",req:true,dyn:"currentMenu"},
+     {k:"item_id",l:"餐次",t:"select",req:true,from:"menuItems",s:"从当前菜单里选一个餐次"},
+     {k:"recipe_name",l:"指定菜名",t:"text",d:"",s:"留空走自动挑选"}],
+ body:function(v){ var b={}; if(v.recipe_name) b.recipe_name=v.recipe_name; return b; },
+ keys:["source","recipe_name"]},
+{id:"menuLock", tab:"menu", icon:"lock", m:"PUT", p:"/api/menus/{menu_id}/items/{item_id}/lock", title:"锁定餐次",
+ desc:"锁定后重新生成不会覆盖这一餐。", write:true,
+ f:[{k:"menu_id",l:"菜单 ID",t:"text",req:true,dyn:"currentMenu"},
+     {k:"item_id",l:"餐次",t:"select",req:true,from:"menuItems"}]},
+{id:"menuUnlock", tab:"menu", icon:"unlock", m:"PUT", p:"/api/menus/{menu_id}/items/{item_id}/unlock", title:"解锁餐次",
+ desc:"解锁后可被重新生成覆盖。", write:true,
+ f:[{k:"menu_id",l:"菜单 ID",t:"text",req:true,dyn:"currentMenu"},
+     {k:"item_id",l:"餐次",t:"select",req:true,from:"menuItems"}]},
+{id:"menuCook", tab:"menu", icon:"pot", m:"PUT", p:"/api/menus/{menu_id}/items/{item_id}/cooked", title:"标记已做",
+ desc:"临期优先扣减冰箱库存，并写入消耗流水；缺料不阻断，会返回缺失明细。", write:true,
+ f:[{k:"menu_id",l:"菜单 ID",t:"text",req:true,dyn:"currentMenu"},
+     {k:"item_id",l:"餐次",t:"select",req:true,from:"menuItems"}]},
+{id:"menuUncook", tab:"menu", icon:"refresh", m:"DELETE", p:"/api/menus/{menu_id}/items/{item_id}/cooked", title:"撤销已做",
+ desc:"回滚库存与消耗流水（后悔窗口）。批次行还在就加回原行，被扣空的按流水重建。", write:true, danger:true,
+ f:[{k:"menu_id",l:"菜单 ID",t:"text",req:true,dyn:"currentMenu"},
+     {k:"item_id",l:"餐次",t:"select",req:true,from:"menuItems"}]},
+{id:"menuShopping", tab:"menu", icon:"cart", m:"GET", p:"/api/menus/{menu_id}/shopping-list", title:"采购清单",
+ desc:"菜单所需 vs 冰箱库存的差集，含缺口数量与单位换算。",
+ f:[{k:"menu_id",l:"菜单 ID",t:"text",req:true,dyn:"currentMenu"}]},
+{id:"menuOrder", tab:"menu", icon:"cart", m:"GET", p:"/api/menus/{menu_id}/order-suggestion", title:"补单建议",
+ desc:"按参考价估算缺口合计，不够起送价时从「本周迟早要买」的缺料里凑单，给出下单 deeplink。",
+ f:[{k:"menu_id",l:"菜单 ID",t:"text",req:true,dyn:"currentMenu"}]},
+{id:"menuConfirm", tab:"menu", icon:"check", m:"POST", p:"/api/menus/{menu_id}/confirm", title:"确认菜单",
+ desc:"把草稿菜单确认为本周执行版本。", write:true,
+ f:[{k:"menu_id",l:"菜单 ID",t:"text",req:true,dyn:"currentMenu"}]},
+{id:"fridgeRebuild", tab:"menu", icon:"fridge", m:"POST", p:"/api/menus/fridge-rebuild", title:"按冰箱重排",
+ desc:"以冰箱现有食材为优先重新编排菜单，减少采购。", write:true},
+
+/* ---------------- 冰箱库存 ---------------- */
+{id:"invList", tab:"fridge", icon:"fridge", m:"GET", p:"/api/inventory", title:"库存列表",
+ desc:"冰箱里现在有什么。拿到后下方「删除库存」会自动列出可选项。",
+ keys:["total","expiring_count"],
+ after:function(d){ if(d && d.items){ state.inventory=d.items; } }},
+{id:"invCreate", tab:"fridge", icon:"save", m:"POST", p:"/api/inventory", title:"新增库存",
+ desc:"手动添加一样食材。新增后库存列表会同步刷新，可被决策与采购清单用到。", write:true,
+ f:[{k:"ingredient_name",l:"食材名",t:"text",req:true,d:"",s:"例如：鸡蛋、西红柿"},
+     {k:"quantity",l:"数量",t:"number",req:true,d:"1"},
+     {k:"unit",l:"单位",t:"text",req:true,d:"个",s:"个 / 克 / 毫升 / 把 …"},
+     {k:"expiry_date",l:"过期日",t:"date",d:"",s:"留空表示不跟踪保质期"}],
+ body:function(v){
+   var b={ingredient_name:v.ingredient_name, quantity:parseFloat(v.quantity)||0, unit:v.unit};
+   if(v.expiry_date) b.expiry_date=v.expiry_date;
+   return b;
+ },
+ after:function(){ apiSilent("GET","/api/inventory",null,function(r){ if(r.ok&&r.data&&r.data.items) state.inventory=r.data.items; }); }},
+{id:"invDelete", tab:"fridge", icon:"trash", m:"DELETE", p:"/api/inventory/{item_id}", title:"删除库存",
+ desc:"从冰箱移除一样食材。", write:true, danger:true,
+ f:[{k:"item_id",l:"库存条目",t:"select",req:true,from:"inventory"}]},
+{id:"invExpiring", tab:"fridge", icon:"bell", m:"GET", p:"/api/inventory/expiring", title:"临期食材",
+ desc:"快过期的食材，标记已做时会优先扣减这些。", keys:["total"]},
+{id:"invRecognize", tab:"fridge", icon:"camera", m:"POST", p:"/api/inventory/recognize", title:"拍照识别入库",
+ desc:"上传一张冰箱照片 → 视觉模型返回候选食材清单（不落库），你确认后再逐条用「新增库存」保存。受每日额度限流，未配视觉模型时返回 503。",
+ write:true, multipart:true,
+ f:[{k:"file",l:"选择照片",t:"file",req:true,s:"会作为 multipart/form-data 的 file 字段上传"}],
+ keys:["count","candidates","limited"]},
+
+/* ---------------- 偏好档案 ---------------- */
+{id:"prefSummary", tab:"pref", icon:"user", m:"GET", p:"/api/preferences/summary", title:"档案总览",
+ desc:"一次看全部：家庭 / 饮食 / 过敏 / 健康目标 / 预算。缺哪块就补哪块。"},
+{id:"householdGet", tab:"pref", icon:"user", m:"GET", p:"/api/preferences/household", title:"家庭与做饭能力",
+ desc:"人数、每天几餐、可接受的做饭时长、厨房设备。"},
+{id:"householdPut", tab:"pref", icon:"save", m:"PUT", p:"/api/preferences/household", title:"更新家庭信息",
+ desc:"做饭时长直接决定决策里「多久能做好」的筛选。", write:true,
+ f:[{k:"member_count",l:"用餐人数",t:"number",d:"1"},
+     {k:"meals_per_day",l:"每天几餐",t:"number",d:"2"},
+     {k:"weekday_cook_minutes",l:"工作日做饭时长（分钟）",t:"number",d:"30"},
+     {k:"weekend_cook_minutes",l:"周末做饭时长（分钟）",t:"number",d:"60"},
+     {k:"kitchen_equipments",l:"厨房设备",t:"text",d:"",s:"逗号分隔，如：炒锅,空气炸锅"}],
+ body:function(v){
+   return {member_count:parseInt(v.member_count)||1, meals_per_day:parseInt(v.meals_per_day)||2,
+     weekday_cook_minutes:parseInt(v.weekday_cook_minutes)||30, weekend_cook_minutes:parseInt(v.weekend_cook_minutes)||60,
+     kitchen_equipments:(v.kitchen_equipments||"").split(/[,，]/).map(function(s){return s.trim();}).filter(Boolean)};
+ }},
+{id:"dietGet", tab:"pref", icon:"user", m:"GET", p:"/api/preferences/diet", title:"饮食偏好",
+ desc:"菜系、辣度、口味倾向、主食偏好、场景标签。"},
+{id:"dietPut", tab:"pref", icon:"save", m:"PUT", p:"/api/preferences/diet", title:"更新饮食偏好",
+ desc:"菜系与辣度是决策打分里权重最高的两项之一。", write:true,
+ f:[{k:"cuisines",l:"偏好菜系",t:"text",d:"",s:"逗号分隔，如：川菜,粤菜"},
+     {k:"spice_level",l:"辣度",t:"select",o:["0","1","2","3","4"],d:"2",s:"0=不辣 4=变态辣"},
+     {k:"flavor_preference",l:"口味倾向",t:"text",d:"",s:"如：清淡 / 浓郁 / 酸甜"},
+     {k:"staple_preference",l:"主食偏好",t:"text",d:""},
+     {k:"scene_tags",l:"场景标签",t:"text",d:"",s:"逗号分隔，如：快手,一人食"}],
+ body:function(v){
+   return {cuisines:splitList(v.cuisines), spice_level:parseInt(v.spice_level)||0,
+     flavor_preference:v.flavor_preference||null, staple_preference:v.staple_preference||null,
+     scene_tags:splitList(v.scene_tags)};
+ }},
+{id:"allergyGet", tab:"pref", icon:"lock", m:"GET", p:"/api/preferences/allergy", title:"过敏与忌口",
+ desc:"过敏源会被硬过滤：命中的菜品在落库前就被剔除。"},
+{id:"allergyPut", tab:"pref", icon:"save", m:"PUT", p:"/api/preferences/allergy", title:"更新过敏源",
+ desc:"写入后生成菜单与决策都会自动避开。", write:true,
+ f:[{k:"allergens",l:"过敏源",t:"text",d:"",s:"逗号分隔，如：花生,海鲜"},
+     {k:"avoid_ingredients",l:"忌口食材",t:"text",d:"",s:"逗号分隔，如：香菜,内脏"},
+     {k:"dietary_restrictions",l:"其他饮食限制",t:"text",d:""}],
+ body:function(v){
+   return {allergens:splitList(v.allergens), avoid_ingredients:splitList(v.avoid_ingredients),
+     dietary_restrictions:v.dietary_restrictions||null};
+ }},
+{id:"goalGet", tab:"pref", icon:"target", m:"GET", p:"/api/preferences/health-goal", title:"健康目标",
+ desc:"目标类型、每日热量与三大营养素供能比。"},
+{id:"goalPut", tab:"pref", icon:"save", m:"PUT", p:"/api/preferences/health-goal", title:"更新健康目标",
+ desc:"供能比用于营养均衡校验，偏差会写进菜单告警。", write:true,
+ f:[{k:"goal_type",l:"目标类型",t:"select",o:["","lose_weight","gain_muscle","keep","low_fat"],d:""},
+     {k:"daily_calories",l:"每日热量 kcal",t:"number",d:"1800"},
+     {k:"protein_pct",l:"蛋白质供能比 %",t:"number",d:"25"},
+     {k:"carb_pct",l:"碳水供能比 %",t:"number",d:"50"},
+     {k:"fat_pct",l:"脂肪供能比 %",t:"number",d:"25"}],
+ body:function(v){
+   return {goal_type:v.goal_type||null, daily_calories:parseInt(v.daily_calories)||0,
+     protein_pct:parseInt(v.protein_pct)||0, carb_pct:parseInt(v.carb_pct)||0, fat_pct:parseInt(v.fat_pct)||0};
+ }},
+{id:"budgetGet", tab:"pref", icon:"cart", m:"GET", p:"/api/preferences/budget", title:"预算设定",
+ desc:"工作日/周末每日预算、每周上限、单餐下限、外卖参考价。"},
+{id:"budgetPut", tab:"pref", icon:"save", m:"PUT", p:"/api/preferences/budget", title:"更新预算",
+ desc:"预算贴合是决策打分的维度之一，超支只告警不阻断。", write:true,
+ f:[{k:"weekday_daily_budget",l:"工作日每日预算（元）",t:"number",d:"35"},
+     {k:"weekend_daily_budget",l:"周末每日预算（元）",t:"number",d:"80"},
+     {k:"weekly_cap",l:"每周上限（元）",t:"number",d:"",s:"留空表示不限制"},
+     {k:"min_meal_budget",l:"单餐下限（元）",t:"number",d:"8"},
+     {k:"takeout_reference_price",l:"外卖参考价（元）",t:"number",d:"26"}],
+ body:function(v){
+   var b={weekday_daily_budget:parseFloat(v.weekday_daily_budget)||0, weekend_daily_budget:parseFloat(v.weekend_daily_budget)||0,
+     min_meal_budget:parseFloat(v.min_meal_budget)||0, takeout_reference_price:parseFloat(v.takeout_reference_price)||0};
+   if(v.weekly_cap) b.weekly_cap=parseFloat(v.weekly_cap);
+   return b;
+ }},
+
+/* ---------------- 更多能力 ---------------- */
+{id:"autoStatus", tab:"more", icon:"chat", m:"GET", p:"/api/automation/status", title:"机器人状态",
+ desc:"飞书连接、调度开关、下次运行时间、最近推送结果。",
+ keys:["feishu.configured","scheduler.enabled","scheduler.running"]},
+{id:"autoFeishu", tab:"more", icon:"chat", m:"GET", p:"/api/automation/feishu", title:"我的飞书配置",
+ desc:"按用户隔离保存的飞书凭证，App Secret 只回掩码。", keys:["app_id","enabled","configured","app_secret_masked","missing_fields"]},
+{id:"autoFeishuPut", tab:"more", icon:"save", m:"PUT", p:"/api/automation/feishu", title:"保存我的飞书配置",
+ desc:"保存个人飞书应用凭证。App Secret 是只写字段：留空表示沿用已保存的密钥，不会把旧密钥清掉。", write:true,
+ f:[{k:"app_id",l:"App ID",t:"text",d:"",s:"飞书开放平台的应用凭证"},
+     {k:"app_secret",l:"App Secret",t:"text",d:"",s:"只写不回显；留空沿用已保存值"},
+     {k:"receive_id",l:"接收方 ID",t:"text",d:"",s:"open_id / chat_id / 邮箱，取决于接收方类型"},
+     {k:"receive_id_type",l:"接收方类型",t:"select",o:["open_id","chat_id","email"],d:"open_id"},
+     {k:"remark",l:"备注",t:"text",d:""},
+     {k:"enabled",l:"启用推送",t:"bool",d:true}],
+ body:function(v){
+   return {app_id:v.app_id||"", app_secret:v.app_secret||null, receive_id:v.receive_id||"",
+           receive_id_type:v.receive_id_type||"open_id", remark:v.remark||"", enabled:!!v.enabled};
+ },
+ keys:["app_id","enabled","configured","missing_fields"]},
+{id:"autoFeishuDel", tab:"more", icon:"trash", m:"DELETE", p:"/api/automation/feishu", title:"清除我的飞书配置",
+ desc:"删除个人飞书凭证，之后回落到部署默认配置。不可恢复，执行前会二次确认。", write:true, danger:true},
+{id:"autoTest", tab:"more", icon:"send", m:"POST", p:"/api/automation/feishu/test", title:"发一条测试消息",
+ desc:"验证飞书机器人是否配通，消息会真的发出去。", write:true},
+{id:"fbCreate", tab:"more", icon:"heart", m:"POST", p:"/api/feedback", title:"提交反馈",
+ desc:"记录一条意见或问题，可在「我的反馈」里回看。", write:true,
+ f:[{k:"category",l:"类型",t:"select",o:["bug","suggestion","recipe","other"],d:"other"},
+     {k:"content",l:"内容",t:"textarea",req:true,d:"",s:"必填，说明你遇到了什么"},
+     {k:"contact",l:"联系方式",t:"text",d:""},
+     {k:"device_info",l:"设备信息",t:"text",d:"工作台"}],
+ body:function(v){ return {category:v.category,content:v.content,contact:v.contact||null,device_info:v.device_info||null}; }},
+{id:"fbMine", tab:"more", icon:"heart", m:"GET", p:"/api/feedback/mine", title:"我的反馈",
+ desc:"看自己提交过的反馈。", keys:["total"]},
+{id:"inviteCode", tab:"more", icon:"gift", m:"GET", p:"/api/invite/code", title:"我的邀请码",
+ desc:"取自己的邀请码与邀请战绩。", keys:["code","invite_count","reward_granted"]},
+{id:"inviteRedeem", tab:"more", icon:"gift", m:"POST", p:"/api/invite/redeem", title:"核销邀请码",
+ desc:"用别人的邀请码领取权益。", write:true,
+ f:[{k:"code",l:"邀请码",t:"text",req:true,d:""}],
+ body:function(v){ return {code:v.code}; }},
+{id:"subTemplates", tab:"more", icon:"bell", m:"GET", p:"/api/subscribe/templates", title:"订阅消息模板",
+ desc:"可用的订阅消息模板列表。", keys:["total"]},
+{id:"subGrant", tab:"more", icon:"bell", m:"POST", p:"/api/subscribe/grant", title:"记录订阅授权",
+ desc:"记下用户对某个模板的授权状态。", write:true,
+ f:[{k:"template_id",l:"模板 ID",t:"text",req:true,d:""},
+     {k:"grant",l:"是否授权",t:"select",o:["true","false"],d:"true"}],
+ body:function(v){ return {template_id:v.template_id, grant:String(v.grant)==="true"}; }},
+{id:"subStatus", tab:"more", icon:"bell", m:"GET", p:"/api/subscribe/status/{template_id}", title:"订阅授权状态",
+ desc:"查某个模板当前是否已授权。",
+ f:[{k:"template_id",l:"模板 ID",t:"text",req:true,d:""}]},
+{id:"products", tab:"more", icon:"search", m:"GET", p:"/api/products", title:"商品列表",
+ desc:"商品库（来自二期采集）。平台真实接入前返回空数组属正常。"},
+{id:"productsSearch", tab:"more", icon:"search", m:"GET", p:"/api/products/search", title:"按食材搜商品",
+ desc:"按食材名模糊搜索商品。",
+ f:[{k:"ingredient",l:"食材名",t:"text",d:"",s:"作为 query 参数 ingredient 传入"}],
+ query:function(v){ return v.ingredient? {ingredient:v.ingredient} : null; }},
+{id:"events", tab:"more", icon:"send", m:"POST", p:"/api/events", title:"上报埋点",
+ desc:"批量上报埋点事件，单批 1-50 条。未登录也能上报。", write:true,
+ f:[{k:"event",l:"事件名",t:"text",req:true,d:"console_probe"},
+     {k:"properties",l:"附加属性",t:"textarea",d:"{}",s:"JSON 对象"}],
+ body:function(v){
+   var props={};
+   try{ props=JSON.parse(v.properties||"{}"); }catch(e){ props={}; }
+   return {events:[{event:v.event, properties:props}]};
+ },
+ keys:["accepted","skipped"]},
+{id:"buildInfo", tab:"more", icon:"server", m:"GET", p:"/api/build-info", title:"构建信息",
+ desc:"版本号、最低版本与更新地址，用于判断是否需要升级。", keys:["latest_version","min_version","force_update"]}
+];
+
+function splitList(s){
+  return String(s||"").split(/[,，]/).map(function(x){return x.trim();}).filter(Boolean);
+}
+/* ========================= 计算层：API 客户端 ========================= */
+var REQ_TIMEOUT = 20000;
+
+/* 取某能力某字段的当前值（含动态默认来源） */
+function fieldVal(cap, f){
+  var key = cap.id + "." + f.k;
+  var v = state.formVals[key];
+  if(v===undefined || v===null || v===""){
+    if(f.dyn==="lastDecision") v = state.lastDecisionId!=null ? String(state.lastDecisionId) : "";
+    else if(f.dyn==="currentMenu") v = state.currentMenuId!=null ? String(state.currentMenuId) : "";
+    else if(f.dyn==="lastTask") v = state.formVals["menuTask.task_id"] || "";
+    else v = (f.d!==undefined && f.d!==null) ? String(f.d) : "";
+  }
+  return v;
+}
+
+/* 校验：必填与类型 */
+function validate(cap, vals){
+  var errs = {};
+  var list = cap.f || [];
+  for(var i=0;i<list.length;i++){
+    var f = list[i], v = vals[f.k];
+    if(f.req && (v===undefined || v===null || String(v).trim()==="")){
+      errs[f.k] = "这一项必填";
+      continue;
+    }
+    if(f.t==="number" && v!=="" && v!=null && isNaN(parseFloat(v))){
+      errs[f.k] = "需要填数字";
+    }
+  }
+  return errs;
+}
+
+/* 构造最终路径（替换 {xxx} 占位） */
+function buildPath(cap, vals){
+  var p = cap.p;
+  var m = p.match(/\{([a-zA-Z0-9_]+)\}/g) || [];
+  for(var i=0;i<m.length;i++){
+    var name = m[i].slice(1,-1);
+    var v = vals[name];
+    if(v===undefined || v===null || v==="") v = "";
+    p = p.replace(m[i], encodeURIComponent(String(v)));
+  }
+  return p;
+}
+
+/* 归一化响应 —— 成功/失败的唯一判定口 */
+function normalize(http, json, ms, raw){
+  var out = {http:http, ms:ms, raw:raw, data:null, message:"", code:null, ok:false, level:"err"};
+  if(json && typeof json === "object"){
+    if("code" in json){
+      out.code = json.code;
+      out.ok = (http>=200 && http<300 && json.code === 0);
+      out.data = json.data;
+      out.message = json.message || (out.ok ? "成功" : "请求未成功");
+      out.level = out.ok ? "ok" : "err";
+    } else if("detail" in json){
+      /* FastAPI 的 HTTPException：{"detail": "..."} */
+      out.code = http;
+      out.message = typeof json.detail === "string" ? json.detail : JSON.stringify(json.detail);
+      out.data = json;
+      out.ok = false;
+      out.level = (http===429 || http===503) ? "warn" : "err";
+    } else {
+      out.ok = (http>=200 && http<300);
+      out.data = json;
+      out.message = out.ok ? "成功" : "HTTP " + http;
+      out.level = out.ok ? "ok" : "err";
+    }
+  } else {
+    out.ok = (http>=200 && http<300);
+    out.data = json;
+    out.message = out.ok ? "成功" : ("HTTP " + http + "（响应不是 JSON，可能被代理或网关拦截）");
+    out.level = out.ok ? "ok" : "err";
+  }
+  return out;
+}
+
+/* 真实发起请求 */
+function apiRaw(method, path, body, opts, cb){
+  opts = opts || {};
+  var url = state.base.replace(/\/+$/,"") + path;
+  if(opts.query){
+    var qs = [];
+    for(var k in opts.query){ if(Object.prototype.hasOwnProperty.call(opts.query,k))
+      qs.push(encodeURIComponent(k)+"="+encodeURIComponent(opts.query[k])); }
+    if(qs.length) url += (url.indexOf("?")>=0?"&":"?") + qs.join("&");
+  }
+  var t0 = Date.now();
+  var ctrl = null, timer = null;
+  if(window.AbortController){ ctrl = new AbortController(); timer = setTimeout(function(){ ctrl.abort(); }, REQ_TIMEOUT); }
+  var init = {method:method, headers:{}};
+  if(ctrl) init.signal = ctrl.signal;
+  if(state.token) init.headers["Authorization"] = "Bearer " + state.token;
+  if(opts.multipart){
+    var fd = new FormData();
+    for(var fk in body){ if(Object.prototype.hasOwnProperty.call(body,fk)) fd.append(fk, body[fk]); }
+    init.body = fd;                       /* 不设 Content-Type，让浏览器带 boundary */
+  } else if(body!=null && method!=="GET"){
+    init.headers["Content-Type"] = "application/json";
+    init.body = JSON.stringify(body);
+  }
+  fetch(url, init).then(function(resp){
+    return resp.text().then(function(txt){
+      var json = null;
+      try{ json = txt ? JSON.parse(txt) : null; }catch(e){ json = null; }
+      cb(normalize(resp.status, json, Date.now()-t0, txt));
+    });
+  }).catch(function(err){
+    var name = err && err.name ? err.name : "";
+    var msg = name === "AbortError"
+      ? "请求超时（超过 " + (REQ_TIMEOUT/1000) + " 秒没响应）"
+      : "连不上后端：" + (err && err.message ? err.message : "网络错误");
+    cb({http:0, ms:Date.now()-t0, raw:null, data:null, message:msg, code:null, ok:false, level:"err", net:true});
+  }).then(function(){ if(timer) clearTimeout(timer); });
+}
+
+/* 静默请求（联动刷新用，不改 UI 状态） */
+function apiSilent(method, path, body, cb){
+  apiRaw(method, path, body, {}, cb || function(){});
+}
+
+/* 执行一个能力卡：校验 → 请求 → 回调 */
+function runCap(cap, cb){
+  var vals = {};
+  var list = cap.f || [];
+  for(var i=0;i<list.length;i++){ vals[list[i].k] = fieldVal(cap, list[i]); }
+
+  var errs = validate(cap, vals);
+  if(Object.keys(errs).length){ cb({validation:errs}); return; }
+
+  var body = null;
+  if(cap.multipart){
+    body = {};
+    for(var j=0;j<list.length;j++){ body[list[j].k] = vals[list[j].k]; }
+  } else if(typeof cap.body === "function"){
+    body = cap.body(vals);
+  }
+  var opts = {};
+  if(typeof cap.query === "function"){
+    var q = cap.query(vals);
+    if(q) opts.query = q;
+  }
+  if(cap.multipart) opts.multipart = true;
+
+  apiRaw(cap.m, buildPath(cap, vals), body, opts, cb);
+}
+
+/* 生成任务轮询：最多 30 次，每 2 秒一次 */
+var pollTimer = null;
+function pollTask(taskId){
+  if(pollTimer) clearInterval(pollTimer);
+  var n = 0;
+  pollTimer = setInterval(function(){
+    n++;
+    if(n > 30){ clearInterval(pollTimer); pollTimer = null; toast("生成超时，请到「查询生成进度」手动查看"); return; }
+    apiSilent("GET", "/api/menus/generation-tasks/" + encodeURIComponent(taskId), null, function(r){
+      var st = r.data && r.data.status ? r.data.status : null;
+      if(st === "done"){
+        clearInterval(pollTimer); pollTimer = null;
+        toast("菜单生成完成");
+        if(r.data && r.data.menu_id){ state.currentMenuId = r.data.menu_id; }
+        loadMenuItems();
+        refreshAll();
+      } else if(st === "failed"){
+        clearInterval(pollTimer); pollTimer = null;
+        toast("菜单生成失败：" + ((r.data && r.data.error) || "未知原因"));
+        refreshAll();
+      }
+    });
+  }, 2000);
+}
+
+/* 拉当前菜单的餐次，供「换一道 / 锁定 / 标记已做」选择 */
+function loadMenuItems(){
+  if(!state.token){ state.menuItems = []; refreshAll(); return; }
+  apiSilent("GET", "/api/menus/current", null, function(r){
+    if(r.ok && r.data){
+      state.currentMenuId = r.data.id || state.currentMenuId;
+      var items = r.data.menu_items || r.data.items || [];
+      state.menuItems = items.map(function(it){
+        var name = it.recipe_name || (it.recipe && it.recipe.name) || ("餐次 #" + it.id);
+        return {v:String(it.id), t:name};
+      });
+    } else {
+      state.menuItems = [];
+    }
+    refreshAll();
+  });
+}
+
+/* 拉库存条目 */
+function loadInventory(){
+  if(!state.token){ state.inventory = []; refreshAll(); return; }
+  apiSilent("GET", "/api/inventory", null, function(r){
+    state.inventory = (r.ok && r.data && r.data.items) ? r.data.items : [];
+    refreshAll();
+  });
+}
+/* ========================= 渲染层 1：能力卡 ========================= */
+function fmtVal(v){
+  if(v===null || v===undefined) return "—";
+  if(typeof v === "boolean") return v ? "是" : "否";
+  if(typeof v === "object") return Array.isArray(v) ? (v.length + " 项") : "对象";
+  return String(v);
+}
+/* 按 keys 取嵌套字段（支持 a.b） */
+function pickPath(obj, p){
+  var cur = obj;
+  var parts = p.split(".");
+  for(var i=0;i<parts.length;i++){
+    if(cur===null || cur===undefined || typeof cur !== "object") return undefined;
+    cur = cur[parts[i]];
+  }
+  return cur;
+}
+/* 结果摘要：优先用 keys，否则自动挑标量字段（至多 4 个） */
+function summaryOf(cap, data){
+  var out = [];
+  if(data===null || data===undefined) return out;
+  if(cap.keys){
+    for(var i=0;i<cap.keys.length;i++){
+      var v = pickPath(data, cap.keys[i]);
+      if(v!==undefined && v!==null && v!=="") out.push({k:cap.keys[i], v:fmtVal(v)});
+    }
+    if(out.length) return out;
+  }
+  if(typeof data === "object" && !Array.isArray(data)){
+    var n = 0;
+    for(var k in data){
+      if(!Object.prototype.hasOwnProperty.call(data,k)) continue;
+      var val = data[k];
+      if(val===null || typeof val === "string" || typeof val === "number" || typeof val === "boolean"){
+        out.push({k:k, v:fmtVal(val)}); n++;
+        if(n>=4) break;
+      }
+    }
+    return out;
+  }
+  if(Array.isArray(data)) out.push({k:"条数", v:String(data.length)});
+  return out;
+}
+/* 空数据判定：给一条温和提示 */
+function isEmptyData(data){
+  if(data===null || data===undefined) return true;
+  if(Array.isArray(data)) return data.length===0;
+  if(typeof data === "object"){
+    if("total" in data && ("items" in data)) return (data.items||[]).length===0;
+    return Object.keys(data).length===0;
+  }
+  return false;
+}
+
+function renderField(cap, f){
+  var key = cap.id + "." + f.k;
+  var v = fieldVal(cap, f);
+  var html = '<div class="frow" data-frow="'+esc(key)+'"><div class="lb"><span class="nm">'+esc(f.l)+'</span>';
+  if(f.req) html += '<span class="req">必填</span>';
+  html += '</div>';
+
+  if(f.t==="select" && f.from==="menuItems"){
+    var opts = state.menuItems.length ? state.menuItems : [{v:"",t:"（还没有菜单，请先生成或刷新当前菜单）"}];
+    html += '<select data-act="field" data-key="'+esc(key)+'">';
+    for(var i=0;i<opts.length;i++) html += '<option value="'+esc(opts[i].v)+'"'+(String(v)===String(opts[i].v)?" selected":"")+'>'+esc(opts[i].t)+'</option>';
+    html += '</select>';
+  } else if(f.t==="select" && f.from==="inventory"){
+    var inv = (state.inventory && state.inventory.length) ? state.inventory : null;
+    html += '<select data-act="field" data-key="'+esc(key)+'">';
+    if(!inv){ html += '<option value="">（还没有库存，请先新增或刷新列表）</option>'; }
+    else {
+      for(var j=0;j<inv.length;j++){
+        var it = inv[j];
+        var nm = it.ingredient_name || (it.ingredient && it.ingredient.name) || ("条目 " + it.id);
+        var q = (it.quantity!=null? it.quantity : "") + (it.unit||"");
+        html += '<option value="'+esc(String(it.id))+'"'+(String(v)===String(it.id)?" selected":"")+'>'+esc(nm+" · "+q)+'</option>';
+      }
+    }
+    html += '</select>';
+  } else if(f.t==="select"){
+    html += '<select data-act="field" data-key="'+esc(key)+'">';
+    var os = f.o || [];
+    for(var k=0;k<os.length;k++) html += '<option value="'+esc(os[k])+'"'+(String(v)===String(os[k])?" selected":"")+'>'+esc(os[k]||"（留空）")+'</option>';
+    html += '</select>';
+  } else if(f.t==="bool"){
+    html += '<label class="sw"><input type="checkbox" data-act="field-bool" data-key="'+esc(key)+'"'+(String(v)==="true"?" checked":"")+
+      '><span class="tr"></span><span class="tl"></span></label>';
+  } else if(f.t==="textarea"){
+    html += '<textarea data-act="field" data-key="'+esc(key)+'" placeholder="'+esc(String(f.d||""))+'">'+esc(v)+'</textarea>';
+  } else if(f.t==="file"){
+    html += '<input type="file" accept="image/*" data-act="field-file" data-key="'+esc(key)+'">';
+  } else {
+    var tp = f.t==="number" ? "number" : (f.t==="date" ? "date" : "text");
+    html += '<input type="'+tp+'" value="'+esc(v)+'" data-act="field" data-key="'+esc(key)+'"'+
+      (f.t==="number"?' step="any"':'')+' placeholder="'+esc(String(f.d||""))+'">';
+  }
+  if(f.s) html += '<div class="ds">'+esc(f.s)+'</div>';
+  html += '<div class="err"></div></div>';
+  return html;
+}
+
+function renderOp(cap){
+  var open = !!state.openOps[cap.id];
+  var locked = (state.conn !== "ok") && PUBLIC_CAPS.indexOf(cap.id) < 0;
+  var html = '<div class="op'+(open?" open":"")+'" data-cap="'+esc(cap.id)+'">'
+    + '<button class="op-h" data-act="toggle-op" data-cap="'+esc(cap.id)+'">'
+    + '<span class="ico">'+ic(cap.icon,16,"#2C2C2A")+'</span>'
+    + '<span style="flex:1 1 auto;min-width:0">'
+    +   '<span class="ttl">'+esc(cap.title)+'</span>'
+    +   (cap.write? ' <span class="tag w">会写数据</span>':'')
+    +   (cap.multipart? ' <span class="tag n">文件上传</span>':'')
+    +   (locked? ' <span class="tag n">需先连接</span>':'')
+    +   '<br><span class="path"><span class="mth '+cap.m+'">'+cap.m+'</span> '+esc(cap.p)+'</span>'
+    + '</span>'
+    + ic("dots",15,"#6B6B6B")
+    + '<svg class="arw" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>'
+    + '</button><div class="op-b">'
+    + '<p class="hint" style="padding:10px 0 2px">'+esc(cap.desc)+'</p>';
+
+  var list = cap.f || [];
+  for(var i=0;i<list.length;i++) html += renderField(cap, list[i]);
+
+  html += '<div class="btnrow" style="margin-top:12px">'
+    + '<button class="btn '+(cap.danger?"danger":"primary")+'" data-act="run" data-cap="'+esc(cap.id)+'"'+(locked?" disabled":"")+'>'
+    +   (state.loading[cap.id]? '<span class="spin"></span>' : ic("send",15,"currentColor"))
+    +   (state.loading[cap.id]? "请求中…" : "调用")
+    + '</button>';
+  if(cap.id==="menuCurrent") html += '<button class="btn ghost sm" data-act="load-menu">刷新餐次列表</button>';
+  if(cap.id==="invList")     html += '<button class="btn ghost sm" data-act="load-inv">刷新库存条目</button>';
+  html += '</div><div class="op-res" id="res-'+esc(cap.id)+'"></div></div></div>';
+  return html;
+}
+
+/* 结果面板：成功/失败/限流/加载中/空数据，一套统一 */
+function renderResult(cap){
+  var el = $("res-" + cap.id);
+  if(!el) return;
+  if(state.loading[cap.id]){
+    el.innerHTML = '<div class="res"><div class="res-h"><span class="spin"></span><span class="st">请求中…</span>'
+      + '<span class="meta">'+esc(cap.m+" "+cap.p)+'</span></div>'
+      + '<div class="res-b"><div class="skel" style="width:70%"></div><div class="skel" style="width:45%"></div></div></div>';
+    return;
+  }
+  var r = state.results[cap.id];
+  if(!r){ el.innerHTML = ""; return; }
+
+  if(r.validation){
+    var names = [];
+    for(var k in r.validation){ if(Object.prototype.hasOwnProperty.call(r.validation,k)) names.push(k + "：" + r.validation[k]); }
+    el.innerHTML = '<div class="res err"><div class="res-h"><span class="st">填写校验未通过</span></div>'
+      + '<div class="res-msg">'+esc(names.join("；"))+'。请在上方表单补齐后再调用。</div></div>';
+    return;
+  }
+
+  var lvl = r.level || (r.ok ? "ok" : "err");
+  var title = r.ok ? "调用成功" : (lvl==="warn" ? "未能完成（服务端提示）" : "调用失败");
+  var html = '<div class="res '+(r.ok?"ok":lvl)+'"><div class="res-h">'
+    + '<span class="st">'+(r.ok? ic("check",15,"currentColor") : "")+title+'</span>'
+    + '<span class="meta">HTTP '+(r.http||"-")+' · '+r.ms+' ms'+(r.code!==null && r.code!==undefined? ' · code='+r.code : '')+'</span>'
+    + '<span class="sp"></span></div>';
+  html += '<div class="res-msg">'+esc(r.message||"")+'</div>';
+
+  var sum = summaryOf(cap, r.data);
+  if(r.ok && sum.length){
+    html += '<div class="res-b"><div class="res-sum">';
+    for(var i=0;i<sum.length;i++) html += '<div class="kv"><span class="k">'+esc(sum[i].k)+'</span><span class="v">'+esc(sum[i].v)+'</span></div>';
+    html += '</div>';
+    if(isEmptyData(r.data)) html += '<div class="empty-state">接口通了，但当前没有数据（空结果也是成功）</div>';
+    html += '</div>';
+  }
+  if(r.net){
+    html += '<div class="res-msg" style="padding-top:0">常见原因：后端没启动、地址填错、跨域未放行，或被浏览器/代理拦截。</div>';
+  }
+  if(r.raw){
+    html += '<details><summary class="toggle-json">查看原始响应</summary><pre class="json">'
+      + esc(typeof r.raw === "string" ? r.raw : JSON.stringify(r.raw,null,2)) + '</pre></details>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+/* ========================= 渲染层 2：面板 ========================= */
+function capsOf(tab){
+  var out = [];
+  for(var i=0;i<CAPS.length;i++){ if(CAPS[i].tab===tab) out.push(CAPS[i]); }
+  return out;
+}
+function renderPanel(tab){
+  var host = $(tab + "Body");
+  if(!host) return;
+  var list = capsOf(tab);
+  var html = "";
+  for(var i=0;i<list.length;i++) html += renderOp(list[i]);
+  host.innerHTML = html;
+  for(var j=0;j<list.length;j++) renderResult(list[j]);
+}
+
+function renderNav(){
+  var html = "";
+  for(var i=0;i<TABS.length;i++){
+    var t = TABS[i];
+    html += '<button class="navitem'+(state.tab===t.id?" on":"")+'" data-act="goto" data-tab="'+esc(t.id)+'">'
+      + ic(t.icon,15,"currentColor") + '<span>'+esc(t.label)+'</span></button>';
+  }
+  $("nav").innerHTML = html;
+}
+
+/* 顶栏连接胶囊 */
+function renderConnChip(){
+  var c = $("connChip"), txt = $("connTxt"), sub = $("appbarSub");
+  var cls = "conn", label = "未连接";
+  if(state.conn==="ok"){ cls += " ok"; label = state.user ? (state.user.name + " 已登录") : "已连接"; }
+  else if(state.conn==="err"){ cls += " err"; label = "连接失败"; }
+  else if(state.conn==="load"){ cls += " load"; label = "连接中…"; }
+  c.className = cls; txt.textContent = label;
+  sub.textContent = state.conn==="ok"
+    ? (state.user ? (state.user.open_id + " · " + state.base) : state.base)
+    : (state.connMsg || "未连接");
+}
+
+/* 连接面板：自定义连接设置 + 身份能力卡 */
+function renderConn(){
+  var ok = state.conn==="ok";
+  var html = '<div class="card"><div class="card-h"><h2>后端地址</h2><span class="sp"></span>'
+    + '<span class="tag n">默认 http://127.0.0.1:8000</span></div>'
+    + '<div class="frow"><div class="lb"><span class="nm">API 基址</span><span class="req">必填</span></div>'
+    + '<input type="text" id="baseInput" value="'+esc(state.base)+'" placeholder="http://127.0.0.1:8000" spellcheck="false">'
+    + '<div class="ds">所有请求都会拼在这个地址后面。本页挂在 https 域下，调用 http://127.0.0.1:8000 属「本机可信来源」，浏览器默认放行；若改填局域网 IP 的 http 地址会被混合内容拦截，需给后端配 HTTPS。后端已为本页域名开启 CORS（APP__APP__CORS_ORIGINS）。</div></div>'
+    + '<div class="btnrow" style="margin-top:10px">'
+    + '<button class="btn primary" data-act="test-conn">'+(state.conn==="load"? '<span class="spin"></span>' : ic("plug",15,"currentColor"))+'测试连通</button>'
+    + '<button class="btn ghost" data-act="save-base">保存地址</button></div>'
+    + '<div id="connResult" style="margin-top:12px"></div></div>';
+
+  html += '<div class="card"><div class="card-h"><h2>登录身份</h2><span class="sp"></span>'
+    + (ok? '<span class="tag g">已登录</span>' : '<span class="tag w">未登录</span>') + '</div>';
+  if(ok && state.user){
+    html += '<div class="row"><div class="rf"><div class="rt">'+esc(state.user.name)+'</div>'
+      + '<div class="rd">'+esc(state.user.open_id)+' · id '+esc(String(state.user.id))+'</div></div>'
+      + '<button class="btn sm danger" data-act="logout">退出登录</button></div>'
+      + '<p class="hint" style="margin-top:10px">已登录，其余能力已解锁。写操作（标记已做、删库存等）会真实改动数据库，调用前会二次确认。</p>';
+  } else {
+    html += '<div class="frow"><div class="lb"><span class="nm">昵称</span><span class="req">必填</span></div>'
+      + '<input type="text" id="loginName" value="'+esc(state.loginName||"")+'" placeholder="例如：工作台用户">'
+      + '<div class="ds">走 POST /api/auth/dev-login，仅在后端开启 dev_login 时可用。同一昵称复用同一账号。</div></div>'
+      + '<div class="btnrow"><button class="btn primary" data-act="login">'+ic("user",15,"currentColor")+'登录并解锁能力</button></div>';
+    if(state.conn==="ok") html += '<p class="hint" style="margin-top:10px">地址已通但还没登录：先登录再调用其余能力。</p>';
+    else html += '<p class="hint" style="margin-top:10px">先「测试连通」，通了再登录。</p>';
+  }
+  html += '</div>';
+
+  /* 身份相关的能力卡（health / providers / dev-login / me） */
+  var list = capsOf("connect");
+  for(var i=0;i<list.length;i++){
+    html += renderOp(list[i]);
+  }
+  $("connectBody").innerHTML = html;
+  for(var j=0;j<list.length;j++) renderResult(list[j]);
+  renderConnResult();
+}
+
+function renderConnResult(){
+  var el = $("connResult");
+  if(!el) return;
+  if(!state.connResult){ el.innerHTML = ""; return; }
+  var r = state.connResult;
+  var lvl = r.ok ? "ok" : "err";
+  var html = '<div class="res '+lvl+'"><div class="res-h"><span class="st">'+(r.ok?"后端可用":"连不上")+'</span>'
+    + '<span class="meta">HTTP '+(r.http||"-")+' · '+r.ms+' ms</span><span class="sp"></span></div>'
+    + '<div class="res-msg">'+esc(r.message)+'</div>';
+  var sum = summaryOf({keys:["status","database","version"]}, r.data);
+  if(r.ok && sum.length){
+    html += '<div class="res-b"><div class="res-sum">';
+    for(var i=0;i<sum.length;i++) html += '<div class="kv"><span class="k">'+esc(sum[i].k)+'</span><span class="v">'+esc(sum[i].v)+'</span></div>';
+    html += '</div></div>';
+  }
+  if(r.net) html += '<div class="res-msg" style="padding-top:0">检查后端是否启动、地址是否正确、以及后端是否放行了这个来源的跨域请求。</div>';
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+/* ---------- 统一刷新入口 ---------- */
+function refreshAll(){
+  renderNav();
+  renderConnChip();
+  renderPanel("decide");
+  renderPanel("menu");
+  renderPanel("fridge");
+  renderPanel("pref");
+  renderPanel("more");
+  if(state.tab === "connect") renderConn();
+}
+/* ========================= 事件与初始化 ========================= */
+function switchTab(id){
+  state.tab = id;
+  for(var i=0;i<TABS.length;i++){
+    var p = $("panel-" + TABS[i].id);
+    if(!p) continue;
+    if(TABS[i].id === id) p.classList.add("on"); else p.classList.remove("on");
+  }
+  persist();
+  refreshAll();
+  window.scrollTo(0,0);
+}
+
+function capById(id){
+  for(var i=0;i<CAPS.length;i++){ if(CAPS[i].id===id) return CAPS[i]; }
+  return null;
+}
+
+/* 执行能力卡（含写操作二次确认） */
+function doRun(cap){
+  state.loading[cap.id] = true;
+  refreshAll();
+  runCap(cap, function(r){
+    state.loading[cap.id] = false;
+    if(r.validation){
+      state.results[cap.id] = r;
+      refreshAll();
+      toast("请先补齐必填项");
+      return;
+    }
+    state.results[cap.id] = r;
+    if(typeof cap.after === "function"){
+      try{ cap.after(r.data); }catch(e){ /* 副作用失败不影响主结果展示 */ }
+    }
+    refreshAll();
+    if(r.ok) toast(cap.title + "：成功");
+    else if(r.level === "warn") toast(cap.title + "：" + r.message);
+    else toast(cap.title + "：失败（" + r.message + "）");
+  });
+}
+
+function askRun(cap){
+  if(cap.write){
+    askConfirm("确认调用「" + cap.title + "」？",
+      "这个接口会真实修改服务端数据（" + cap.m + " " + cap.p + "），且不可撤销。",
+      function(){ doRun(cap); });
+  } else {
+    doRun(cap);
+  }
+}
+
+/* 测试连通 */
+function testConn(){
+  state.conn = "load"; state.connMsg = "连接中…";
+  renderConnChip(); if(state.tab==="connect") renderConn();
+  apiRaw("GET", "/api/health", null, {}, function(r){
+    state.connResult = r;
+    state.conn = r.ok ? "ok" : (r.http===0 ? "err" : "err");
+    state.connMsg = r.message;
+    if(!r.ok && state.token){ /* 地址通但 token 可能失效时仍算已连接 */ if(r.http && r.http!==0) state.conn="err"; }
+    persist();
+    refreshAll();
+    if(r.ok) toast("后端可用：" + r.message);
+    else toast("连不上：" + r.message);
+  });
+}
+
+/* 登录 */
+function doLogin(){
+  var name = ($("loginName") && $("loginName").value || "").trim();
+  if(!name){ toast("先填昵称"); return; }
+  state.loginName = name;
+  apiRaw("POST", "/api/auth/dev-login", {name:name}, {}, function(r){
+    if(r.ok && r.data && r.data.access_token){
+      state.token = r.data.access_token;
+      state.user = {id:r.data.id, name:r.data.name, open_id:r.data.open_id};
+      state.conn = "ok"; state.connMsg = "已登录";
+      persist();
+      loadMenuItems(); loadInventory();
+      refreshAll();
+      toast("已登录：" + r.data.name);
+    } else {
+      state.results["devlogin"] = r;
+      refreshAll();
+      toast("登录失败：" + r.message);
+    }
+  });
+}
+
+function handleClick(act, el){
+  var id = el.getAttribute("data-cap");
+  switch(act){
+    case "goto":
+      switchTab(el.getAttribute("data-tab"));
+      break;
+    case "toggle-op":
+      state.openOps[id] = !state.openOps[id];
+      persist();
+      refreshAll();
+      break;
+    case "run":
+      var cap = capById(id);
+      if(cap) askRun(cap);
+      break;
+    case "test-conn":
+      var b = $("baseInput");
+      if(b && b.value.trim()){ state.base = b.value.trim(); persist(); }
+      testConn();
+      break;
+    case "save-base":
+      var b2 = $("baseInput");
+      if(b2 && b2.value.trim()){ state.base = b2.value.trim(); persist(); toast("地址已保存"); renderConnChip(); }
+      break;
+    case "login":
+      doLogin();
+      break;
+    case "logout":
+      askConfirm("退出登录？", "会清除本地保存的 token，重新登录后才能继续调用需要身份的能力。", function(){
+        state.token = ""; state.user = null; state.menuItems = []; state.inventory = [];
+        state.currentMenuId = null; state.conn = "idle";
+        persist(); refreshAll(); toast("已退出");
+      });
+      break;
+    case "load-menu":
+      loadMenuItems(); toast("已刷新餐次列表");
+      break;
+    case "load-inv":
+      loadInventory(); toast("已刷新库存条目");
+      break;
+  }
+}
+
+function bindEvents(){
+  document.addEventListener("click", function(e){
+    var el = e.target.closest ? e.target.closest("[data-act]") : null;
+    if(!el) return;
+    var act = el.getAttribute("data-act");
+    if(act === "field" || act === "field-bool" || act === "field-file") return; /* 这些走 change/input */
+    handleClick(act, el);
+  });
+  /* 表单：只更新状态，不重建 DOM，避免失焦 */
+  document.addEventListener("input", function(e){
+    var el = e.target, act = el.getAttribute && el.getAttribute("data-act");
+    if(act === "field"){ state.formVals[el.getAttribute("data-key")] = el.value; }
+  });
+  document.addEventListener("change", function(e){
+    var el = e.target, act = el.getAttribute && el.getAttribute("data-act");
+    if(act === "field"){
+      state.formVals[el.getAttribute("data-key")] = el.value;
+      var row = el.closest ? el.closest(".frow") : null;
+      if(row) row.classList.remove("invalid");
+    } else if(act === "field-bool"){
+      state.formVals[el.getAttribute("data-key")] = el.checked ? "true" : "false";
+      var lb = el.parentNode.querySelector(".tl");
+      if(lb) lb.textContent = el.checked ? "已开启" : "已关闭";
+    } else if(act === "field-file"){
+      if(el.files && el.files[0]){
+        state.formVals[el.getAttribute("data-key")] = el.files[0];
+        var r2 = el.closest ? el.closest(".frow") : null;
+        if(r2) r2.classList.remove("invalid");
+        toast("已选择：" + el.files[0].name);
+      }
+    }
+  });
+  $("mkNo").addEventListener("click", closeConfirm);
+  $("mkYes").addEventListener("click", function(){ var cb = confirmCb; closeConfirm(); if(cb) cb(); });
+  $("mask").addEventListener("click", function(e){ if(e.target === $("mask")) closeConfirm(); });
+}
+
+/* 校验失败时把红框标到具体字段 */
+var _origRenderResult = renderResult;
+renderResult = function(cap){
+  _origRenderResult(cap);
+  var r = state.results[cap.id];
+  if(r && r.validation){
+    var list = cap.f || [];
+    for(var i=0;i<list.length;i++){
+      if(!r.validation[list[i].k]) continue;
+      var row = document.querySelector('.frow[data-frow="'+cap.id+"."+list[i].k+'"]');
+      if(row){
+        row.classList.add("invalid");
+        var e = row.querySelector(".err");
+        if(e) e.textContent = r.validation[list[i].k];
+      }
+    }
+  }
+};
+
+function renderLogo(){
+  $("logoBox").innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b4048" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
+    + '<circle cx="10" cy="11" r="4.2"/><circle cx="10" cy="11" r="1.4" fill="#E0955A" stroke="none"/>'
+    + '<path d="M14.2 11h6.3a2.5 2.5 0 0 1-2.5 2.5h-2"/></svg>';
+}
+
+function init(){
+  var saved = lsGet();
+  if(saved.base) state.base = saved.base;
+  if(saved.token) state.token = saved.token;
+  if(saved.user) state.user = saved.user;
+  if(saved.loginName) state.loginName = saved.loginName;
+  if(saved.openOps) state.openOps = saved.openOps;
+  if(saved.tab) state.tab = saved.tab;
+  state.inventory = [];
+  state.menuItems = [];
+
+  renderLogo();
+  bindEvents();
+
+  /* 恢复会话：先渲染，再后台探测 */
+  refreshAll();
+  switchTab(state.tab);
+  if(state.token){
+    state.conn = "load";
+    renderConnChip();
+    apiRaw("GET", "/api/auth/me", null, {}, function(r){
+      if(r.ok && r.data){
+        state.user = {id:r.data.id, name:r.data.name, open_id:r.data.open_id};
+        state.conn = "ok"; state.connMsg = "已登录";
+      } else {
+        state.token = ""; state.user = null; state.conn = "idle";
+        state.connMsg = "登录状态已失效，请重新登录";
+      }
+      persist(); refreshAll();
+      if(state.token){ loadMenuItems(); loadInventory(); }
+    });
+  } else {
+    testConn();
+  }
+}
+
+if(document.readyState === "loading"){
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>

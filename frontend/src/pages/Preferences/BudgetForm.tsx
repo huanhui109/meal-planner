@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { message } from 'antd'
 import { Field, FormCard, NumberInput } from '../../components/ui/form'
 import { Banner } from '../../components/ui'
 import { usePreferenceStore } from '../../stores/usePreferenceStore'
 
 const BudgetForm: React.FC = () => {
-  const { summary, updateBudget } = usePreferenceStore()
+  const { summary, syncToken, updateBudget } = usePreferenceStore()
   const [loading, setLoading] = useState(false)
+
+  /** 已同步过的 syncToken, -1 表示还没同步过 */
+  const syncedRef = useRef(-1)
 
   const [form, setForm] = useState({
     weekday_daily_budget: 35,
@@ -17,6 +20,9 @@ const BudgetForm: React.FC = () => {
   })
 
   useEffect(() => {
+    // 只在真正从服务端重新拉取时同步一次: 保存别的卡片不应该覆盖这张卡正在编辑的内容
+    if (syncedRef.current === syncToken) return
+    syncedRef.current = syncToken
     if (summary?.budget) {
       const b = summary.budget
       setForm({
@@ -27,7 +33,7 @@ const BudgetForm: React.FC = () => {
         takeout_reference_price: b.takeout_reference_price ?? 26,
       })
     }
-  }, [summary])
+  }, [syncToken, summary])
 
   const handleSave = async () => {
     setLoading(true)

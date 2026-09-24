@@ -23,6 +23,7 @@ from app.bot.feishu_client import FeishuClientError
 from app.config import Settings, get_settings
 from app.database import session_scope
 from app.models.household import Household
+from app.models.recipe import EnrichKind
 from app.models.user import User
 from app.services.activity_service import (
     CHANNEL_FEISHU,
@@ -344,10 +345,56 @@ async def daily_scrape_products(settings: Optional[Settings] = None) -> int:
     return int(summary.get("products", 0))
 
 
+# ---------- 菜品富集 (兜底大模型的岗位) ----------
+
+
+async def enrich_recipes(settings: Optional[Settings] = None) -> int:
+    """凌晨给菜品补字段 / 写做法 / 补新菜
+
+    和上面几个任务不一样: 它不按用户跑, 是对**公共菜谱库**跑, 所以只跑一次。
+    顺序有讲究 —— 先补字段再补步骤, 因为"这道菜齐没齐"要等字段补完才知道;
+    最后才补新菜, 新菜是按补完之后的缺口定向生成的。
+
+    没开 dish_enrich.enabled 时直接返回 0, 不打电话也不报错: 富集是加分项,
+    跑不了最多是字段还缺着, 不能占满日志。
+    """
+    settings = settings or get_settings()
+    if not settings.dish_enrich.enabled:
+        logger.info("菜品富集未启用 (APP__DISH_ENRICH__ENABLED=false), 跳过")
+        return 0
+
+    from app.services.recipe_enrich_service import RecipeEnrichService
+
+    total = 0
+    # 每个阶段独立会话: 一个阶段写坏了不牵连其他阶段(会话出错后继续用会留下脏状态)。
+    # service 层只读写不提交, 交给 session_scope 统一 commit。
+    for kind, method in (
+        (EnrichKind.FIELDS, "enrich_fields"),
+        (EnrichKind.STEPS, "enrich_steps"),
+        (EnrichKind.EXPAND, "expand"),
+    ):
+        try:
+            async with session_scope() as session:
+                service = RecipeEnrichService(session, settings)
+                outcome = await getattr(service, method)()
+        except Exception:  # noqa: BLE001 —— 单个阶段失败不影响其他阶段
+            logger.exception("菜品富集阶段 %s 失败, 已跳过", kind)
+            continue
+        total += outcome.written
+        logger.info(
+            "菜品富集 %s: 扫描 %s, 写入 %s, 跳过 %s, 失败 %s%s",
+            kind, outcome.scanned, outcome.written, outcome.skipped, outcome.failed,
+            " (模型不可用)" if outcome.degraded else "",
+        )
+    logger.info("菜品富集完成, 共写入 %s 项", total)
+    return total
+
+
 __all__ = [
     "PushMessage",
     "daily_expiry_check",
     "daily_scrape_products",
+    "enrich_recipes",
     "evening_inventory_check",
     "generate_weekly_menu",
     "push_daily_menu",

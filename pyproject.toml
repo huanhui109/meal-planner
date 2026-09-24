@@ -1,7 +1,7 @@
 [project]
 name = "ai-meal-planner"
-version = "0.5.0"
-description = "每周鲜 · AI 营养菜谱 - 基于大模型的智能菜单生成与采购辅助"
+version = "1.2.0"
+description = "饭决 FAN·DECIDE - 今天吃啥，交给饭决。基于口味档案的即时决策引擎与轻量菜谱"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",
@@ -40,6 +40,16 @@ performance = [
 # 二期: 小象超市商品采集
 scraping = [
     "playwright>=1.45.0",
+]
+# System One 决策模型。三个包都是**按需**导入的(在函数内部 import), 不装也能
+# 正常跑 —— 只是 provider=rule 兜底。见 docs/system-one-integration.md。
+#
+# laya 是默认后端(Apache-2.0 开源, 本地推理), 会带上 torch + transformers,
+# 体积较大(约 2GB), 首次运行还要再下载 421M 权重。装不动就退回 provider=rule。
+system-one = [
+    "laya>=0.3.5",
+    "typesafe-sdk>=0.7.0",
+    "system-one-adapter[openai]>=0.2.1",
 ]
 
 [build-system]

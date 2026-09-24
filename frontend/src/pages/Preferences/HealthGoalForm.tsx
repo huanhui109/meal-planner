@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { message } from 'antd'
 import { ChipSelect, Field, FormCard, NumberInput, RatioBar } from '../../components/ui/form'
 import { usePreferenceStore } from '../../stores/usePreferenceStore'
@@ -8,8 +8,11 @@ import { tokens } from '@shared/tokens'
 const GOAL_OPTIONS = ['减脂', '增肌', '控糖', '控压', '维持']
 
 const HealthGoalForm: React.FC = () => {
-  const { summary, updateHealthGoal } = usePreferenceStore()
+  const { summary, syncToken, updateHealthGoal } = usePreferenceStore()
   const [loading, setLoading] = useState(false)
+
+  /** 已同步过的 syncToken, -1 表示还没同步过 */
+  const syncedRef = useRef(-1)
 
   const [form, setForm] = useState({
     goal_type: '维持',
@@ -20,6 +23,9 @@ const HealthGoalForm: React.FC = () => {
   })
 
   useEffect(() => {
+    // 只在真正从服务端重新拉取时同步一次: 保存别的卡片不应该覆盖这张卡正在编辑的内容
+    if (syncedRef.current === syncToken) return
+    syncedRef.current = syncToken
     if (summary?.health_goal) {
       const h = summary.health_goal
       setForm({
@@ -30,7 +36,7 @@ const HealthGoalForm: React.FC = () => {
         fat_pct: h.fat_pct || 30,
       })
     }
-  }, [summary])
+  }, [syncToken, summary])
 
   const handleSave = async () => {
     setLoading(true)

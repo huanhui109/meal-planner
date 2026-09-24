@@ -19,8 +19,14 @@ target_metadata = Base.metadata
 
 
 def database_url() -> str:
-    """优先使用 APP__DATABASE__URL, 其次 alembic.ini 中的配置"""
-    return get_settings().database.url
+    """优先使用 APP__DATABASE__URL, 其次 alembic.ini 中的配置
+
+    迁移会写表结构, 是所有操作里最容易毁数据的一种 —— 所以这里先做一次校验,
+    连串还是模板占位值时直接停下来, 不要连着占位凭据去动真正的库。
+    """
+    settings = get_settings()
+    settings.validate_for_runtime()
+    return settings.database.url
 
 
 def run_migrations_offline() -> None:

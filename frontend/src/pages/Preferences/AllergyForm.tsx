@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { message } from 'antd'
 import { Field, FormCard, TextInput } from '../../components/ui/form'
 import { usePreferenceStore } from '../../stores/usePreferenceStore'
@@ -6,10 +6,13 @@ import { usePreferenceStore } from '../../stores/usePreferenceStore'
 type ListKey = 'allergens' | 'avoid_ingredients'
 
 const AllergyForm: React.FC = () => {
-  const { summary, updateAllergy } = usePreferenceStore()
+  const { summary, syncToken, updateAllergy } = usePreferenceStore()
   const [loading, setLoading] = useState(false)
   const [allergenInput, setAllergenInput] = useState('')
   const [avoidInput, setAvoidInput] = useState('')
+
+  /** 已同步过的 syncToken, -1 表示还没同步过 */
+  const syncedRef = useRef(-1)
 
   const [form, setForm] = useState({
     allergens: [] as string[],
@@ -18,6 +21,9 @@ const AllergyForm: React.FC = () => {
   })
 
   useEffect(() => {
+    // 只在真正从服务端重新拉取时同步一次: 保存别的卡片不应该覆盖这张卡正在编辑的内容
+    if (syncedRef.current === syncToken) return
+    syncedRef.current = syncToken
     if (summary?.allergy_restriction) {
       const a = summary.allergy_restriction
       setForm({
@@ -26,7 +32,7 @@ const AllergyForm: React.FC = () => {
         dietary_restrictions: a.dietary_restrictions || '',
       })
     }
-  }, [summary])
+  }, [syncToken, summary])
 
   const removeItem = (key: ListKey, item: string) => {
     setForm((prev) => ({ ...prev, [key]: prev[key].filter((value) => value !== item) }))

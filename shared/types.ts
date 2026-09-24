@@ -233,6 +233,26 @@ export interface ShoppingList {
   items: ShoppingItem[]
 }
 
+/** POST /menus/fridge-rebuild 摘要: 告诉用户"清空了多少 / 还得买多少" */
+export interface FridgeRebuildSummary {
+  week_start_date: string
+  total_slots: number
+  locked_items: number
+  changed_items: number
+  /** 冰箱现有食材就能直接做的餐次 */
+  cookable_now: number
+  /** 还差食材、需要采购的餐次 */
+  need_shopping: number
+  /** 本地菜谱库挑不出菜的餐次 (保留原样) */
+  unfilled: number
+}
+
+export interface FridgeRebuildPayload {
+  menu: MenuDetail | null
+  summary: FridgeRebuildSummary
+  shopping_list: ShoppingList | null
+}
+
 /** 库存 */
 export interface InventoryItem {
   id: number
@@ -525,6 +545,30 @@ export interface EventBatchItem {
   properties?: Record<string, unknown> | null
   app_version?: string | null
   platform?: string | null
+  /**
+   * 会话 ID (前端 UUIDv4) —— **必须放顶层, 不要塞进 properties**。
+   *
+   * 后端 event 表有独立的 session_id 列并建了 (session_id, received_at) 复合索引,
+   * J1 闭环率的分母是会话数, 走列才能被索引命中; 塞在 JSON 里每次都要全表扫
+   * properties。properties 里那份是双端改造期的历史包袱, 后端有回落取值,
+   * 双端都不再往 properties 写之后那个回落分支会被删掉。
+   */
+  session_id?: string | null
+  /**
+   * 关联的决策流水 id。决策**之后**的事件才有, 决策之前 (如 home_view) 为空。
+   *
+   * 这里原本举的例子是 `home_filter_tap`, 那个事件已从 PRD 事件清单删除
+   * (v1.6, 12 → 11): 新首页没有筛选格子, 它没有语义成立的触发点。举例不能再提它 ——
+   * 留着会让下一个人去找一个不存在的事件, 然后怀疑是自己没找到。
+   */
+  decision_id?: number | null
+  /**
+   * 首页灰度版本 (R-16): v1.1 / v1.2。同样是**顶层字段**。
+   *
+   * 后端 event 表有独立列, 服务端下发的值优先; 客户端拿不到时必须留空而不是兜底成
+   * 'v1.2' —— 替用户填一个分组, 灰度结论就是假的。
+   */
+  layout_version?: string | null
 }
 
 export interface EventBatch {
@@ -551,4 +595,80 @@ export interface SubscribeStatus {
   granted: boolean
   last_send_at: string | null
   last_declined_at: string | null
+}
+
+/* ---------------------------------------------------------------- 饭决 (v1.0.0) */
+
+export type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'late_night'
+
+export interface DecideDish {
+  recipe_id?: number | null
+  name: string
+  cuisine: string
+  category: string
+  cover_text: string
+  cook_minutes: number
+  calories: number
+  difficulty: number
+  main_ingredient: string
+  ingredients: string[]
+  /** 极简做法 3-5 步 (需求 10) */
+  steps: string[]
+}
+
+export interface DecisionResult {
+  id: number
+  dish: DecideDish
+  /** 一句话理由, <=20 字 (需求 6) */
+  reason: string
+  meal_slot: MealSlot
+  meal_slot_label: string
+  source: 'local' | 'offline' | 'ai'
+  weather: {
+    condition?: string | null
+    temp_c?: number | null
+    source?: string
+    city?: string
+  }
+  advice?: string | null
+  relaxed: boolean
+  decided_at: string
+}
+
+export interface DecideProfile {
+  has_profile: boolean
+  cuisines: string[]
+  spice_level: number
+  avoid: string[]
+  allergens: string[]
+  scene_tags: string[]
+  cook_cap: number
+  /** 这一餐的预算上限(元): 日预算 ÷ 当日餐次; 用户没设过预算为 null */
+  meal_budget?: number | null
+  meal_slot: MealSlot
+  weather: {
+    condition?: string | null
+    temp_c?: number | null
+    source?: string
+    city?: string
+  }
+}
+
+export interface DecideRecentItem {
+  id: number
+  dish_name: string
+  meal_slot: MealSlot
+  reason: string | null
+  source: string
+  accepted: boolean | null
+  decision_date: string
+}
+
+export interface DecideRequest {
+  meal_slot?: MealSlot
+  exclude?: string[]
+}
+
+export interface DecideFeedbackRequest {
+  liked: boolean
 }

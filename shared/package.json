@@ -1,7 +1,7 @@
 {
   "name": "@meal-planner/shared",
   "private": true,
-  "version": "0.5.0",
+  "version": "1.2.0",
   "type": "module",
   "description": "H5 与小程序共享的类型、格式化、设计令牌与业务规则 (纯 TS, 不依赖任何框架)"
 }

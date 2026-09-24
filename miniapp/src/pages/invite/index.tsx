@@ -11,8 +11,10 @@ import { Card, Chip, LoadingStack, PageHead, PillButton, StatTile } from '../../
 import { getInviteCode, redeemInviteCode } from '../../lib/api'
 import { track } from '../../lib/events'
 import { toast } from '../../lib/nav'
+import { useThemeClass } from '../../lib/theme'
 
 export default function InvitePage() {
+  const themeClass = useThemeClass()
   const router = useRouter<{ code?: string }>()
   const [code, setCode] = useState('')
   const [sharePath, setSharePath] = useState('')
@@ -75,7 +77,7 @@ export default function InvitePage() {
   }
 
   return (
-    <View className="page">
+    <View className={`page ${themeClass}`}>
       <PageHead title="邀请好友" subtitle="双方各得 3 次 AI 生成额度" />
 
       {loading ? <LoadingStack rows={3} /> : null}

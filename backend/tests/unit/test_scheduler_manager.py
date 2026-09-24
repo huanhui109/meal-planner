@@ -10,6 +10,7 @@ ALL_JOB_IDS = {
     "daily_expiry_check",
     "generate_weekly_menu",
     "daily_scrape_products",
+    "enrich_recipes",
 }
 
 
@@ -54,7 +55,8 @@ async def test_disabled_specs_are_skipped():
     manager.start()
     try:
         ids = {job["id"] for job in manager.get_jobs_info()}
-        assert ids == {"daily_expiry_check", "generate_weekly_menu", "daily_scrape_products"}
+        assert ids == {"daily_expiry_check", "generate_weekly_menu",
+                       "daily_scrape_products", "enrich_recipes"}
     finally:
         manager.shutdown()
 

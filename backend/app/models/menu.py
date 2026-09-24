@@ -93,6 +93,9 @@ class MenuItem(Base):
     is_cooked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, comment="是否已做")
     cook_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="self", comment="self/takeout")
     estimated_cost: Mapped[Optional[float]] = mapped_column(Float, nullable=True, comment="预估成本(元)")
+    rejected_recipe_ids: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True, comment="本餐被「换一道」换掉的菜谱 id JSON 数组, 避免来回横跳"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=text("CURRENT_TIMESTAMP"), nullable=False
     )

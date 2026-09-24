@@ -195,7 +195,7 @@ const FeishuConfigCard: React.FC<Props> = ({ onChanged }) => {
         <div className="guide">
           <ol className="guide-steps">
             <li>
-              <b>建应用</b>：打开飞书开放平台 → 开发者后台 → 创建「企业自建应用」(个人飞书账号也能建)。名字随便填, 例如「每周鲜」。
+              <b>建应用</b>：打开飞书开放平台 → 开发者后台 → 创建「企业自建应用」(个人飞书账号也能建)。名字随便填, 例如「饭决」。
             </li>
             <li>
               <b>抄两个值</b>：进入应用 →「凭证与基础信息」, 复制 <code>App ID</code> 和{' '}

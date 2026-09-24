@@ -1,48 +1,53 @@
 /**
- * 今日 - 打开就知道"今天吃什么、还缺什么、下一步点哪"
+ * 今日 - 三段式首页: 首屏只做一件事(定这一顿), 次屏才放"决定之后"的事
  *
- * 信息层级与 H5 的 pages/Today 完全一致 (同一套 shared 决策与文案):
- *   预算头 -> 下一步(未就绪才有) -> 补单决策 -> 今晚菜单 -> 自做 vs 外卖
- *   -> 本周概览 -> 今日流程时间线
+ * 首屏(不滚动可见, ≤1.5 屏):
+ *   ① 状态行「19:20 · 晚餐 · 家里有 6 样」  ← 替代问候语, 餐次由钟点推断不给选
+ *   ② 决策区 DecideBoard                    ← 全页唯一黑色主按钮
+ *   ③ 一条浅色出口「不想做饭？点外卖 →」
+ *
+ * 次屏(决策之后才关心的事):
+ *   ④ 「家里有啥」快选  ⑤ 今晚这一餐(做完了扣库存的落点)
+ *   〔折叠〕今日预算条 —— 深夜(22:00-05:00)完全不渲染
+ *
+ * 从首页移走的模块与理由:
+ *   - 问候语:       「晚上好, 小明」占两行但零信息量, 换成状态行后同高度多两个有效信息
+ *   - 周概览 4 磁贴: 旧内核「每周鲜」残留, 每次出现都在制造"我还有一整周要规划"的焦虑。
+ *                   移到周菜单页, 想看的人会自己去
+ *   - 今日流程时间线: 那是**系统**的自动化日志, 不是用户要做的事。移到「我的 → 运行状态」
+ *   - 自做 vs 外卖对比卡: 降级成 ③ 那一行文字链。能打开饭决的人已经是"愿意做"的人,
+ *                   这张卡越强越是在给外卖导流
+ *   - 下一步引导卡:   onboarding 残留。它挡在主按钮下方 = 告诉用户"你还有一步要做",
+ *                   直接违反"打开就能定"(本地池 ≥60 道已经保证永远有答案)
+ *
+ * 判断标准(用来砍模块): 一个模块如果不能帮助用户在 2 秒内定下"这一顿", 它就不该在首页。
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Text, View } from '@tarojs/components'
-import Taro, { useDidShow, usePullDownRefresh, useShareAppMessage } from '@tarojs/taro'
+import Taro, { useDidHide, useDidShow, usePullDownRefresh, useShareAppMessage } from '@tarojs/taro'
 
-import { formatAmount, formatMoney, formatMinutes, formatProgress, formatPercent } from '@shared/format'
+import { brand } from '@shared/brand'
+import { resolveMealSlot } from '@shared/decide'
+import { contextBucket, shouldShowBudgetStrip } from '@shared/decide-context'
+import { formatAmount, formatKcal, formatMoney, formatPercent } from '@shared/format'
 import { mealLabel } from '@shared/labels'
-import { nextStep } from '@shared/next-step'
-import { orderStatusText, orderSummaryText, takeoutHeadline, timelineTone } from '@shared/today'
-import type { RecognitionItem, TimelineEntry, TodayOverview } from '@shared/types'
+import type { InventoryItem, RecognitionItem, TodayOverview } from '@shared/types'
 
-import {
-  Bar,
-  BentoCell,
-  BentoGrid,
-  Banner,
-  Card,
-  EmptyState,
-  LoadingStack,
-  NextStepCard,
-  PageHead,
-  PillButton,
-  SectionTitle,
-  StatTile,
-} from '../../components/ui'
-import { addInventory, getToday, rememberTakeoutPrice } from '../../lib/api'
+import { Bar, Banner, Card, EmptyState, LoadingStack, PageHead, PillButton, SectionTitle } from '../../components/ui'
+import { addInventory, getToday, listInventory, rememberTakeoutPrice } from '../../lib/api'
 import { ensureLogin, syncTabBar, toast } from '../../lib/nav'
-import { openPurchaseLink, missingText } from '../../lib/deeplink'
-import { getCachedUser, isOnboarded } from '../../lib/session'
+import { openPurchaseLink } from '../../lib/deeplink'
+import { getCachedUser } from '../../lib/session'
+import { getUserSettings, markGuideAutoShown, shouldAutoShowGuideNow } from '../../lib/user-settings'
 import { markCooked } from '../../lib/meal-actions'
-import { track } from '../../lib/events'
+import { track, flushNow } from '../../lib/track'
+import { useThemeClass } from '../../lib/theme'
 import { RecognizeSheet } from '../../components/recognize-sheet'
-
-const TIMELINE_DOT: Record<string, string> = {
-  ok: 'ok',
-  pending: 'off',
-  failed: 'warn',
-  off: 'off',
-}
+import DecideBoard from '../../components/decide-board'
+import HomeStatusBar from '../../components/home-status-bar'
+import FridgeQuickAdd from '../../components/fridge-quick-add'
+import Splash from '../../components/splash'
+import { peekResult } from '../../lib/decide'
 
 /**
  * Taro 的 showModal 类型没带 editable / placeholderText / content, 但微信基础库支持。
@@ -57,20 +62,14 @@ type EditableModalOption = Taro.showModal.Option & {
 }
 type EditableModalResult = Taro.showModal.SuccessCallbackResult & { content?: string }
 
-function greeting(): string {
-  const hour = new Date().getHours()
-  if (hour < 6) return '夜深了'
-  if (hour < 11) return '早上好'
-  if (hour < 14) return '中午好'
-  if (hour < 18) return '下午好'
-  return '晚上好'
-}
-
 export default function TodayPage() {
+  const themeClass = useThemeClass()
   const [data, setData] = useState<TodayOverview | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [fridge, setFridge] = useState<InventoryItem[] | null>(null)
+  const [budgetOpen, setBudgetOpen] = useState(false)
   const [recognizeOpen, setRecognizeOpen] = useState(false)
 
   /** 页面卸载后丢弃 setState, 避免 "setState on unmounted" 警告 */
@@ -98,88 +97,79 @@ export default function TodayPage() {
     }
   }, [])
 
+  const loadFridge = useCallback(async () => {
+    // 冰箱数据拿不到不影响决策, 失败就当"家里有啥"没录过
+    try {
+      const view = await listInventory()
+      if (!aliveRef.current) return
+      setFridge(view.items)
+    } catch {
+      if (aliveRef.current) setFridge(null)
+    }
+  }, [])
+
   useDidShow(() => {
     syncTabBar(0)
-    // audit T2.1: 未走完引导就 reLaunch 到 onboarding
-    if (!isOnboarded()) {
+    // 引导不再写死成"没走过就必须看": 由用户在「我的 → 用户信息」里配置的开关和展示时机决定
+    // (shared/user-settings.ts 的 shouldAutoShowGuide)。默认 once —— 走完一次就不再打扰。
+    //
+    // ⚠ 必须用 shouldAutoShowGuideNow 而不是 shouldAutoShowGuide:
+    //   后者只看配置, 不知道"本次启动已经弹过了"。用户在引导里答完 3 题点「进饭决」
+    //   reLaunch 回本页, 而 reLaunch **不重建 JS 上下文**, 于是这里再判一次
+    //   "该展示引导" 又把人 reLaunch 回引导页 —— 反复回到引导问题界面, 永远进不去主页。
+    //   showMode=每次启动 时必现; once 模式下 completed 写失败 (storage 满/被拒) 也必现。
+    //   shouldAutoShowGuideNow 多一层「一次启动只弹一次」的闸门, 挡住这条回弹路径。
+    if (shouldAutoShowGuideNow(getUserSettings())) {
+      markGuideAutoShown()
       Taro.reLaunch({ url: '/pages/onboarding/index' })
       return
     }
     void load()
+    void loadFridge()
   })
 
   usePullDownRefresh(() => {
     void load()
+    void loadFridge()
   })
+
+  // 退出/切后台前把攒下的埋点发出去, 否则最后一次决策的事件会丢
+  useDidHide(() => {
+    flushNow()
+  })
+
+  /**
+   * 首页曝光: 只打一次 —— 它是"打开首页"这个事实, 不是"数据刷回来了"这个事实。
+   * 所以要等首屏数据落定再打, 否则 has_profile / has_fridge 全是猜的。
+   */
+  const homeViewSent = useRef(false)
+  useEffect(() => {
+    if (homeViewSent.current || loading) return
+    homeViewSent.current = true
+    track('home_view', {
+      meal_slot: resolveMealSlot(),
+      bucket: contextBucket(),
+      has_profile: data?.ready.has_preferences ?? null,
+      has_fridge: (fridge?.length ?? 0) > 0,
+      has_last_result: Boolean(peekResult()),
+    })
+  }, [loading, data, fridge])
 
   // 分享给好友 (audit F3): 标题带"今天吃 X", 落地路径带 share_from
   useShareAppMessage(() => {
-    const user = getCachedUser()
     const name = data?.tonight?.name || '待定'
     return {
-      title: `今天吃「${name}」, 帮你算好预算 · 每周鲜`,
+      title: `饭决说今天吃「${name}」 · ${brand.name}`,
       path: `/pages/today/index?share_from=${encodeURIComponent(user?.open_id || 'friend')}&share_date=${data?.date || ''}`,
     }
   })
-
-  const step = useMemo(
-    () =>
-      nextStep({
-        hasPreferences: data?.ready.has_preferences ?? false,
-        menu: data?.week
-          ? {
-              status: data.week.status,
-              week_start_date: data.week.week_start_date,
-              totals: data.week.totals,
-              days: data.meals.length ? [{ date: data.date, meals: data.meals }] : [],
-            }
-          : null,
-        shoppingToBuyCount: data?.shopping?.to_buy_count ?? 0,
-        generating: busy,
-      }),
-    [data, busy],
-  )
-
-  const handleGenerate = async () => {
-    setBusy(true)
-    try {
-      const { startGeneration, waitForGeneration } = await import('../../lib/menu')
-      const accepted = await startGeneration(data?.week?.week_start_date ?? '')
-      if (!accepted.task_id) {
-        await load()
-        return
-      }
-      const task = await waitForGeneration(accepted.task_id)
-      toast(task.status === 'failed' ? task.error || '生成失败' : '菜单生成好了', task.status === 'failed' ? 'none' : 'success')
-      await load()
-    } catch (err) {
-      toast((err as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const handleStepAction = () => {
-    if (step.isGenerateAction) return handleGenerate()
-    if (step.to) {
-      const map: Record<string, string> = {
-        '/preferences': '/pages/profile/index',
-        '/menus': '/pages/menu/index',
-        '/shopping': '/pages/shopping/index',
-        '/inventory': '/pages/fridge/index',
-      }
-      const target = map[step.to] || step.to
-      const tabPages = ['/pages/menu/index', '/pages/shopping/index', '/pages/fridge/index']
-      if (tabPages.includes(target)) Taro.switchTab({ url: target })
-      else Taro.navigateTo({ url: target })
-    }
-  }
 
   const handleCook = async () => {
     if (!data?.menu_id || !data.tonight?.meal_id) return
     setBusy(true)
     try {
       await markCooked({ id: data.menu_id }, data.tonight.meal_id)
+      toast('已标记, 库存已扣减', 'success')
       await load()
     } catch (err) {
       toast((err as Error).message)
@@ -188,22 +178,14 @@ export default function TodayPage() {
     }
   }
 
-  const handleOrder = async () => {
-    if (!data?.order) return
-    track('order_open', {
-      platform: data.order.platform ?? null,
-      item_count: data.order.items?.length ?? 0,
+  const handleTakeout = () => {
+    if (!data?.takeout) return
+    track('home_takeout_exit', { meal_slot: resolveMealSlot() })
+    void openPurchaseLink({
+      miniappAppId: data.takeout.miniapp_app_id,
+      link: data.takeout.link,
+      copyText: data.takeout.link_label || data.takeout.link,
     })
-    await openPurchaseLink({
-      miniappAppId: data.order.miniapp_app_id,
-      link: data.order.order_link,
-      copyText: missingText(data.order.items),
-    })
-  }
-
-  const openRecognize = () => {
-    track('recognize_open', { source: 'today' })
-    setRecognizeOpen(true)
   }
 
   const handlePriceChange = async () => {
@@ -251,14 +233,14 @@ export default function TodayPage() {
     }
     toast(`已入库 ${saved} 样食材`, 'success')
     setRecognizeOpen(false)
-    await load()
+    await loadFridge()
   }
 
   if (loading) {
     return (
-      <View className="page">
-        <PageHead title={`${greeting()}, ${user?.name ?? ''}`} />
-        <LoadingStack rows={5} />
+      <View className={`page ${themeClass}`}>
+        <PageHead title={brand.name} />
+        <LoadingStack rows={4} />
       </View>
     )
   }
@@ -267,17 +249,21 @@ export default function TodayPage() {
   const dailyBudget = budget?.daily_budget ?? 0
   const spentToday = budget?.spent_today ?? 0
   const budgetPercent = dailyBudget > 0 ? Math.round((spentToday / dailyBudget) * 100) : 0
-  const notReady = !data?.ready.has_menu || !data?.ready.has_preferences
+  /**
+   * 预算条:
+   *   - 深夜(22:00-05:00)**完全不渲染** —— 那时候给用户看"预算已用 87%"不是提醒是添堵
+   *   - 其余时段默认折叠: 单餐预算是事后校验不是事前闸门
+   * 判定一律走 shared/decide-context.ts, 这里不写 `hour >= 22`。
+   */
+  const showBudget = shouldShowBudgetStrip() && dailyBudget > 0
+  const tonight = data?.tonight
+  // 深夜不出现热量/营养: 说教类信息在深夜是添堵
+  const showTonightKcal = shouldShowBudgetStrip()
 
   return (
-    <View className="page">
+    <View className={`page ${themeClass}`}>
       <PageHead
-        title={`${greeting()}, ${user?.name ?? '你'}`}
-        subtitle={
-          data
-            ? `${data.date.slice(5)} ${data.weekday_label} · ${data.day_type === 'weekend' ? '周末' : '工作日'}`
-            : ''
-        }
+        title={brand.name}
         action={
           <View
             className="page-head__action tap"
@@ -288,123 +274,90 @@ export default function TodayPage() {
         }
       />
 
+      {/* 品牌启动页: 覆盖层实现, 不动 entryPagePath (老用户冷启动不会重走引导) */}
+      <Splash />
+
+      {/* ① 状态行: 一行三件事(时间 · 餐次 · 家里有啥), 替代原来的两行问候语 */}
+      <HomeStatusBar fridgeCount={fridge?.length ?? null} />
+
       {!!error && <Banner tone="warn">{error}</Banner>}
 
-      {budget && dailyBudget > 0 ? (
-        <Card>
-          <View className="card__head">
-            <Text className="card__label">今日预算</Text>
-            <Text className="chip">已用 {formatPercent(budgetPercent)}</Text>
-          </View>
-          <View className="card__value card__value--sm">
-            <Text className="num">
-              {formatMoney(Math.max(0, budget.remaining_today ?? 0))}
-            </Text>
-            <Text className="card__unit">可用 / {formatMoney(dailyBudget)}</Text>
-          </View>
-          <View style={{ marginTop: 12 }}>
-            <Bar value={budgetPercent} tone={budgetPercent > 100 ? 'warn' : 'ink'} />
-          </View>
-        </Card>
+      {/*
+        ② 饭决主决策区: 首页唯一主按钮。
+        放在最上面是因为用户打开小程序的第一个诉求就是"今天吃什么",
+        其余都是"已经决定之后"才关心的事, 全部下沉。
+      */}
+      <DecideBoard />
+
+      {/* ③ 模式出口: 浅色文字链, 不是按钮。
+          这个判断用户 1 秒就做完了, 做成带 VS 布局的对比卡是在逼他重做一遍。
+          保留出口(它是真实需求), 砍掉对比。 */}
+      {data?.takeout ? (
+        <View className="home-takeout" onClick={handleTakeout}>
+          <Text className="home-takeout__text">不想做饭？点外卖 →</Text>
+        </View>
       ) : null}
 
-      {notReady ? (
-        <NextStepCard
-          title={step.title}
-          description={step.description}
-          actionLabel={step.actionLabel}
-          loading={busy}
-          onAction={handleStepAction}
-        />
-      ) : null}
+      {/* ④ 「家里有啥」: 次屏第一个, 因为它是"做"这个模式的合法性证明 */}
+      <SectionTitle text="家里有啥" />
+      <Card tight>
+        <FridgeQuickAdd items={fridge ?? []} onChanged={loadFridge} />
+      </Card>
 
-      {data?.order ? (
+      {/* ⑤ 今晚这一餐: 决策后的"做完了扣库存"落点 */}
+      {tonight ? (
         <Card>
           <View className="card__head">
-            <Text className="card__label">今晚要补 {data.order.missing_count} 样</Text>
-            <Text className={`chip chip--${data.order.reaches_min_order ? 'accent' : 'warn'}`}>
-              {orderStatusText(data.order)}
-            </Text>
-          </View>
-          <View className="card__hint">{orderSummaryText(data.order)}</View>
-          <View className="order-lines">
-            {data.order.items.slice(0, 6).map((line, index) => (
-              <View
-                key={`${line.ingredient_id ?? line.name}-${line.is_topup}-${index}`}
-                className="order-line"
-              >
-                <View className={`order-dot${line.is_topup ? ' order-dot--topup' : ''}`} />
-                <Text className="order-line__name">
-                  {line.name}
-                  {line.is_topup ? ' (凑单)' : ''}
-                </Text>
-                <Text className="order-line__amount">
-                  {line.estimated_price != null ? formatMoney(line.estimated_price) : '—'}
-                </Text>
-              </View>
-            ))}
-          </View>
-          {!!data.order.note && <View className="card__hint">{data.order.note}</View>}
-          <View style={{ marginTop: 12 }}>
-            <PillButton block onClick={handleOrder}>
-              立即下单
-            </PillButton>
-          </View>
-          <View style={{ marginTop: 8 }}>
-            <PillButton variant="gray" block onClick={() => Taro.switchTab({ url: '/pages/menu/index' })}>
-              调整菜单
-            </PillButton>
-          </View>
-        </Card>
-      ) : null}
-
-      {data?.tonight ? (
-        <Card>
-          <View className="card__head">
-            <Text className="card__label">{data.tonight.name || '今晚还没定'}</Text>
-            {data.tonight.is_cooked ? (
+            <Text className="card__label">{tonight.name || '今晚还没定'}</Text>
+            {tonight.is_cooked ? (
               <Text className="chip chip--accent">已做</Text>
-            ) : data.tonight.is_locked ? (
+            ) : tonight.is_locked ? (
               <Text className="chip">已锁定</Text>
             ) : null}
           </View>
           <View className="card__hint">
-            {[
-              mealLabel(data.tonight.meal_type),
-              data.tonight.servings ? `${data.tonight.servings} 人份` : null,
-              data.tonight.cook_minutes ? formatMinutes(data.tonight.cook_minutes) : null,
-              data.tonight.calories != null ? `${Math.round(data.tonight.calories)} kcal` : null,
-              data.tonight.protein_g != null ? `蛋白 ${Math.round(data.tonight.protein_g)} g` : null,
-              data.tonight.estimated_cost != null ? `约 ${formatMoney(data.tonight.estimated_cost)}` : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
+            {mealLabel(tonight.meal_type)}
+            {tonight.servings ? ` · ${tonight.servings} 人份` : ''}
           </View>
 
-          {data.tonight.uses_expiring.length > 0 ? (
+          {showTonightKcal && tonight.calories != null ? (
+            <View className="meta-row">
+              <Text className="meta-row__item">{formatKcal(tonight.calories)}</Text>
+              {tonight.protein_g != null ? (
+                <Text className="meta-row__item">蛋白 {Math.round(tonight.protein_g)} g</Text>
+              ) : null}
+              {tonight.estimated_cost != null ? (
+                <Text className="meta-row__item">约 {formatMoney(tonight.estimated_cost)}</Text>
+              ) : null}
+            </View>
+          ) : null}
+
+          {tonight.uses_expiring.length > 0 ? (
             <Banner tone="accent">
               消耗临期食材:{' '}
-              {data.tonight.uses_expiring
+              {tonight.uses_expiring
                 .map((item) => `${item.ingredient_name}(剩 ${item.days_left} 天)`)
                 .join(' · ')}
             </Banner>
           ) : null}
 
-          <View className="meal__ings">
-            {data.tonight.ingredients.map((ing) => (
-              <Text key={ing.name} className="meal__ing">
-                {ing.name} {formatAmount(ing.quantity, ing.unit)}
-              </Text>
-            ))}
-          </View>
+          {tonight.ingredients.length > 0 ? (
+            <View className="meal__ings">
+              {tonight.ingredients.map((ing) => (
+                <Text key={ing.name} className="meal__ing">
+                  {ing.name} {formatAmount(ing.quantity, ing.unit)}
+                </Text>
+              ))}
+            </View>
+          ) : null}
 
-          {!data.tonight.is_cooked ? (
-            <View style={{ marginTop: 12 }}>
+          <View style={{ marginTop: 12 }}>
+            {!tonight.is_cooked ? (
               <PillButton block disabled={busy} onClick={handleCook}>
                 做完了, 扣库存
               </PillButton>
-            </View>
-          ) : null}
+            ) : null}
+          </View>
           <View style={{ marginTop: 8 }}>
             <PillButton variant="gray" block onClick={() => Taro.switchTab({ url: '/pages/menu/index' })}>
               看整周 / 换一道
@@ -422,153 +375,44 @@ export default function TodayPage() {
         </Card>
       ) : null}
 
-      {data?.takeout ? (
+      {/* 〔折叠〕今日预算条: 单餐预算是事后校验不是事前闸门, 默认收起; 深夜不渲染 */}
+      {showBudget && budget ? (
         <Card>
-          <Text className="card__label">今晚自己做饭还是点外卖</Text>
-          <View className="card__hint">{takeoutHeadline(data.takeout.recommended)}</View>
-          <View className="versus">
-            <View className={`versus__side${data.takeout.recommended === 'homemade' ? ' versus__side--lead' : ''}`}>
-              <Text className="versus__label">自己做饭</Text>
-              <Text className="versus__value">
-                {formatMoney(data.takeout.homemade.cost)}
-                <Text className="versus__unit">
-                  {' '}
-                  {formatMinutes(data.takeout.homemade.minutes)}
-                </Text>
-              </Text>
-            </View>
-            <Text className="versus__vs">VS</Text>
-            <View className={`versus__side${data.takeout.recommended === 'takeout' ? ' versus__side--lead' : ''}`}>
-              <Text className="versus__label">点外卖</Text>
-              <Text className="versus__value">
-                {formatMoney(data.takeout.takeout.cost)}
-                <Text className="versus__unit">
-                  {' '}
-                  {formatMinutes(data.takeout.takeout.minutes)}
-                </Text>
-              </Text>
-            </View>
+          <View className="collapse-head" onClick={() => setBudgetOpen((prev) => !prev)}>
+            <Text className="collapse-head__text">今日预算 · 已用 {formatPercent(budgetPercent)}</Text>
+            <Text className="collapse-head__arrow">{budgetOpen ? '收起' : '展开'}</Text>
           </View>
-          <View className="price-edit" onClick={handlePriceChange}>
-            <Text>外卖参考价 {formatMoney(data.budget.takeout_reference_price)}</Text>
-            <Text className="price-edit__hint">点一下改价, 会记住</Text>
-          </View>
-          {data.takeout.reasons.map((reason) => (
-            <Text key={reason} className="reason-line">
-              · {reason}
-            </Text>
-          ))}
+          {budgetOpen ? (
+            <View className="collapse-body">
+              <View className="card__value card__value--sm">
+                <Text className="num">{formatMoney(Math.max(0, budget.remaining_today ?? 0))}</Text>
+                <Text className="card__unit">可用 / {formatMoney(dailyBudget)}</Text>
+              </View>
+              <View style={{ marginTop: 12 }}>
+                <Bar value={budgetPercent} tone={budgetPercent > 100 ? 'warn' : 'ink'} />
+              </View>
+            </View>
+          ) : null}
         </Card>
       ) : null}
 
-      <SectionTitle text="本周概览" hint={data?.week ? undefined : '先生成菜单'} />
-      <BentoGrid>
-        <BentoCell wide>
-          <Card>
-            <View className="card__head">
-              <Text className="card__label">本周预算</Text>
-              <Text className="card__hint" style={{ marginTop: 0 }}>
-                {data?.week
-                  ? data.week.budget.passed
-                    ? `还剩 ${formatMoney(Math.max(0, data.week.budget.budget_limit - data.week.budget.total_estimated))}`
-                    : `超 ${formatMoney(data.week.budget.over_amount)}`
-                  : '暂无'}
-              </Text>
-            </View>
-            <View className="card__value card__value--sm">
-              <Text className="num">
-                {formatMoney(data?.week?.budget.total_estimated ?? 0)}
-              </Text>
-              <Text className="card__unit">/ {formatMoney(data?.week?.budget.budget_limit ?? 0)}</Text>
-            </View>
-            <View style={{ marginTop: 12 }}>
-              <Bar
-                value={
-                  data?.week && data.week.budget.budget_limit > 0
-                    ? (data.week.budget.total_estimated / data.week.budget.budget_limit) * 100
-                    : 0
-                }
-                tone={data?.week && !data.week.budget.passed ? 'warn' : 'ink'}
-              />
-            </View>
-          </Card>
-        </BentoCell>
-
-        <BentoCell>
-          <StatTile
-            label="营养达标"
-            value={data?.week ? (data.week.nutrition.passed ? '达标' : '偏差') : '--'}
-            tone={data?.week?.nutrition.passed ? 'accent' : 'warn'}
-            hint={
-              data?.nutrition
-                ? `今天 ${Math.round(data.nutrition.calories)} kcal`
-                : '暂无数据'
-            }
-          />
-        </BentoCell>
-
-        <BentoCell>
-          <StatTile
-            label="冰箱临期"
-            value={`${data?.expiring.length ?? 0}`}
-            unit="样"
-            tone={data?.expiring.length ? 'warn' : 'ink'}
-            hint={
-              data?.expiring.some((item) => item.used_tonight)
-                ? '已排入今晚'
-                : '3 天内到期'
-            }
-            onClick={() => Taro.switchTab({ url: '/pages/fridge/index' })}
-          />
-        </BentoCell>
-
-        <BentoCell wide>
-          <Card>
-            <View className="card__head">
-              <Text className="card__label">本周进度</Text>
-              <Text className="card__hint" style={{ marginTop: 0 }}>
-                {data?.week
-                  ? formatProgress(data.week.totals.cooked_count, data.week.totals.meal_count)
-                  : '0/0 餐'}
-              </Text>
-            </View>
-            <View style={{ marginTop: 12 }}>
-              <Bar
-                value={
-                  data?.week?.totals.meal_count
-                    ? (data.week.totals.cooked_count / data.week.totals.meal_count) * 100
-                    : 0
-                }
-                tone="accent"
-              />
-            </View>
-          </Card>
-        </BentoCell>
-      </BentoGrid>
-
-      {data && data.timeline.length > 0 ? (
-        <>
-          <SectionTitle text="今天的自动流程" />
-          <Card tight>
-            <View className="set-group">
-              {data.timeline.map((entry: TimelineEntry) => (
-                <View key={entry.key} className="set-row">
-                  <View className={`state-dot state-dot--${TIMELINE_DOT[timelineTone(entry.status)]}`} />
-                  <Text className="set-row__label">
-                    {entry.label} · {entry.detail}
-                  </Text>
-                  <Text className="set-row__value">{entry.time || '完成时'}</Text>
-                </View>
-              ))}
-            </View>
-          </Card>
-        </>
-      ) : null}
-
-      <View style={{ marginTop: 12 }}>
-        <PillButton variant="ghost" block onClick={openRecognize}>
+      {/* 页脚: 拍照入库 + 外卖参考价。位置不动, 都是文字链不是按钮 */}
+      <View className="page-footnote">
+        <Text
+          className="page-footnote__link"
+          onClick={() => {
+            // 沿用旧事件名: 这条链路的埋点在改版前就有, 别因为搬位置把它丢了
+            track('recognize_open', { source: 'today' })
+            setRecognizeOpen(true)
+          }}
+        >
           拍照入库冰箱
-        </PillButton>
+        </Text>
+        {data ? (
+          <Text className="page-footnote__link" onClick={handlePriceChange}>
+            改外卖参考价
+          </Text>
+        ) : null}
       </View>
 
       <RecognizeSheet

@@ -94,9 +94,15 @@ export type Palette = (typeof palettes)[PaletteName]
 
 /**
  * 解析 `auto` → 实际调色板名 (用于 H5 useThemeStore / 小程序 lib/theme)
- * 跟随 prefers-color-scheme: dark 时返回 'dark'，否则 'cool'
+ * 跟随系统深色: dark 时返回 'dark'，否则 'cool'
+ *
+ * @param systemTheme 由调用方探测到的系统主题。
+ *   - H5 不传: 内部走 window.matchMedia('(prefers-color-scheme: dark)')
+ *   - 小程序传 `Taro.getSystemInfoSync().theme` —— 小程序没有 window/matchMedia,
+ *     不传的话会永远回落到 'cool', auto 就成了"写死冷色"而不是真跟随。
  */
-export function resolveAutoTheme(): PaletteName {
+export function resolveAutoTheme(systemTheme?: 'light' | 'dark'): PaletteName {
+  if (systemTheme) return systemTheme === 'dark' ? 'dark' : 'cool'
   if (typeof window === 'undefined' || !window.matchMedia) return 'cool'
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'cool'
 }
@@ -107,11 +113,14 @@ export function resolveAutoTheme(): PaletteName {
  * H5 (frontend) 与小程序 (miniapp) 都从这里取值:
  *   node scripts/gen_tokens.mjs 会生成
  *     frontend/src/styles/tokens.css
- *       :root                              = cool 默认
+ *       :root                              = DEFAULT_PALETTE (cream) 默认
+ *       :root[data-theme="cool"] {}       = cool 覆盖
  *       :root[data-theme="cream"] {}      = cream 覆盖
  *       :root[data-theme="dark"] {}       = dark 覆盖
  *     miniapp/src/styles/_tokens.scss
- *       $color-*  +  page{} (=cool) / page.theme-cream{} / page.theme-dark{}
+ *       $color-*  +  page,.theme-root{} (默认) / .theme-root.theme-cool|cream|dark{}
+ *       ⚠ 小程序的主题类挂在 .theme-root 上: page 是框架节点, 运行时写不了它的 class,
+ *         所以不能用 page.theme-* 承载主题 (那样永远匹配不上)。
  * CI 会跑 `--check`, 生成物与这里不一致就失败, 所以两端不会漂移。
  *
  * 取色依据设计稿: 中性灰承载 95% 的面积, 色彩只用来表语义
@@ -119,7 +128,9 @@ export function resolveAutoTheme(): PaletteName {
  */
 export const tokens = {
   color: {
-    // 默认块 = cool (与 palettes.cool 逐字段一致), 老用户升级零感知
+    // ⚠ 这里只是"变量名权威列表 + V2.0 历史值": 生成器的默认块不再取这里,
+    //   而是取 palettes[DEFAULT_PALETTE] (见 gen_tokens.mjs), 默认调色板是 cream。
+    //   改这里只会影响输出哪些 --color-* 变量及其顺序, 不会改默认值。
     bg: '#e9e9ee',
     screen: '#f7f7f9',
     card: '#ffffff',

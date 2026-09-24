@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import current_layout_version
 from app.dependencies import get_current_user, get_db
 from app.models.user import User
 from app.schemas.common import SuccessResponse
@@ -21,6 +22,10 @@ async def get_today(db: AsyncSession = Depends(get_db), user: User = Depends(get
     不用 404 —— 空状态是正常状态, 不是错误。
     """
     data = await TodayService(db).build(user.id)
+    # R-16: 灰度版本在 API 层注入, TodayService 不该知道"页面有几套布局"。
+    # 这里比 /api/decide 更关键 —— 用户进首页的第一个 home_view 就是在这个响应之后
+    # 打的, 它拿不到灰度值的话, 灰度切片丢的正是最该归因的那一段。
+    data["layout_version"] = current_layout_version()
     return SuccessResponse(code=0, message="success", data=data)
 
 

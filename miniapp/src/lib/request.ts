@@ -116,6 +116,9 @@ async function send<T>(path: string, options: RequestOptions = {}, retry = true)
     if (signal?.aborted || (err as { errMsg?: string })?.errMsg?.includes('abort')) {
       throw new ApiError('请求已取消', 0)
     }
+    // 把完整 URL 打到控制台: 真机调试最常见的坑是包里编译的还是 127.0.0.1
+    // (手机自己), 光看 toast「网络连接失败」根本定位不了
+    console.error(`[request] ${options.method || 'GET'} ${BASE_URL}${path} 失败`, err)
     throw new ApiError('网络连接失败, 请检查网络后重试', 0)
   }
 

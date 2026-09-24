@@ -2,19 +2,20 @@
  * 主题 — 小程序侧 (V2.5: 冷色 / 明亮 / 深色 + auto 跟随)
  *
  * 设计:
- *   * 状态写到 `page.theme-cream` / `page.theme-dark` 类 (V2.5 命名收敛: `theme-light` → `theme-cream`),
- *     由 _tokens.scss 的 `page.theme-cream{}` / `page.theme-dark{}` 覆盖 CSS 变量。
+ *   * 主题类挂在 **.theme-root** 上 (不是 page): 小程序的 page 是框架生成的根节点,
+ *     运行时既拿不到引用也写不了 class, `page.theme-dark{}` 这类选择器永远命不中 ——
+ *     这正是"切了主题但颜色不变"的根因。每个页面的根 <View> 用 useThemeClass()
+ *     挂 `theme-root theme-<cool|cream|dark>`, 变量由 _tokens.scss 提供。
  *   * 持久化用 Taro.setStorageSync('mp-theme:v2', value), 旧 key 'mp-theme' 自动迁移。
  *   * 切换时同步调 Taro.setNavigationBarColor, 让顶部导航条跟着变; TabBar 走自定义
- *     (custom-tab-bar), 直接读 var(--color-ink) / var(--color-ink3) 跟 CSS 变量打通。
+ *     (custom-tab-bar), 直接读 palettes[applied] 的颜色而不是硬编码。
  *
  * 默认值: V2.5 起默认 'cream' (明亮), 与 H5 一致。
  *
- * auto 模式:
- *   * 持久化 'auto' 字符串
- *   * 实际写到 page class / data-theme 的是 'cool' 或 'dark'
- *   * H5 构建下, 监听 prefers-color-scheme 变化, 实时切换
- *   * 微信小程序无法监听系统, auto 退化为"启动时定格" (冷色 / 深色 由系统当前态决定)
+ * auto 模式 (真跟随):
+ *   * 持久化 'auto' 字符串, 实际生效的是 'cool' 或 'dark'
+ *   * 微信小程序读 Taro.getSystemInfoSync().theme, 并用 Taro.onThemeChange 实时跟随
+ *   * H5 构建下走 window.matchMedia('(prefers-color-scheme: dark)')
  *
  * useTheme hook 用一个自制的轻量订阅 (Taro 没有 React 上下文, 用全局 EventTarget 简化),
  * 任何调用方 useTheme() 都会在 setTheme 后强制重新渲染。
@@ -52,7 +53,27 @@ const emitter = typeof Taro !== 'undefined' && typeof globalThis !== 'undefined'
   : null
 
 let current: ThemeName = DEFAULT_THEME
-let applied: PaletteName = 'cool'
+let applied: PaletteName = 'cream'
+/** auto 解析用的系统主题。小程序没有 window.matchMedia, 只能从 getSystemInfoSync 拿 */
+let systemTheme: 'light' | 'dark' = 'light'
+
+/**
+ * 探测系统深色模式
+ * 小程序: getWindowInfo().theme (基础库 2.20.1+; getSystemInfoSync 已废弃) —— 老版本回退
+ *   getSystemInfoSync; 拿不到就当浅色, 不会崩
+ * H5: 走 matchMedia, 由 resolveAutoTheme 内部处理
+ */
+function detectSystemTheme(): 'light' | 'dark' {
+  try {
+    const info = Taro.getWindowInfo
+      ? Taro.getWindowInfo()
+      : Taro.getSystemInfoSync()
+    const t = (info as { theme?: string })?.theme
+    return t === 'dark' ? 'dark' : 'light'
+  } catch {
+    return 'light'
+  }
+}
 
 const readPersisted = (): ThemeName => {
   try {
@@ -83,29 +104,34 @@ const writePersisted = (value: ThemeName) => {
   }
 }
 
-/** 顶部导航条颜色映射: 与 tokens.palettes 的 navBar 色对应 */
-const NAVBAR_COLOR: Record<PaletteName, { background: string; frontColor: 'black' | 'white' }> = {
-  cool: { background: palettes.cool.bg, frontColor: 'black' },
-  cream: { background: palettes.cream.bg, frontColor: 'black' },
-  dark: { background: palettes.dark.bg, frontColor: 'white' },
+/** 顶部导航条颜色映射: 与 tokens.palettes 的 navBar 色对应
+ *  ⚠ frontColor 微信只接受 '#000000' / '#ffffff' 两个十六进制值, 写 'black'/'white'
+ *    字面量会被 setNavigationBarColor 拒绝 (invalid frontColor), 在 dev 工具里抛
+ *    MiniProgramError 并触发错误边界级联 (setTimeout is not a function)。 */
+const NAVBAR_COLOR: Record<PaletteName, { background: string; frontColor: '#000000' | '#ffffff' }> = {
+  cool: { background: palettes.cool.bg, frontColor: '#000000' },
+  cream: { background: palettes.cream.bg, frontColor: '#000000' },
+  dark: { background: palettes.dark.bg, frontColor: '#ffffff' },
 }
 
 /**
- * 把主题写到 DOM + storage + 顶部导航条
+ * 把主题写到 storage + 顶部导航条 + 窗口背景, 并通知所有订阅者重渲染
  *
- * 三端覆盖策略:
- *   1) H5 模式 (Taro h5 编译目标): 直接 document.documentElement.setAttribute('data-theme', explicit),
+ * 注意: 主题 **CSS 变量** 不是这里直接写 DOM, 而是由页面根节点的
+ * `theme-root theme-<palette>` 类承载 —— useThemeClass() 会在 applyTheme 通知后
+ * 重新取 getThemeClass(), 从而让 .theme-root.theme-dark{ --color-*: ... } 命中。
+ *
+ * 覆盖策略:
+ *   1) H5 模式 (Taro h5 编译目标): 额外 document.documentElement.setAttribute('data-theme'),
  *      与 :root[data-theme="cream"] / [data-theme="dark"] 配套, 立刻生效。
- *   2) 微信小程序: page 元素的 class 无法在运行时直接写, 但每个 page 自带 page 标签;
- *      用 page.theme-cream / page.theme-dark 类 (Taro 编译时映射)。如果 page 元素 class
- *      写不了, 至少 nav bar 颜色能立即变, 给用户视觉反馈。
+ *   2) 微信小程序: 靠 .theme-root 包裹类 + useThemeClass() (见上)。
  *   3) 顶部导航条颜色通过 Taro.setNavigationBarColor 同步, 三端一致。
  *   4) 窗口背景 (下拉刷新露出的那块) 通过 Taro.setBackgroundColor 同步 —— app.json /
  *      page.json 里的 backgroundColor 是编译期写死值, 只能运行期覆盖 (audit B3)。
  */
 export function applyTheme(value: ThemeName): PaletteName {
   current = value
-  const explicit: PaletteName = value === 'auto' ? resolveAutoTheme() : value
+  const explicit: PaletteName = value === 'auto' ? resolveAutoTheme(systemTheme) : value
   applied = explicit
 
   // 1) H5 / Web 端
@@ -161,26 +187,66 @@ export function getApplied(): PaletteName {
   return applied
 }
 
+/**
+ * 页面根节点要挂的类名: `theme-root theme-<cool|cream|dark>`
+ *
+ * 变量宿主在 .theme-root 上 (见 _tokens.scss), theme-<x> 决定用哪套调色板。
+ * 不带 theme-root 的话, 页面会用 page 上的默认调色板 (cream), 切主题不变色。
+ */
+export function getThemeClass(): string {
+  return `theme-root theme-${applied}`
+}
+
 export function setTheme(value: ThemeName) {
   applyTheme(value)
 }
 
-/** 在 app.tsx 启动时调用一次; 返回 unsubscribe, 组件可在 useEffect 里调 */
+/**
+ * 在 app.tsx **模块顶层同步**调用一次; 返回 unsubscribe
+ *
+ * 必须同步调用 (不能在 useEffect 里): 页面首帧渲染时就要拿到正确的 applied,
+ * 否则深色用户会先闪一帧浅色再跳变。
+ */
 export function initTheme(): () => void {
+  // 先探测系统主题, 再 applyTheme —— 否则 auto 模式会拿默认 light 解析
+  systemTheme = detectSystemTheme()
   const value = readPersisted()
   applyTheme(value)
 
-  // auto 模式下 (H5 构建) 监听系统主题变化
-  if (typeof window === 'undefined' || !window.matchMedia) return () => undefined
-  const mql = window.matchMedia('(prefers-color-scheme: dark)')
-  const onChange = () => {
-    if (current === 'auto') applyTheme('auto')
+  const cleanups: Array<() => void> = []
+
+  // 1) 微信小程序: 系统主题变化的实时回调 (基础库 2.15.0+, 老版本静默跳过)
+  const onWxThemeChange = (Taro as unknown as {
+    onThemeChange?: (cb: (res: { theme: 'light' | 'dark' }) => void) => void
+  }).onThemeChange
+  if (typeof onWxThemeChange === 'function') {
+    try {
+      onWxThemeChange((res) => {
+        systemTheme = res?.theme === 'dark' ? 'dark' : 'light'
+        if (current === 'auto') applyTheme('auto')
+      })
+    } catch {
+      /* 老基础库不支持, 忽略 */
+    }
   }
-  if (mql.addEventListener) mql.addEventListener('change', onChange)
-  else if (mql.addListener) mql.addListener(onChange)
+
+  // 2) H5 构建: 监听 prefers-color-scheme
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    const mql = window.matchMedia('(prefers-color-scheme: dark)')
+    const onChange = () => {
+      systemTheme = mql.matches ? 'dark' : 'light'
+      if (current === 'auto') applyTheme('auto')
+    }
+    if (mql.addEventListener) mql.addEventListener('change', onChange)
+    else if (mql.addListener) mql.addListener(onChange)
+    cleanups.push(() => {
+      if (mql.removeEventListener) mql.removeEventListener('change', onChange)
+      else if (mql.removeListener) mql.removeListener(onChange)
+    })
+  }
+
   return () => {
-    if (mql.removeEventListener) mql.removeEventListener('change', onChange)
-    else if (mql.removeListener) mql.removeListener(onChange)
+    for (const fn of cleanups) fn()
   }
 }
 
@@ -202,6 +268,27 @@ export function useTheme(): [ThemeName, (value: ThemeName) => void, PaletteName]
     }
   }, [])
   return [current, setTheme, applied]
+}
+
+/**
+ * useThemeClass() —— 页面根节点挂主题类用
+ *
+ * 每个页面的根 <View> 都要:
+ *   const themeClass = useThemeClass()
+ *   <View className={cx('page', themeClass)}>
+ *
+ * 少了这一步, 页面就只会用 page 上的默认调色板, 切主题完全不变色 (本次修的就是这个)。
+ */
+export function useThemeClass(): string {
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    if (!emitter) return
+    const unsubscribe = emitter.on(() => setTick((n) => n + 1))
+    return () => {
+      unsubscribe()
+    }
+  }, [])
+  return getThemeClass()
 }
 
 /**

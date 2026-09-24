@@ -61,6 +61,25 @@ async def _seed_menu(db, open_id: str, *, stock_tomato: float = 0.0):
     return user.id, menu.id, tomato, egg
 
 
+async def test_today_carries_layout_version_and_home_fields(api_client, db_session, auth_headers):
+    """/api/today 是首页唯一数据源, 灰度字段和首页依赖的字段命名都不能漂
+
+    layout_version 在这里比在 /api/decide 更关键: 用户进首页打的第一个 home_view
+    是**这个响应之后**才打的, 这里拿不到灰度值, 丢的正是最该归因的那一段。
+    """
+    user = await make_user(db_session, open_id="ou_today_layout")
+    await db_session.commit()
+
+    data = (await api_client.get("/api/today", headers=auth_headers(user.id))).json()["data"]
+
+    # R-16: 服务端没配就是 null, 不许兜底成 'v1.2'(否则"不知道在哪组"会被算进组)
+    assert "layout_version" in data
+    assert data["layout_version"] is None
+    # 首页三段式直接读的这几个字段, 改名 = 首页静默丢模块
+    for key in ("tonight", "takeout", "expiring", "timeline", "budget", "ready"):
+        assert key in data, f"/api/today 少了 {key}, 首页会静默丢一个模块"
+
+
 async def test_today_returns_empty_state_without_menu(api_client, db_session, auth_headers):
     user = await make_user(db_session, open_id="ou_today_empty")
     await db_session.commit()

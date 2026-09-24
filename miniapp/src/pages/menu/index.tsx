@@ -25,6 +25,7 @@ import {
 } from '@shared/format'
 import { MEAL_ORDER, mealLabel, weekdayLabel } from '@shared/labels'
 import type { MealDetail, MenuDay, MenuDetail, MenuSource } from '@shared/types'
+import { brand } from '@shared/brand'
 
 import {
   Bar,
@@ -41,6 +42,7 @@ import { px } from '../../lib/px'
 import { askReplaceRecipe, markCooked, toggleLock, undoCook, UNDO_WINDOW_MS } from '../../lib/meal-actions'
 import { track } from '../../lib/events'
 import { startGeneration, waitForGeneration } from '../../lib/menu'
+import { useThemeClass } from '../../lib/theme'
 
 /** 生成来源 -> 展示文案与标签色 (本地多 = 好, 所以本地给 accent) */
 const SOURCE_LABEL: Record<MenuSource, string> = {
@@ -55,6 +57,7 @@ const SOURCE_TONE: Record<MenuSource, string> = {
 }
 
 export default function MenuPage() {
+  const themeClass = useThemeClass()
   const [menu, setMenu] = useState<MenuDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -117,7 +120,7 @@ export default function MenuPage() {
     const meals = menu?.days?.reduce((sum, day) => sum + (day.meals?.length || 0), 0) || 0
     const weekLabel = menu?.week_start_date ? `这周 ${menu.week_start_date.slice(5)}` : '这周'
     return {
-      title: `${weekLabel} 一共 ${meals} 餐, 营养 / 预算都算好 · 每周鲜`,
+      title: `${weekLabel} 一共 ${meals} 餐, 营养 / 预算都算好 · ${brand.name}`,
       path: `/pages/menu/index?share_from=${encodeURIComponent(menu?.id ? `menu-${menu.id}` : 'friend')}&share_week=${menu?.week_start_date || ''}`,
     }
   })
@@ -294,7 +297,7 @@ export default function MenuPage() {
 
   if (loading) {
     return (
-      <View className="page">
+      <View className={`page ${themeClass}`}>
         <PageHead title="周菜单" subtitle="正在读取本周安排…" />
         <LoadingStack rows={4} />
       </View>
@@ -303,7 +306,7 @@ export default function MenuPage() {
 
   if (!menu) {
     return (
-      <View className="page">
+      <View className={`page ${themeClass}`}>
         <PageHead title="周菜单" subtitle="还没有菜单, 先生成一份" />
         {error ? <Banner tone="danger">{error}</Banner> : null}
         <Card>
@@ -320,7 +323,7 @@ export default function MenuPage() {
   }
 
   return (
-    <View className="page">
+    <View className={`page ${themeClass}`}>
       <PageHead
         title="周菜单"
         subtitle={`${formatDateRange(menu.week_start_date, weekEnd(menu.week_start_date))} · ${formatProgress(menu.totals.cooked_count, menu.totals.meal_count)} 已做`}

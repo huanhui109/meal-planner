@@ -68,7 +68,7 @@ shared/tokens.ts  ──node scripts/gen_tokens.mjs──┬─▶ frontend/src/
 |---|---|
 | `logo-mark.svg` | 仅图形。头像、favicon、TabBar 等小尺寸场景 |
 | `logo-mark-inverse.svg` | 深色底反白版 |
-| `logo-full.svg` | 图形 + 「每周鲜」+ 副标，登录页/侧栏横排用 |
+| `logo-full.svg` | 图形 + 「饭决」+ 副标，登录页/侧栏横排用 |
 | `logo-mono.svg` | 单色版，用于飞书卡片（飞书模板不支持彩色） |
 
 几何：28px 圆角方底；碗口上方两片叶子（叶脉断线）；碗的侧剖轮廓（半圆 + 底弧）；
@@ -79,7 +79,7 @@ shared/tokens.ts  ──node scripts/gen_tokens.mjs──┬─▶ frontend/src/
 - 安全区 = 图形高度的 25%，四周不得放进任何元素。
 - 最小使用尺寸 24px（小于这个尺寸时 7 个圆点会糊在一起，改用单色变体）。
 - 禁止：拉伸变形、换色、加投影、旋转、叠在复杂照片上。
-- 名称永远是「每周鲜」，副标「AI 营养菜谱」；文案唯一源在 `shared/brand.ts`，
+- 名称永远是「饭决」，副标「今天吃啥，交给饭决」；文案唯一源在 `shared/brand.ts`，
   不要在页面里手写品牌名（`gen:logo --check` 与 `gen:tokens --check` 会在 CI 里拦住漂移）。
 
 ## 2. 圆角阶梯

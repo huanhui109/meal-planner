@@ -228,7 +228,8 @@ GenerationWorker（进程内并发 2）
 | 一键初始化 | `bash scripts/setup_local.sh`（装 MySQL 8 / Python 3.12、建库建号、生成 `.env`、建表、导种子、装前端依赖、跑测试） |
 | 日常启停 | `make up` / `make down` / `make restart` / `make status` / `make logs` |
 | 交互式运维台 | `make ops`（`scripts/service.sh`，带实时状态与菜单） |
-| 项目专用 MySQL | `make db-start` / `db-stop` / `db-status` / `db-shell`（macOS 独立实例，端口 3307） |
+| 数据库配置真源 | `.env` 的 `APP__DATABASE__URL`（默认 `127.0.0.1:3306`），详见 `docs/database-config.md` |
+| 项目专用 MySQL（仅当 3306 不可用时的兜底） | `make db-start` / `db-stop` / `db-status` / `db-shell`（macOS 独立实例，端口 3307） |
 
 ### 7.2 质量门禁（`make ci`）
 

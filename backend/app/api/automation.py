@@ -62,7 +62,7 @@ async def delete_feishu_config(db: AsyncSession = Depends(get_db), user: User = 
 async def test_feishu_config(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """用当前配置发一条测试消息, 立刻知道参数对不对"""
     ok, message = await FeishuConfigService(db).send_text(
-        user, "每周鲜 · 这是一条测试消息, 收到说明飞书机器人配置成功。"
+        user, "饭决 · 这是一条测试消息, 收到说明飞书机器人配置成功。"
     )
     await db.commit()
     return SuccessResponse(

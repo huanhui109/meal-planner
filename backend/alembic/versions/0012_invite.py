@@ -60,6 +60,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_invite_inviter", table_name=TABLE)
-    op.drop_index("ix_invite_code", table_name=TABLE)
+    # 只删表, 不单独 drop_index: MySQL 中 DROP TABLE 会连带删掉索引与外键,
+    # 而单独删一个被外键依赖的索引会报 1553
+    # (Cannot drop index ... needed in a foreign key constraint)。
+    # 之前先 drop_index 的写法在 SQLite 上能过、在 MySQL 上必炸,
+    # 导致 downgrade base 这条回滚链路实际上一直是坏的。
     op.drop_table(TABLE)

@@ -6,9 +6,17 @@
  *   node scripts/gen_tokens.mjs --check  只校验是否与源一致 (CI 用)
  *
  * 输出结构 (V2.5 三调色板 + 保留 V2.0 的全令牌):
- *   - :root { --color-*: cool 默认;  --radius/font/shadow/motion/layout/brand: 静态令牌 }
+ *   - :root { --color-*: DEFAULT_PALETTE 默认;  --radius/font/shadow/motion/layout/brand: 静态令牌 }
+ *   - :root[data-theme="cool"]  { --color-*: cool 覆盖 }
  *   - :root[data-theme="cream"] { --color-*: cream 覆盖 }
  *   - :root[data-theme="dark"]  { --color-*: dark 覆盖 (含 card-2/card-3/ink-disabled 扩展) }
+ *
+ * 小程序侧的宿主**不是** page (V2.5 修正):
+ *   page 是框架生成的根节点, 运行时拿不到也改不了它的 class, 所以 `page.theme-dark{}`
+ *   永远匹配不上 —— 三套变量生成了却只有默认那套生效, 主题切换零效果。
+ *   现在变量挂在 React 可控的 `.theme-root` 包裹类上, 由 lib/theme.ts 的
+ *   useThemeClass() 给每个页面根节点加 `theme-root theme-<palette>`;
+ *   `page` 只作为首帧 / 未包裹节点的兜底, 与 .theme-root 共用默认调色板。
  *
  * 命名约定 (V2.5 命名收敛):
  *   - 旧 `dark`  → **`cool`** (冷灰, 旧 V2.0 默认)
@@ -65,12 +73,24 @@ function flatten(node, prefix = []) {
 }
 
 // ---------------------------------------------------------------------------
-// 颜色: --color-* (三调色板: :root 默认 cool + cream / dark 覆盖)
+// 颜色: --color-* (三调色板 cool / cream / dark, 默认 = DEFAULT_PALETTE)
 // ---------------------------------------------------------------------------
 
+/**
+ * 默认调色板: 与 miniapp/src/lib/theme.ts 的 DEFAULT_THEME 以及各页面 config 里
+ * 静态写死的 backgroundColor (#FBF9F4) 保持一致, 否则冷启动会闪一下别的底色。
+ */
+const DEFAULT_PALETTE = 'cream'
+
+/** 变量名的权威列表: 决定输出哪些 --color-* 及其顺序 (字段与 palettes.cool 一致) */
 const colorEntries = flatten(tokens.color, ['color'])
+const coolColorEntries = flatten(palettes.cool, ['color'])
 const creamColorEntries = flatten(palettes.cream, ['color'])
 const darkColorEntries = flatten(palettes.dark, ['color'])
+
+/** 默认块用的调色板 (三套里挑一套) */
+const defaultColorEntries =
+  { cool: coolColorEntries, cream: creamColorEntries, dark: darkColorEntries }[DEFAULT_PALETTE]
 
 // dark 调色板比 cool/cream 多三个字段 (card-2 / card-3 / ink-disabled),
 // 它们是深色模式专属的"二级/三级 surface"和"禁用态"; 在 :root 默认块里
@@ -93,21 +113,26 @@ const staticEntries = [
 ]
 
 // :root 默认块: 全部颜色 (cool) + dark 专属颜色的 cool 回退 + 全部静态令牌
+// dark 专属字段在默认块里用默认调色板的"相邻字段"做回退, 避免浅色下 var(--color-card-2) 失效
+const darkOnlyFallbacks = darkOnlyColorNames.map((name) => {
+  // card-2 / card-3 → card; ink-disabled → ink3
+  const fallbackKey = name === 'color-card-2' || name === 'color-card-3'
+    ? 'color-card'
+    : name === 'color-ink-disabled'
+      ? 'color-ink3'
+      : null
+  const fallback = fallbackKey ? defaultColorEntries.find(([n]) => n === fallbackKey) : null
+  return [name, fallback ? fallback[1] : 'transparent']
+})
+
 const rootEntries = [
-  ...colorEntries,
-  // dark 专属字段在 :root 用 cool 调色板里的"相邻字段"做回退, 避免 var(--color-card-2) 在浅色下失效
-  ...darkOnlyColorNames.map((name) => {
-    // card-2 / card-3 → card; ink-disabled → ink3
-    const fallbackKey = name === 'color-card-2' || name === 'color-card-3'
-      ? 'color-card'
-      : name === 'color-ink-disabled'
-        ? 'color-ink3'
-        : null
-    const fallback = fallbackKey ? colorEntries.find(([n]) => n === fallbackKey) : null
-    return [name, fallback ? fallback[1] : 'transparent']
-  }),
+  ...defaultColorEntries,
+  ...darkOnlyFallbacks,
   ...staticEntries,
 ]
+
+/** CSS 变量默认块 (不含静态令牌, 它们在小程序侧以 $ 变量形式输出) */
+const baseColorEntries = [...defaultColorEntries, ...darkOnlyFallbacks]
 
 // ---------------------------------------------------------------------------
 // CSS: :root { 全部 } + :root[data-theme=cream] { --color-* } + :root[data-theme=dark] { --color-* }
@@ -137,17 +162,18 @@ const cssLines = [
   ...rootEntries.map(([name, value]) => `  --${name}: ${value};`),
   '}',
   '',
+  ...buildOverrideBlock(':root[data-theme="cool"]', coolColorEntries),
   ...buildOverrideBlock(':root[data-theme="cream"]', creamColorEntries),
   ...buildOverrideBlock(':root[data-theme="dark"]', darkColorEntries),
 ]
 
 // ---------------------------------------------------------------------------
-// SCSS: 全部 token (含 $color-*) + page{} (cool) + page.theme-cream{} + page.theme-dark{}
+// SCSS: 全部 token (含 $color-*) + page,.theme-root{} (默认) + .theme-root.theme-cool|cream|dark{}
 // ---------------------------------------------------------------------------
 
 function buildScssOverrideBlock(selector, paletteEntries) {
   return [
-    selector + ' {',
+    [].concat(selector).join(',\n') + ' {',
     ...colorEntries.map(([name]) => {
       const found = paletteEntries.find(([n]) => n === name)
       return `  --${name}: ${found ? found[1] : 'inherit'};`
@@ -165,12 +191,29 @@ const scssLines = [
   ...rootEntries.map(([name, value]) => `$${name}: ${value};`),
   '',
   '// 小程序里同时暴露一份 CSS 变量, 运行时要覆盖时用 var(--x)',
-  'page {',
-  ...colorEntries.map(([name, value]) => `  --${name}: ${value};`),
+  '// 宿主是 .theme-root / .theme-vars —— page 是框架节点, 运行时写不了它的 class,',
+  '// 所以主题类只能挂在 React 可控的包裹类上; page 一并带上默认调色板作首帧兜底。',
+  '//   .theme-root 页面根包裹 (有 min-height/background, 见 app.scss),',
+  '//   .theme-vars 纯变量宿主 (无布局副作用), 给 custom-tab-bar 这种',
+  '//     "不在页面根节点内、但又要用主题变量"的游离节点用。',
+  'page,',
+  '.theme-root,',
+  '.theme-vars {',
+  ...baseColorEntries.map(([name, value]) => `  --${name}: ${value};`),
   '}',
   '',
-  ...buildScssOverrideBlock('page.theme-cream', creamColorEntries),
-  ...buildScssOverrideBlock('page.theme-dark', darkColorEntries),
+  ...buildScssOverrideBlock(
+    ['.theme-root.theme-cool', '.theme-vars.theme-cool'],
+    coolColorEntries,
+  ),
+  ...buildScssOverrideBlock(
+    ['.theme-root.theme-cream', '.theme-vars.theme-cream'],
+    creamColorEntries,
+  ),
+  ...buildScssOverrideBlock(
+    ['.theme-root.theme-dark', '.theme-vars.theme-dark'],
+    darkColorEntries,
+  ),
 ]
 
 const targets = [

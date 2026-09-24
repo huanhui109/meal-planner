@@ -5,6 +5,7 @@ from app.models.allergy_restriction import AllergyRestriction
 from app.models.base import Base, TimestampMixin
 from app.models.budget import Budget
 from app.models.build_info import BuildInfo
+from app.models.decision import DecisionFeedback, DecisionLog, DecisionSource, MealSlot
 from app.models.diet_preference import DietPreference
 from app.models.event import Event
 from app.models.feedback import Feedback
@@ -50,6 +51,10 @@ __all__ = [
     "MenuGenerationTask",
     "MenuStatus",
     "GenerationStatus",
+    "DecisionLog",
+    "DecisionFeedback",
+    "DecisionSource",
+    "MealSlot",
     "PurchaseRecord",
     "UserFeishuConfig",
 ]

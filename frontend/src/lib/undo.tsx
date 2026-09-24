@@ -15,6 +15,8 @@ interface UndoOptions {
   onUndo: () => Promise<void> | void
   successText?: string
   errorText?: string
+  /** 后悔窗口秒数。快选入库这种高频轻动作给 3 秒就够, 窗口太长反而挡视线 */
+  seconds?: number
 }
 
 export function toastWithUndo({
@@ -23,11 +25,12 @@ export function toastWithUndo({
   onUndo,
   successText = '已撤销',
   errorText = '撤销失败',
+  seconds = UNDO_SECONDS,
 }: UndoOptions): void {
   message.open({
     key,
     type: 'success',
-    duration: UNDO_SECONDS,
+    duration: seconds,
     content: (
       <span>
         {text}

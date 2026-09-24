@@ -7,8 +7,10 @@ import { Button, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 
 import { Card, PageHead, PillButton } from '../../components/ui'
+import { useThemeClass } from '../../lib/theme'
 
 export default function UpdatePage() {
+  const themeClass = useThemeClass()
   const [updateUrl, setUpdateUrl] = useState<string | null>(null)
   const [notes, setNotes] = useState<string | null>(null)
   const [latest, setLatest] = useState<string>('')
@@ -41,7 +43,7 @@ export default function UpdatePage() {
   }
 
   return (
-    <View className="page">
+    <View className={`page ${themeClass}`}>
       <PageHead title="需要更新" subtitle="当前版本过低, 请升级到最新版" />
 
       <Card>

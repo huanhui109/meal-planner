@@ -13,6 +13,15 @@ interface PreferenceState {
   loading: boolean
   loaded: boolean
   summary: UserPreferenceSummary | null
+  /**
+   * 每次**从服务端重新拉取**就 +1。
+   *
+   * 偏好页 5 张表单是同时挂载的, 如果表单靠 `summary` 的引用变化来同步初始值,
+   * 那么保存任意一张卡 (update* 会 set 一个新的 summary 对象) 会把另外 4 张
+   * 正在编辑、还没保存的表单一起重置成服务端值 —— 用户填的东西静默消失。
+   * 所以同步只认 syncToken, 而 update* 不动它。
+   */
+  syncToken: number
   fetchSummary: () => Promise<void>
   updateHousehold: (data: Partial<Household>) => Promise<void>
   updateDiet: (data: Partial<DietPreference>) => Promise<void>
@@ -33,12 +42,17 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   loading: false,
   loaded: false,
   summary: null,
+  syncToken: 0,
 
   fetchSummary: async () => {
     set({ loading: true })
     try {
       const summary = await preferencesApi.getPreferenceSummary()
-      set({ summary: summary ?? EMPTY_SUMMARY, loaded: true })
+      set((state) => ({
+        summary: summary ?? EMPTY_SUMMARY,
+        loaded: true,
+        syncToken: state.syncToken + 1,
+      }))
     } finally {
       set({ loading: false })
     }

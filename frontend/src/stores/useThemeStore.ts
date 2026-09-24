@@ -81,7 +81,9 @@ const THEME_COLOR: Record<PaletteName, string> = {
  * 必须用 JS 写死值。
  */
 export function applyTheme(theme: ThemeName): PaletteName {
-  if (typeof document === 'undefined') return 'cool'
+  // SSR / 非浏览器环境的兜底值, 必须与 DEFAULT_THEME + tokens.css 的 :root 默认块一致 (cream),
+  // 否则小程序/H5 的 applied 初值会和实际渲染色对不上
+  if (typeof document === 'undefined') return 'cream'
   const explicit: PaletteName = theme === 'auto' ? resolveAutoTheme() : theme
   document.documentElement.setAttribute('data-theme', explicit)
   const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
@@ -93,7 +95,9 @@ export function applyTheme(theme: ThemeName): PaletteName {
 
 export const useThemeStore = create<State>((set) => ({
   theme: DEFAULT_THEME,
-  applied: 'cool',
+  // 初值要跟 DEFAULT_THEME 对应的调色板一致 (cream), 否则 SSR/首帧 applied 是 cool 但
+  // CSS 渲染的是 cream, Logo 这类"按 applied 取色"的组件会先闪一下错色
+  applied: 'cream',
   setTheme: (value) => {
     try {
       window.localStorage.setItem(STORAGE_KEY, value)

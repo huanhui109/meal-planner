@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 /**
- * 生成「每周鲜」品牌资源 —— 符号是「平底锅颠荷包蛋」
+ * 生成「饭决 FAN·DECIDE」品牌资源 —— 符号是「平底锅颠荷包蛋」
+ *
+ * 几何定义 (平底锅 + 荷包蛋) 是品牌的视觉资产, 不随改名变动:
+ * 新版「饭决」沿用同一枚符号, 只换文案。改几何要同步改 docs/design-system.md。
  *
  *   node scripts/gen_logo.mjs          写入 SVG 与 PNG
  *   node scripts/gen_logo.mjs --check  只校验产物是否与脚本一致 (CI 用)
@@ -406,8 +409,8 @@ function polygonTag(layer) {
 function markSvg(themeName) {
   const layers = panEggLayers(THEMES[themeName])
   return [
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="每周鲜">',
-    '  <title>每周鲜</title>',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="饭决">',
+    '  <title>饭决</title>',
     ...layers.map(polygonTag),
     '</svg>',
     '',
@@ -418,12 +421,12 @@ function fullLogoSvg() {
   const layers = panEggLayers(THEMES.default)
   const d = tokens.font.family.replace(/"/g, "'")
   return [
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120" width="300" height="120" role="img" aria-label="每周鲜 · AI 营养菜谱">',
-    '  <title>每周鲜 · AI 营养菜谱</title>',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120" width="300" height="120" role="img" aria-label="饭决 FAN·DECIDE">',
+    '  <title>饭决 FAN·DECIDE</title>',
     '  <g transform="translate(12 12)">',
     ...layers.map((layer) => `    ${polygonTag(layer).trim()}`),
     '  </g>',
-    `  <text x="128" y="60" font-family="${d}" font-size="38" font-weight="700" letter-spacing="-1.2" fill="${C.ink}">每周鲜</text>`,
+    `  <text x="128" y="60" font-family="${d}" font-size="38" font-weight="700" letter-spacing="-1.2" fill="${C.ink}">饭决</text>`,
     `  <text x="130" y="86" font-family="${d}" font-size="15" letter-spacing="3" fill="${C.ink2}">AI 营养菜谱</text>`,
     '</svg>',
     '',

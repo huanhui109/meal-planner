@@ -1,6 +1,7 @@
 import apiClient, { unwrap } from './client'
 import type {
   ConsumeResult,
+  FridgeRebuildPayload,
   GenerateAccepted,
   GenerationMode,
   GenerationTask,
@@ -56,6 +57,12 @@ export const confirmMenu = (menuId: number) =>
 export const getShoppingList = (menuId: number) =>
   unwrap<ShoppingList>(apiClient.get(`/menus/${menuId}/shopping-list`))
 
+/** 按冰箱现有食材重排本周 (同步完成, 不调 LLM), 返回菜单 + 重排摘要 + 采购清单 */
+export const rebuildMenuFromFridge = (weekStart: string) =>
+  unwrap<FridgeRebuildPayload>(
+    apiClient.post('/menus/fridge-rebuild', { week_start: weekStart }),
+  )
+
 /** 换一道: 留空 body 走自动模式 (本地菜谱库优先, 挑不到再 AI 生成) */
 export const replaceMenuItem = (
   menuId: number,
@@ -63,8 +70,6 @@ export const replaceMenuItem = (
   body: {
     recipe_id?: number
     recipe_name?: string
-    /** 跳过本地打分, 直接让 AI 换一道 */
-    force_ai?: boolean
     calories?: number
     cook_minutes?: number
     protein_g?: number

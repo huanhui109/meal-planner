@@ -40,6 +40,9 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     setup_logging(settings.app.debug)
     _validate_auth_config()
+    # 数据库配置必须在连库之前校验: 占位凭据要在这里就炸掉,
+    # 而不是等到第一个请求进来才抛 500 —— 那时的报错已经离根因很远了。
+    settings.validate_for_runtime()
     if settings.auth.dev_login:
         logger.warning(
             "本地开发登录已开启 (APP__AUTH__DEV_LOGIN=true): 任何人凭昵称即可登录, 生产环境务必关闭"
@@ -63,9 +66,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="每周鲜 · AI 营养菜谱",
-    description="把一周的饭交给 AI 安排好: 偏好即约束 → 生成周菜单 → 校验营养预算 → 补单 → 做饭扣库存",
-    version="0.5.0",
+    title="饭决 FAN·DECIDE",
+    description="今天吃啥，交给饭决: 口味档案即约束 → 一次点击决定这一餐 → 给一句话理由 → 3-5 步极简做法。断网也有答案。",
+    version="1.2.0",
     lifespan=lifespan,
 )
 

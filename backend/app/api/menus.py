@@ -13,12 +13,13 @@ from app.config import get_settings
 from app.dependencies import get_current_user, get_db
 from app.models.budget import Budget
 from app.models.health_goal import HealthGoal
-from app.models.menu import Menu, MenuGenerationTask, MenuItem
+from app.models.menu import Menu, MenuGenerationTask, MenuItem, MenuStatus
 from app.models.user import User
 from app.schemas.common import SuccessResponse
 from app.schemas.menu import GenerateAcceptedResponse, GenerationTaskResponse
 from app.schemas.recipe import MenuGenerateRequest, MenuItemReplaceRequest
 from app.services.deeplink_service import PLATFORM_XIAOXIANG
+from app.services.fridge_menu_service import FridgeMenuError, FridgeMenuService
 from app.services.generation_service import (
     MODE_AI,
     MODE_AUTO,
@@ -135,6 +136,46 @@ async def generate_menu(
     )
 
 
+@router.post("/fridge-rebuild", response_model=SuccessResponse)
+async def rebuild_menu_from_fridge(
+    request: MenuGenerateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """按冰箱现有食材重排本周 —— 保留锁定餐次, 同步完成
+
+    与 /generate 的三点不同:
+      1. 不调 LLM, 只用本地菜谱库, 所以同步返回、也不消耗生成额度;
+      2. 打分把「这道菜的食材冰箱里齐不齐」放到第一位 (见 FridgeMenuService);
+      3. 顺手算出"现有食材能直接做的餐次"与"这一周还需要采购多少"。
+    """
+    week_start = str(_parse_week_start(request))
+    try:
+        result = await FridgeMenuService(db).rebuild(user.id, week_start)
+    except FridgeMenuError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    menu = await MenuService(db).get_menu(result.menu_id, user.id)
+    shopping = await ShoppingService(db).build(result.menu_id, user.id)
+    return SuccessResponse(
+        code=0,
+        message="已按冰箱食材重排本周",
+        data={
+            "menu": await MenuService(db).serialize(menu) if menu else None,
+            "summary": {
+                "week_start_date": result.week_start,
+                "total_slots": result.total_slots,
+                "locked_items": result.locked_items,
+                "changed_items": result.changed_items,
+                "cookable_now": result.cookable_now,
+                "need_shopping": result.need_shopping,
+                "unfilled": result.unfilled,
+            },
+            "shopping_list": shopping,
+        },
+    )
+
+
 @router.get("/generation-tasks/{task_id}", response_model=SuccessResponse)
 async def get_generation_task(
     task_id: int,
@@ -203,9 +244,9 @@ async def get_menu_history(
                 "id": menu.id,
                 "week_start_date": str(menu.week_start_date) if menu.week_start_date else None,
                 "status": menu.status,
-                "is_confirmed": menu.status == MenuStatus.CONFIRMED
-                if hasattr(MenuStatus, "CONFIRMED")
-                else False,
+                # MenuStatus 之前没导入, hasattr(...) 求值时直接 NameError,
+                # 整个历史列表端点 500 —— 导入补齐后这层防御就不用了。
+                "is_confirmed": menu.status == MenuStatus.CONFIRMED,
                 "totals": data.get("totals", {}),
             }
         )

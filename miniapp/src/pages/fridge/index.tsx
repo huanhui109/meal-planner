@@ -23,10 +23,12 @@ import { addInventory, getToday, listInventory } from '../../lib/api'
 import { RecognizeSheet } from '../../components/recognize-sheet'
 import { ensureLogin, syncTabBar, toast } from '../../lib/nav'
 import { px } from '../../lib/px'
+import { useThemeClass } from '../../lib/theme'
 
 const UNITS = ['g', 'kg', 'ml', 'L', '个', '根', '颗', '把', '袋', '盒']
 
 export default function FridgePage() {
+  const themeClass = useThemeClass()
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -141,7 +143,7 @@ export default function FridgePage() {
 
   if (loading) {
     return (
-      <View className="page">
+      <View className={`page ${themeClass}`}>
         <PageHead title="冰箱" subtitle="正在数冰箱里的东西…" />
         <LoadingStack rows={4} />
       </View>
@@ -149,7 +151,7 @@ export default function FridgePage() {
   }
 
   return (
-    <View className="page">
+    <View className={`page ${themeClass}`}>
       <PageHead
         title="冰箱"
         subtitle={

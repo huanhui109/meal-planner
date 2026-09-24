@@ -15,6 +15,7 @@ import { Bar, Card, Chip, PageHead, PillButton } from '../../components/ui'
 import { markCooked } from '../../lib/meal-actions'
 import { toast } from '../../lib/nav'
 import { track } from '../../lib/events'
+import { useThemeClass } from '../../lib/theme'
 
 interface RecipePayload {
   meal_id: number
@@ -39,6 +40,7 @@ interface RecipePayload {
 }
 
 export default function RecipeDetailPage() {
+  const themeClass = useThemeClass()
   const router = useRouter<{ data?: string }>()
   const [recipe, setRecipe] = useState<RecipePayload | null>(() => {
     try {
@@ -53,7 +55,7 @@ export default function RecipeDetailPage() {
 
   if (!recipe) {
     return (
-      <View className="page">
+      <View className={`page ${themeClass}`}>
         <PageHead title="菜谱详情" subtitle="数据加载失败" />
         <Card>
           <View className="card__hint">没有找到这道菜的信息, 请返回重试</View>
@@ -88,7 +90,7 @@ export default function RecipeDetailPage() {
     (recipe.protein_g ?? 0) * 4 + (recipe.carb_g ?? 0) * 4 + (recipe.fat_g ?? 0) * 9 || 0
 
   return (
-    <View className="page">
+    <View className={`page ${themeClass}`}>
       <PageHead title={recipe.name} subtitle={`${mealLabel(recipe.meal_type)} · ${recipe.cuisine || '家常'}`} />
 
       <Card>

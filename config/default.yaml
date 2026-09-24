@@ -1,10 +1,14 @@
-# 每周鲜 · AI 营养菜谱 - 默认配置
+# 饭决 FAN·DECIDE - 默认配置
 # 优先级: 环境变量 (前缀 APP__, 分隔符 __) > .env > 本文件 > 代码默认值
-# 示例: APP__DATABASE__URL="mysql+asyncmy://user:pwd@127.0.0.1:3306/meal_planner?charset=utf8mb4"
-# 注意: 本文件不得写入任何密钥, 密钥一律放 .env
+#
+# ⚠ 本文件会被提交进版本库, 因此:
+#    1. 不得写入任何账号、密码、密钥 —— 一律放 .env (已在 .gitignore 中)
+#    2. 数据库连接串只有一个来源: APP__DATABASE__URL
+#    本文件里不再提供 database.url 的默认值; 未配置时服务会启动失败并给出指引,
+#    而不是静悄悄连上一个错库。模板见 .env.example。
 
 app:
-  name: "每周鲜 · AI 营养菜谱"
+  name: "饭决 FAN·DECIDE"
   host: "0.0.0.0"
   port: 8000
   debug: false
@@ -12,13 +16,18 @@ app:
   # 前后端同源部署时无需配置; 仅跨域调试时填写, JSON 数组或 YAML 列表
   cors_origins: []
 
-database:
-  url: "mysql+aiomysql://meal_planner:change-me@127.0.0.1:3306/meal_planner?charset=utf8mb4"
-  echo: false
-  pool_size: 10
-  max_overflow: 20
-  pool_recycle: 1800
-  pool_timeout: 30
+# V1.2.0 R-16 首页灰度版本。服务端下发, 前端据它渲染 v1.1 / v1.2 两套布局。
+# 留空 (或不写这个 key) = 没灰度: /api/decide 与 /decide/last 返回 layout_version=null,
+# 前端自己兜底。**不要在这里填 'v1.2' 来"帮忙"** —— 那会把"不知道自己在哪组"的
+# 用户算进 v1.2 样本, 灰度结论就废了。改灰度只动这一行 + 重启, 不需要发版。
+# 环境变量等价写法: APP__LAYOUT_VERSION=v1.1
+#layout_version: v1.2
+
+# database 段: 所有字段都通过 APP__DATABASE__* 环境变量注入 (MySQL 8.0 / 默认 3306)
+#   APP__DATABASE__URL    mysql+aiomysql://<用户>:<密码>@<主机>:3306/<库名>?charset=utf8mb4
+#   APP__DATABASE__ECHO   false
+#   APP__DATABASE__POOL_SIZE / MAX_OVERFLOW / POOL_RECYCLE / POOL_TIMEOUT
+# 连接池等非敏感项的默认值仍写在 backend/app/config.py 的 DatabaseSettings 里。
 
 auth:
   jwt_secret: ""            # 必填, 从 APP__AUTH__JWT_SECRET 注入, 至少 32 字符
@@ -45,17 +54,178 @@ menu:
   local_min_fill: 0.8           # 本地候选填充率达标才用本地方案, 否则交给 LLM
   local_candidate_pool: 300     # 本地编排最多扫描的候选菜谱数
 
+# 「饭决」单次决策 (需求 5 / 6 / 9 / 10)
+decide:
+  # 近 N 天出过的菜不再出现 (硬排除)。
+  # ⚠ 口径: 按 decision_date 统计, 该字段由服务端在落库时按"决策那一刻的本地日期"写入。
+  # 跨零点那一餐(23:50 决定、00:10 才吃)归**决定时**那天, 不归吃的那天 —— 否则同一次
+  # 宵夜会被算成两天各一次, 7 天窗口对夜宵用户实际只剩 6 天。
+  # 历史行没有 decision_date 时回落 created_at; 两者都有值时以 decision_date 为准。
+  no_repeat_days: 7
+  # 同品类打散: 统计**最近 N 餐**的品类分布, 不是最近 N 天。
+  # 一天三顿都吃荤菜就已经该打散了, 按天算会晚一整天才反应过来。
+  category_spread_meals: 3
+  # ⚠ 下面三个惩罚项都远超 random_band(5.0), 这是**刻意的**: 它们是硬约束, 靠放宽
+  # 阶梯(relaxed_level 1-4)逐级松开, 不是靠分值小。
+  # 别按"超 band 就该压"去改这三个值 —— 压小了等于硬约束悄悄失效, 连续两餐重样会
+  # 直接出现在用户面前, 而且比报错更难受: 它看起来只是"今天运气不好"。
+  category_penalty_step: 25.0
+  same_cuisine_penalty: 15.0
+  main_ingredient_penalty: 40.0 # 连续两餐不重样
+  # 软随机分差带: 分差在这个范围内的菜全部参与抽签, 保证每次略有不同。
+  # ⚠ 这个值是**所有打分项的天花板**: 任何单项打分的最大摆动一旦超过它, 抽签带里就
+  # 只剩那一侧的人 —— 减分侧变成准硬过滤(被罚的菜全部出局), 加分侧变成独占(受加分
+  # 的菜抬高最优分, 把其他菜挤出带)。同一枚硬币的两面。
+  # 改本文件里任何 score_* / *_penalty 之后, 必须跑 backend/scripts/band_regression.py。
+  random_band: 5.0
+  random_min_choices: 3         # 至少几个候选参与随机(低于此值就按分数补齐)
+  # 0 = 菜系分暂时停用: recipe.cuisine 列现在存的是菜品分类(荤菜/主食/早餐…),
+  # 与用户偏好里的真菜系(川湘/粤菜/江浙/日料/家常)对不上, 真菜 342 道口径下命中率
+  # 约 0.5%。挂在 20 分权重上等于在"假装在打分", 还挤占库存/天气的真实权重。
+  # 本期不做 cuisine 清洗: 等凌晨 LLM 富集任务把真菜系回填后, 这里恢复 20.0。
+  #
+  # ⚠ 恢复必须**一次改 6 处**, 严禁只改一部分:
+  #   1. 本行 score_cuisine
+  #   2. backend/app/config.py 的 DecideSettings.score_cuisine
+  #   3. shared/decide.ts 的 SCORE.cuisine (离线端同构, 漏改会让离线/在线结果不一致)
+  #   4. backend/app/services/replacement_service.py 的 SCORE_CUISINE
+  #   5. backend/app/services/generation_service.py 的 SCORE_CUISINE
+  #   6. backend/app/services/fridge_menu_service.py 的 SCORE_CUISINE
+  # 后三条是**模块级硬编码**, 不是 DecideSettings 字段 —— 改这一行它们不会跟着变。
+  # 只恢复主链路而漏掉它们, 会出现"决策已经不看菜系、换一换却还在按菜系排序"的分叉,
+  # 而且没人会发现; 反过来只改它们同样分叉。
+  # 另外: 恢复 20.0 之前必须先解决"20 > random_band(5.0)"这个约束 —— 换一换那条链路
+  # 的抽签带也是 5.0, 而且是先截 top3 再切带, 比主链路更陡, 会直接塌缩成
+  # "只在命中菜系的菜里换"。
+  #
+  # 这一条不是推导, 是实测出来的 (2026-09-23, 候选池 342, N=300; canonical
+  # backend/scripts/band_regression.py N=500, 两个脚本独立吻合):
+  #     现状                                  band 23 / 品类数 5
+  #     往打分里塞进一个幅度超过 random_band 的强信号  band  8 / 品类数 2
+  #   band 门禁下限是 18 —— 直接塌穿, 而且塌下去之后可选品类只剩 2 类。
+  #   幅度压不住的话, 菜系恢复那天就不是"偏好生效", 而是"只剩两三类菜可抽"。
+  # ⚠ 所以恢复当天**必须**先跑 make check-band 且 EXIT=0, 再谈改数值;
+  #   门禁红了就把幅度压到 ≤5.0 再上, 不要硬顶 20.0。
+  score_cuisine: 0.0
+  # 连续型: score += 15 * max(0, 1 - gap), 摆动 15.0, 超过 random_band(5.0)。
+  # 它和下面几个"超 band"项是同一类问题, 处置口径也一样: 先量影响再定值, 别单独拍。
+  score_spice: 15.0
+  # ⚠ 25.0 是 random_band(5.0) 的 5 倍, 而且它的分母是**这道菜自己的**食材数:
+  # 家里只有 3 样时, 2 食材的菜(紫菜蛋花汤)录 1 样就满分 +25, 11 食材的菜只有 +2.3
+  # —— 奖励的是"食材少的简单菜", 不是"你家有的菜"。实测抽签带从 60 塌到 3。
+  # 修法在 decision_service 侧(R-09 归一化): 排序改用**绝对命中数** hits 做分子,
+  # 并把幅度压到 ≤5.0。本行的最终值以修复后的复跑结果为准, 别在修复前单独调它。
+  score_inventory: 25.0
+  # ⚠ 18.0 本身超 band, 雨天还会叠加: ratio>=0.3 给 +18、0.1~0.3 给 +9, 再叠加
+  # tags(汤羹/炖煮/一锅出/雨天) +10.8, 单菜最高 +28.8; 寒天 -20、暑天 -15。
+  # 现在**不会触发**, 因为下面 weather.enabled = false。打开之前必须先压幅度,
+  # 详见 weather 段那条红线。
+  score_weather: 18.0
+  # ⚠ 超 band(三档 +15 / +6 / -15, 摆动 30), 但只在**两个条件同时成立**时才参与:
+  # 用户设了每餐预算, 且这道菜有价格。缺价菜 300/342 = 87.7%, 所以实际只有约 12%
+  # 的菜参与 —— 等于给一小撮菜 ±15 的摆动, 而用户完全看不出为什么。
+  score_budget: 15.0            # 贴合每餐预算的权重
+  budget_over_tolerance: 1.2    # 超出每餐预算但这个倍数以内的菜, 只扣一部分分
+  late_night_max_minutes: 20    # 深夜只留轻食, 且出餐 ≤20 分钟
+  late_night_from: 22
+  late_night_to: 5
+  quick_steps_min: 3            # 极简做法卡步数区间
+  quick_steps_max: 5
+  reason_max_chars: 20          # 一句话理由字数上限
+  stubborn_after: 3             # 连续决策 3 次后弹「别纠结了，我替你倔一回。」
+
+# 天气感知 (需求 9)。默认关闭: 外部 API 不可达也必须能决定吃什么。
+weather:
+  # 🔴 改成 true 之前, 必须先把 decide.score_weather 从 18.0 压到 ≤5.0 —— 注意是让
+  # 雨天那几条加分的**合计**不超过 5.0, 不是让单独一条不超过 —— 然后按每种天气条件
+  # 各跑一遍 backend/scripts/band_regression.py。
+  # 为什么: 2026-09-23 实测(真菜 342 道口径), 打开后各条件下的抽签带大小 ——
+  #     rain 29(空库存) / 9(家里 3 样) / 4(家里 12 样)
+  #     hot  4 / 4 / 3        ← 热天只剩三四道菜可抽
+  #   对照: 同一批数据 clear 是 116 / 54 / 70, cold 是 82 / 50 / 57。
+  # 雨天 342 道里有 192 道(56.1%)因为拿不到天气加分而整批出局。
+  #
+  # 还有一个隐蔽点: condition 为 None 时 _weather_score 整体跳过, 所以**外部 API 挂掉
+  # 反而一切正常, API 一通就开始塌缩** —— 这种"坏的时候才对"的现象最难定位, 别当成
+  # 偶发抖动放过去。
+  #
+  # 已知待修(与启用一并做): hot 分支只认 tags 里的"清爽/凉拌", 不认"凉菜"品类,
+  # 所以热天推凉菜全靠 tag 碰运气。
+  enabled: false
+  provider: "open-meteo"        # none | open-meteo | heweather
+  api_key: ""                   # 仅 heweather 需要, 由 WEATHER_API_KEY 注入
+  city: "深圳"
+  latitude: 22.5431
+  longitude: 114.0579
+  cache_minutes: 15
+  timeout_seconds: 3
+  hot_temp_c: 32.0
+  cold_temp_c: 5.0
+
+# System One 决策模型。默认关闭 —— 和天气一样, 它只能是加分项。
+# 默认后端是开源 Laya(Apache-2.0, 421M, 本地推理), 无需 Key、无网络调用。
+# provider 四档:
+#   laya     开源 Laya, 本地推理(默认)
+#   jev      官方 TypeSafe API, 需要 TYPESAFE_API_KEY 且账号通过白名单开白
+#   adapter  官方开源适配器, 背后接 OpenAI 兼容端点(本机 LM Studio)
+#   rule     纯规则兜底, 零外部依赖
+system_one:
+  enabled: false
+  provider: "laya"                # laya | jev | adapter | rule
+  timeout_seconds: 1.5            # 只对 jev / adapter 生效; laya 是本地同步推理
+  cache_seconds: 300
+  min_confidence: 0.90            # Choice/Score 低于此置信度不采纳。语料拟合值:
+                                  # 菜系命中率随阈值单调上升, 0.90 时才到 67%
+  # Noul 三态折叠阈值, 由 scripts/system_one_calibrate.py 在 106 条中文语料上拟合
+  noul_accept: 0.91               # >= 判真
+  noul_reject: 0.20               # <= 判假; 中间地带不采纳, 交给规则
+  # ---- Laya ----
+  laya_model: "convaiinnovations/laya"
+  # english | multilingual | typed-decisions | auto
+  # 中文必须用 multilingual(或 auto): english 权重遇到中文会**静默失效**,
+  # 不报错, 只是判得差。
+  laya_checkpoint: "multilingual"
+  laya_device: ""                 # 留空自动选择(macOS 会用 mps)
+  laya_max_loaded: 2              # checkpoint=auto 时 Router 最多常驻几个权重
+  # ---- Jev ----
+  model: "jev-latest"
+  base_url: ""                    # 留空用 SDK 默认 https://api.typesafe.ai
+  # ---- adapter ----
+  adapter_provider: "openai"
+  adapter_base_url: "http://127.0.0.1:1234/v1"
+  adapter_model: "zai-org/glm-4.6v-flash"
+  adapter_api_key: ""             # 本地端点一般不需要, 留空
+  adapter_structured_outputs: true
+
+# 菜品富集 —— 兜底大模型的岗位
+# 分工: Laya(开源 System One) 管**实时决策**, 兜底大模型管**离线生产**。
+# 后者定时补菜品 / 写做法 / 补缺失字段, 慢、花钱、输出不稳, 但能干"创造内容"的重活;
+# 这种活绝不能放进决策链路, 否则 2s 响应和离线双端同构都守不住。
+dish_enrich:
+  enabled: false               # 默认关闭: 富集是加分项, 跑挂了最多是字段还缺着
+  batch_limit: 20              # 单次最多处理几道菜, 这也是一次调用的账单上限
+  expand_limit: 5              # 单次最多生成几道新菜, 宁可少 —— 新菜要进决策池
+  temperature: 0.3             # 压低: 富集的产出是数据不是文案, 要稳定不要灵光
+  max_tokens: 2000
+  timeout_seconds: 60
+  respect_manual: true         # 人工校对过(enrich_source=manual)的不许覆盖
+  expand_categories: []        # 补新菜的品类范围, 空=不限
+
 scheduler:
   # 定时推送默认关闭: 多 worker 部署时每个 worker 都会注册一遍任务, 会重复推送。
   # 生产如需开启, 只让一个 worker 打开 (见 deploy/README.md)。
   enabled: false
   timezone: "Asia/Shanghai"
-  db_url: "mysql+aiomysql://meal_planner:change-me@127.0.0.1:3306/meal_planner?charset=utf8mb4"
+  # 调度器用同一个库, 留空即自动复用 APP__DATABASE__URL
+  # (见 backend/app/config.py 的 apply_derived_defaults)。不要在这里再抄一份连接串,
+  # 抄了就会在改密码时只改一半。需要单独库时才显式设置 APP__SCHEDULER__DB_URL。
+  db_url: ""
   daily_menu_push: "08:00"
   evening_check: "17:30"
   weekly_generation: "SUN 20:00"
   daily_scrape: "09:00"
   expiry_check: "10:00"
+  recipe_enrich: "03:30"       # 凌晨跑: 不占白天的决策响应, 失败重试也不打扰用户
 
 scraping:
   # V3.0 脚手架总开关。脚手架已就位 (Scraper 抽象类 + registry + product/product_price 表),

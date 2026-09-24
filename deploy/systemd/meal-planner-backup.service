@@ -1,6 +1,6 @@
 # /etc/systemd/system/meal-planner-backup.service
 [Unit]
-Description=AI 每周营养菜谱工具 - MySQL 备份
+Description=饭决 FAN·DECIDE - MySQL 备份
 
 [Service]
 Type=oneshot

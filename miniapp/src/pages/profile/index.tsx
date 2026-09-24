@@ -5,10 +5,12 @@
  * 比跳五个表单页少点很多下。
  */
 import { useCallback, useState } from 'react'
-import { Text, View } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import { Switch, Text, View } from '@tarojs/components'
+import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 
-import { formatMoney, formatPercent } from '@shared/format'
+import { currentWeekStart, formatMoney, formatPercent } from '@shared/format'
+import { GUIDE_SHOW_MODE_LABELS } from '@shared/user-settings'
+import type { GuideShowMode } from '@shared/user-settings'
 import type { UserPreferenceSummary } from '@shared/types'
 
 import { Banner, Card, cx, LoadingStack, PageHead, PillButton, SetGroup, SetRow } from '../../components/ui'
@@ -24,6 +26,7 @@ import {
   saveAllergy,
   saveBudget,
   saveDiet,
+  rebuildFromFridge,
   saveHealthGoal,
   saveHousehold,
 } from '../../lib/api'
@@ -31,7 +34,8 @@ import { ensureLogin, toast } from '../../lib/nav'
 import { px } from '../../lib/px'
 import { BRAND_HOST } from '../../lib/config'
 import { getCachedUser } from '../../lib/session'
-import { useTheme } from '../../lib/theme'
+import { useTheme, useThemeClass } from '../../lib/theme'
+import { useUserSettings } from '../../lib/user-settings'
 import { brand } from '@shared/brand'
 import type { AutomationStatus } from '@shared/types'
 
@@ -39,6 +43,8 @@ const CUISINES = ['粤菜', '川菜', '江浙', '湘菜', '鲁菜', '轻食', '�
 const SPICE = ['不吃辣', '微辣', '中辣', '重辣', '变态辣']
 const FLAVORS = ['清淡', '偏咸', '偏甜', '酸辣', '酱香']
 const STAPLES = ['米饭', '面食', '杂粮', '低碳']
+/** Switch 打开时的颜色: 用语义绿, 与 Chip--accent / 状态点一致 */
+const SWITCH_COLOR = '#34c759'
 const GOALS = ['减脂', '增肌', '控糖', '控压', '维持']
 const EQUIPMENTS = ['灶台', '蒸锅', '空气炸锅', '微波炉', '烤箱', '电饭煲', '压力锅', '破壁机', '电磁炉', '榨汁机']
 
@@ -91,6 +97,7 @@ const DEFAULT_HOUSEHOLD: HouseholdForm = {
 }
 
 export default function ProfilePage() {
+  const themeClass = useThemeClass()
   const [summary, setSummary] = useState<UserPreferenceSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState<SectionKey>(null)
@@ -103,6 +110,45 @@ export default function ProfilePage() {
   })
   const [subscribing, setSubscribing] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [rebuilding, setRebuilding] = useState(false)
+
+  /** 按冰箱重排本周: 会改掉未锁定的餐次, 所以先确认一次 */
+  const handleFridgeRebuild = useCallback(async () => {
+    if (rebuilding) return
+    let go = false
+    try {
+      const ask = await Taro.showModal({
+        title: '按冰箱重排本周',
+        content: '本周未锁定的餐次会换成"用冰箱现有食材最做得出来"的菜, 锁定的餐次保持不动。',
+        confirmText: '重排',
+        cancelText: '再想想',
+      })
+      go = Boolean(ask.confirm)
+    } catch {
+      return // 用户取消
+    }
+    if (!go) return
+
+    setRebuilding(true)
+    Taro.showLoading({ title: '正在重排…', mask: true })
+    try {
+      const payload = await rebuildFromFridge(currentWeekStart())
+      Taro.hideLoading()
+      const { cookable_now: cookable, need_shopping: need, changed_items: changed } = payload.summary
+      const answer = await Taro.showModal({
+        title: '重排完成',
+        content: `换了 ${changed} 餐, 其中 ${cookable} 餐冰箱现有食材就能做, ${need} 餐还要补货。`,
+        confirmText: '看采购清单',
+        cancelText: '知道了',
+      })
+      if (answer.confirm) Taro.switchTab({ url: '/pages/shopping/index' })
+    } catch (error: unknown) {
+      toast((error as Error).message || '重排失败, 请稍后再试')
+    } finally {
+      Taro.hideLoading()
+      setRebuilding(false)
+    }
+  }, [rebuilding])
 
   const [household, setHousehold] = useState<HouseholdForm>(DEFAULT_HOUSEHOLD)
   const [diet, setDiet] = useState<DietForm>({
@@ -133,6 +179,8 @@ export default function ProfilePage() {
 
   const user = getCachedUser()
   const [theme, setTheme] = useTheme()
+  const [settings, updateGuide] = useUserSettings()
+  const guide = settings.guide
 
   const load = useCallback(async () => {
     if (!ensureLogin()) return
@@ -185,6 +233,8 @@ export default function ProfilePage() {
       toast((err as Error).message)
     } finally {
       setLoading(false)
+      // 下拉刷新必须在这里收尾: 成功失败都要停, 否则动画一直转
+      Taro.stopPullDownRefresh()
     }
     try {
       setAutomation(await getAutomationStatus())
@@ -195,6 +245,12 @@ export default function ProfilePage() {
 
   useDidShow(() => {
     // 「我的」已经不是 tab 页了 (4 Tab 之外), 所以不调 syncTabBar
+    void load()
+  })
+
+  // config 里开了 enablePullDownRefresh, 这里必须接住并收尾 —— 否则下拉的 loading
+  // 动画永远停不下来 (之前整页找不到 stopPullDownRefresh, 只能杀进程)
+  usePullDownRefresh(() => {
     void load()
   })
 
@@ -306,7 +362,7 @@ export default function ProfilePage() {
   }
   if (loading) {
     return (
-      <View className="page">
+      <View className={`page ${themeClass}`}>
         <PageHead title="我的" subtitle="正在读取你的偏好…" />
         <LoadingStack rows={4} />
       </View>
@@ -314,7 +370,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <View className="page">
+    <View className={`page ${themeClass}`}>
       <PageHead
         title="我的"
         subtitle={
@@ -339,6 +395,34 @@ export default function ProfilePage() {
       {doneCount < 5 ? (
         <Banner tone="warn">先填「家庭与厨房」和「预算」这两项, 就能生成一份靠谱的菜单了。</Banner>
       ) : null}
+
+      {/* 需求 8: 口味与约束档案一次设置长期生效, 之后随时能重设。
+          这 3 题是决策引擎真正读的字段, 单独一组放在最上面 ——
+          用户改口味不该先去翻五张长表单。 */}
+      <View style={{ marginTop: 14 }}>
+        <SetGroup title="饭决偏好">
+          <SetRow
+            label="口味 / 忌口 / 做饭时间"
+            state={summary?.diet_preference || summary?.allergy_restriction ? 'ok' : 'warn'}
+            value={
+              summary?.diet_preference || summary?.allergy_restriction
+                ? '已设置 · 点这重答 3 题'
+                : '未设置 · 3 题 30 秒'
+            }
+            onClick={() => Taro.navigateTo({ url: '/pages/onboarding/index?from=profile' })}
+          />
+        </SetGroup>
+      </View>
+
+      <View style={{ marginTop: 14 }}>
+        <SetGroup title="冰箱">
+          <SetRow
+            label="按冰箱重排本周"
+            value={rebuilding ? '重排中…' : '先把现有食材排进菜单, 再算采购清单'}
+            onClick={handleFridgeRebuild}
+          />
+        </SetGroup>
+      </View>
 
       <View style={{ marginTop: 14 }}>
         <SetGroup title="家庭与厨房">
@@ -632,6 +716,42 @@ export default function ProfilePage() {
 
       <AutomationCard status={automation} error={automationError} />
 
+      {/* 引导不再是写死的"没走过就必须看", 开关和展示时机都交给用户 (shared/user-settings.ts) */}
+      <View style={{ marginTop: 14 }}>
+        <SetGroup title="用户信息">
+          <SetRow
+            label="新手指引"
+            control={
+              <Switch
+                checked={guide.enabled}
+                color={SWITCH_COLOR}
+                onChange={(event) => updateGuide({ enabled: event.detail.value })}
+              />
+            }
+          />
+          {guide.enabled ? (
+            <>
+              <SetRow
+                label="展示时机"
+                value={GUIDE_SHOW_MODE_LABELS[guide.showMode]}
+                onClick={() => {
+                  const order: GuideShowMode[] = ['once', 'always', 'never']
+                  const next = order[(order.indexOf(guide.showMode) + 1) % order.length]
+                  updateGuide({ showMode: next })
+                  toast(`新手指引: ${GUIDE_SHOW_MODE_LABELS[next]}`)
+                }}
+              />
+              <SetRow
+                label="重新查看引导"
+                value={guide.completed ? '已看过' : '未看完'}
+                state={guide.completed ? 'ok' : 'warn'}
+                onClick={() => Taro.navigateTo({ url: '/pages/onboarding/index' })}
+              />
+            </>
+          ) : null}
+        </SetGroup>
+      </View>
+
       <View className="set-group" style={{ marginTop: 14 }}>
         <View className="set-group__title">外观</View>
         <View style={{ display: 'flex', gap: px(8), padding: '0 18px 18px' }}>
@@ -701,7 +821,7 @@ export default function ProfilePage() {
       <View style={{ marginTop: 14 }}>
         <SetGroup title="关于">
           <SetRow
-            label="关于每周鲜"
+            label={`关于${brand.name}`}
             value="查看"
             onClick={() => Taro.navigateTo({ url: '/pages/about/index' })}
           />

@@ -8,7 +8,7 @@ import { Card, PageHead, SetGroup, SetRow } from '../../components/ui'
 import { BRAND_HOST } from '../../lib/config'
 import { openCustomerServiceChat } from '../../lib/customer-service'
 import { LOGO_MARK_DATA_URI, LOGO_MARK_DATA_URI_DARK } from '../../lib/logo'
-import { useTheme } from '../../lib/theme'
+import { useTheme, useThemeClass } from '../../lib/theme'
 
 /** 关于页 - 品牌卡 + 版本号 + 隐私/条款/反馈/客服入口 (audit T1.3 P0 + T2.4 检查更新)
 
@@ -16,6 +16,7 @@ import { useTheme } from '../../lib/theme'
   隐私/条款文档上线后会托管在 docs.example.com; 内测期间 modal 提示
 */
 export default function AboutPage() {
+  const themeClass = useThemeClass()
   const [, , applied] = useTheme()
   const [version, setVersion] = useState('')
   const [checking, setChecking] = useState(false)
@@ -80,7 +81,7 @@ export default function AboutPage() {
   }
 
   return (
-    <View className="page">
+    <View className={`page ${themeClass}`}>
       <PageHead title="关于" subtitle="品牌与版本信息" />
 
       <Card>
@@ -148,7 +149,7 @@ export default function AboutPage() {
       </View>
 
       <View className="page-footnote" style={{ marginTop: 24 }}>
-        © {new Date().getFullYear()} 每周鲜 · AI 营养菜谱
+        © {new Date().getFullYear()} {brand.fullName}
         {'\n'}
         本应用为内测灰度版本, 数据可能随时清空, 请勿用于生产决策。
       </View>

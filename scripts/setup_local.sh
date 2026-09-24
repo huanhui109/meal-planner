@@ -14,25 +14,50 @@
 #    7. 跑一遍后端测试
 #
 #  可通过环境变量覆盖默认值:
-#    DB_NAME=meal_planner DB_USER=meal_planner DB_PASSWORD=meal_planner \
-#    WITH_TESTS=0 bash scripts/setup_local.sh
+#    DB_USER=meal_planner DB_PASSWORD=xxx DB_HOST=127.0.0.1 DB_PORT=3306 \
+#    bash scripts/setup_local.sh
+#
+#  MySQL 端口约定: 统一使用 **3306** 的系统 MySQL 8.0 实例。
+#  只有当系统实例不可用 (例如数据目录被更高版本 MySQL 建过, 8.0 拒绝降级打开)
+#  时才退到 MYSQL_PORT (默认 3307) 的项目专用实例, 并且会用醒目的提示说明原因。
 # ============================================================================
 set -euo pipefail
 
-DB_NAME="${DB_NAME:-meal_planner}"
-DB_TEST_NAME="${DB_TEST_NAME:-meal_planner_test}"
-DB_USER="${DB_USER:-meal_planner}"
-DB_PASSWORD="${DB_PASSWORD:-meal_planner}"
-DB_HOST="${DB_HOST:-127.0.0.1}"
-WITH_TESTS="${WITH_TESTS:-1}"
-# 生产要求 8.0; 若 Homebrew 已停用 8.0 (官方计划 2027-04-30), 自动退到 8.4 LTS
-MYSQL_FORMULAS=("mysql@8.0" "mysql@8.4" "mysql")
-
+# 输���函数必须在变量区之前定义: 下面解析 .env 复��密码时会用到 info
 info() { printf "\033[1;34m▸ %s\033[0m\n" "$*"; }
 ok()   { printf "\033[1;32m✓ %s\033[0m\n" "$*"; }
 warn() { printf "\033[1;33m! %s\033[0m\n" "$*"; }
 die()  { printf "\033[1;31m✗ %s\033[0m\n" "$*" >&2; exit 1; }
 step() { printf "\n\033[1;36m==== %s ====\033[0m\n" "$*"; }
+
+DB_NAME="${DB_NAME:-meal_planner}"
+DB_TEST_NAME="${DB_TEST_NAME:-meal_planner_test}"
+DB_USER="${DB_USER:-meal_planner}"
+DB_PASSWORD="${DB_PASSWORD:-}"
+DB_HOST="${DB_HOST:-127.0.0.1}"
+# 生产与本地一致用 3306; 只有专用实例 fallback 时才会被改写成 MYSQL_PORT
+DB_PORT="${DB_PORT:-3306}"
+WITH_TESTS="${WITH_TESTS:-1}"
+
+# 已经生成过 .env 时, 复用里面那套账号密码, 不要把它重置成默认值。
+# 之前的行为是: .env 存在 -> 只改端口 -> 但 ALTER USER 又把密码改回了默认值,
+# 结果 .env 里的旧密码失效, 报 1045 Access denied, 且报错指向的方向完全不对。
+if [ -z "$DB_PASSWORD" ] && [ -f .env ]; then
+  _existing_user="$(
+    sed -n 's|^APP__DATABASE__URL=mysql[^:]*://\([^:]*\):.*|\1|p' .env | head -1
+  )"
+  _existing_pw="$(
+    sed -n 's|^APP__DATABASE__URL=mysql[^:]*://[^:]*:\([^@]*\)@.*|\1|p' .env | head -1
+  )"
+  if [ -n "$_existing_pw" ]; then
+    DB_PASSWORD="$_existing_pw"
+    [ -n "$_existing_user" ] && DB_USER="$_existing_user"
+    info "复用 .env 里已有的数据库账号 ($DB_USER)"
+  fi
+fi
+DB_PASSWORD="${DB_PASSWORD:-meal_planner}"
+# 生产要求 8.0; 若 Homebrew 已停用 8.0 (官方计划 2027-04-30), 自动退到 8.4 LTS
+MYSQL_FORMULAS=("mysql@8.0" "mysql@8.4" "mysql")
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -142,9 +167,10 @@ step "2/7  启动 MySQL 并创建数据库"
 BREW_PREFIX="$(brew --prefix 2>/dev/null || echo /opt/homebrew)"
 LEGACY_DATADIR="$BREW_PREFIX/var/mysql"
 DEDICATED_DATADIR="${MYSQL_DATADIR:-$BREW_PREFIX/var/mysql80}"
+# 专用实例端口只是 **兜底**: 3306 的系统实例能用就绝不起第二个 mysqld。
+# 3307 这个号来自早期「躲开系统 MySQL」的做法, 现在系统实例就是 8.0 了, 没必要躲。
 DEDICATED_PORT="${MYSQL_PORT:-3307}"
 DEDICATED_SOCKET="${MYSQL_SOCKET:-/tmp/meal-planner-mysql.sock}"
-DB_PORT="3306"
 MYSQL_MODE=""
 MYSQL_SOCKET_PATH=""
 MYSQL_ROOT_PW="${MYSQL_ROOT_PASSWORD:-}"
@@ -166,10 +192,15 @@ run_mysql() {
   esac
 }
 
-# 依次尝试各个候选连接方式, 第一个能连上的就是它
+# 依次尝试各个候选连接方式, 第一个能连上的就是它。
+#
+# 顺序很重要: 先系统 3306 (socket -> tcp), 再专用实例。
+# 早期版本把专用实例排在最前面, 结果机器上明明跑着 8.0 的 3306,
+# 脚本却偏要再起一个 3307 的 mysqld 出来 —— 两套实例各有一份数据,
+# 用 Navicat 连 3306 看到的表, 和应用写的根本不是同一个库。
 probe_mysql() {
   local spec
-  for spec in "socket:$DEDICATED_SOCKET" socket:default "tcp:$DEDICATED_PORT" tcp:3306; do
+  for spec in socket:default "tcp:$DB_PORT" "socket:$DEDICATED_SOCKET" "tcp:$DEDICATED_PORT"; do
     if run_mysql "$spec" -e "SELECT 1" >/dev/null 2>&1; then
       MYSQL_MODE="$spec"
       case "$spec" in
@@ -360,15 +391,34 @@ step "4/7  生成 .env"
 # ============================================================================
 ENV_FILE="$ROOT_DIR/.env"
 if [ -f "$ENV_FILE" ]; then
-  warn ".env 已存在, 跳过生成 (如需重建请先备份并删除 .env)"
-  # 数据库端口可能因为改用专用实例而变化 (3306 -> 3307), 这里只改端口, 不动其他配置
-  if grep -q "APP__DATABASE__URL=.*@$DB_HOST:[0-9]*/" "$ENV_FILE"; then
-    _env_port="$(sed -n "s|^APP__DATABASE__URL=.*@$DB_HOST:\([0-9]*\)/.*|\1|p" "$ENV_FILE" | head -1)"
-    if [ -n "$_env_port" ] && [ "$_env_port" != "$DB_PORT" ]; then
-      sed -i '' "s|\(^APP__DATABASE__URL=.*@$DB_HOST:\)[0-9]*\(/.*\)|\1$DB_PORT\2|" "$ENV_FILE" 2>/dev/null \
-        || sed -i "s|\(^APP__DATABASE__URL=.*@$DB_HOST:\)[0-9]*\(/.*\)|\1$DB_PORT\2|" "$ENV_FILE"
-      ok ".env 里的数据库端口已从 $_env_port 更新为 $DB_PORT"
-    fi
+  warn ".env 已存在, 保留其中的密钥与其他自定义配置"
+
+  # 数据库这一段是唯一会被改写的部分。
+  # 之前只 port 一处一处地打补丁 (3306 -> 3307), 结果账号/密码/库名与 MySQL 里
+  # 实际授予的不一致时没人管, 应用连上来就是 1045 或 1044, 报错位置离根因很远。
+  # 现在整条 URL 按当前脚本参数重写, 保证 .env 与真实授权状态始终一致。
+  _target_url="mysql+aiomysql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME?charset=utf8mb4"
+  _current_url="$(sed -n 's|^APP__DATABASE__URL=\(.*\)$|\1|p' "$ENV_FILE" | head -1)"
+  if [ -n "$_current_url" ] && [ "$_current_url" != "$_target_url" ]; then
+    # 用 python 做替换, 避免密码里的 & / \ 等特殊字符把 sed 的替换串搅乱
+    APP__DATABASE__URL="$_target_url" "$VENV_PY" - "$ENV_FILE" <<'PY'
+import os, pathlib, sys
+path = pathlib.Path(sys.argv[1])
+target = os.environ["APP__DATABASE__URL"]
+out = []
+changed = False
+for line in path.read_text(encoding="utf-8").splitlines():
+    if line.startswith("APP__DATABASE__URL="):
+        out.append(f"APP__DATABASE__URL={target}")
+        changed = True
+    else:
+        out.append(line)
+if changed:
+    path.write_text("\n".join(out) + "\n", encoding="utf-8")
+PY
+    ok ".env 的 APP__DATABASE__URL 已同步 (库: $DB_NAME@$DB_HOST:$DB_PORT)"
+  else
+    ok ".env 里的数据库连接串已是最新"
   fi
 else
   JWT_SECRET="$("$VENV_PY" -c 'import secrets; print(secrets.token_urlsafe(48))')"

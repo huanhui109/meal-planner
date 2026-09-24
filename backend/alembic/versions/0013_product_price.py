@@ -38,7 +38,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # 只删表, 不单独 drop_index: MySQL 里 DROP TABLE 会连带删掉索引与外键,
+    # 而单独删一个被外键依赖的索引会报 1553
+    # (Cannot drop index ... needed in a foreign key constraint)。
+    # 先 drop_index 的写法在 SQLite 上能过、MySQL 上必炸 —— 这条回滚链路一直是坏的。
     # MySQL 要求先删外键再删索引 (否则报 1553: index needed in a FK constraint)
     op.drop_constraint("fk_product_price_product", TABLE, type_="foreignkey")
-    op.drop_index("ix_product_price_product_captured", table_name=TABLE)
     op.drop_table(TABLE)

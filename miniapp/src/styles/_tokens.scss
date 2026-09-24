@@ -1,25 +1,25 @@
 // 自动生成, 请勿手改: 源文件是 shared/tokens.ts (node scripts/gen_tokens.mjs)
-$color-bg: #e9e9ee;
-$color-screen: #f7f7f9;
-$color-card: #ffffff;
-$color-ink: #1c1c1e;
-$color-ink2: #8e8e93;
-$color-ink3: #c7c7cc;
-$color-line: #efeff2;
-$color-fill: #f2f2f4;
-$color-on-ink: #ffffff;
+$color-bg: #FBF9F4;
+$color-screen: #FFFFFF;
+$color-card: #FFFFFF;
+$color-ink: #2C2C2A;
+$color-ink2: #6B6B6B;
+$color-ink3: rgba(0, 0, 0, 0.20);
+$color-line: rgba(0, 0, 0, 0.10);
+$color-fill: #F2EDE4;
+$color-on-ink: #FFFFFF;
 $color-accent: #34c759;
 $color-accent-ink: #1e7d3c;
 $color-accent-soft: rgba(52, 199, 89, 0.12);
-$color-warn: #ff9f0a;
-$color-warn-ink: #c77800;
-$color-warn-soft: rgba(255, 159, 10, 0.12);
+$color-warn: #E0955A;
+$color-warn-ink: #A8642F;
+$color-warn-soft: rgba(224, 149, 90, 0.15);
 $color-danger: #ff3b30;
 $color-danger-soft: rgba(255, 59, 48, 0.12);
-$color-glass: rgba(255, 255, 255, 0.82);
+$color-glass: rgba(255, 254, 250, 0.82);
 $color-card2: transparent;
 $color-card3: transparent;
-$color-ink-disabled: #c7c7cc;
+$color-ink-disabled: rgba(0, 0, 0, 0.20);
 $radius-xl: 28px;
 $radius-lg: 22px;
 $radius-md: 16px;
@@ -62,7 +62,39 @@ $brand-egg: #ffffff;
 $brand-egg-line: #dadada;
 
 // 小程序里同时暴露一份 CSS 变量, 运行时要覆盖时用 var(--x)
-page {
+// 宿主是 .theme-root / .theme-vars —— page 是框架节点, 运行时写不了它的 class,
+// 所以主题类只能挂在 React 可控的包裹类上; page 一并带上默认调色板作首帧兜底。
+//   .theme-root 页面根包裹 (有 min-height/background, 见 app.scss),
+//   .theme-vars 纯变量宿主 (无布局副作用), 给 custom-tab-bar 这种
+//     "不在页面根节点内、但又要用主题变量"的游离节点用。
+page,
+.theme-root,
+.theme-vars {
+  --color-bg: #FBF9F4;
+  --color-screen: #FFFFFF;
+  --color-card: #FFFFFF;
+  --color-ink: #2C2C2A;
+  --color-ink2: #6B6B6B;
+  --color-ink3: rgba(0, 0, 0, 0.20);
+  --color-line: rgba(0, 0, 0, 0.10);
+  --color-fill: #F2EDE4;
+  --color-on-ink: #FFFFFF;
+  --color-accent: #34c759;
+  --color-accent-ink: #1e7d3c;
+  --color-accent-soft: rgba(52, 199, 89, 0.12);
+  --color-warn: #E0955A;
+  --color-warn-ink: #A8642F;
+  --color-warn-soft: rgba(224, 149, 90, 0.15);
+  --color-danger: #ff3b30;
+  --color-danger-soft: rgba(255, 59, 48, 0.12);
+  --color-glass: rgba(255, 254, 250, 0.82);
+  --color-card2: transparent;
+  --color-card3: transparent;
+  --color-ink-disabled: rgba(0, 0, 0, 0.20);
+}
+
+.theme-root.theme-cool,
+.theme-vars.theme-cool {
   --color-bg: #e9e9ee;
   --color-screen: #f7f7f9;
   --color-card: #ffffff;
@@ -83,7 +115,8 @@ page {
   --color-glass: rgba(255, 255, 255, 0.82);
 }
 
-page.theme-cream {
+.theme-root.theme-cream,
+.theme-vars.theme-cream {
   --color-bg: #FBF9F4;
   --color-screen: #FFFFFF;
   --color-card: #FFFFFF;
@@ -104,7 +137,8 @@ page.theme-cream {
   --color-glass: rgba(255, 254, 250, 0.82);
 }
 
-page.theme-dark {
+.theme-root.theme-dark,
+.theme-vars.theme-dark {
   --color-bg: #000000;
   --color-screen: #0A0A0C;
   --color-card: #1C1C1E;

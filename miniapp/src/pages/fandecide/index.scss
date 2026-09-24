@@ -1,0 +1,8 @@
+/* 极简决策页：把内容垂直居中，留出大量空白，主张只剩「饭决」一个动作 */
+.fd-stage {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 72vh;
+  padding: 0 4px;
+}

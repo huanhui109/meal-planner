@@ -33,8 +33,10 @@ sudo chown -R meal:meal /srv/meal-planner /var/backups/meal-planner
 # 2) 拉代码 (或本地 rsync 上传后跳过)
 sudo -u meal git clone <repo-url> /srv/meal-planner
 
-# 3) 建库建账号
-mysql -u root -p < /srv/meal-planner/deploy/mysql/01-create-database.sql
+# 3) 建库建账号 —— 密码从环境变量注入, 不写进 SQL 文件、不留在 shell 历史
+#    MP_DB_PASSWORD 未设置时会交互提示输入 (不回显)
+export MP_DB_PASSWORD='<强密码>'
+sudo -u meal bash /srv/meal-planner/deploy/mysql/create-database.sh
 
 # 4) 虚拟环境与依赖
 cd /srv/meal-planner
@@ -52,7 +54,7 @@ sudo -u meal vi .env          # 填 DB 密码 / JWT_SECRET / 飞书 / LLM Key
 
 | 变量 | 说明 |
 |------|------|
-| `APP__DATABASE__URL` | `mysql+aiomysql://meal_planner:<密码>@127.0.0.1:3306/meal_planner?charset=utf8mb4` |
+| `APP__DATABASE__URL` | **数据库连接的唯一来源**：`mysql+aiomysql://<用户>:<密码>@127.0.0.1:3306/meal_planner?charset=utf8mb4`。应用、alembic、备份脚本都读它。密码含 `@` `:` `/` `?` `#` `&` 时必须 URL 编码 |
 | `APP__AUTH__JWT_SECRET` | ≥32 字符随机串；缺失或过短服务会拒绝启动 |
 | `APP__AUTH__COOKIE_SECURE` | 生产必须 `true` |
 | `APP__APP__BASE_URL` | `https://meal.example.com` |

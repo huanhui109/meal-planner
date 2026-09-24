@@ -80,6 +80,37 @@ pages/menu/index.js    ?.×12   ??×3
 开发者工具的模拟器跑在本机所以能用；**真机预览/真机调试时小程序运行在手机上**，
 `127.0.0.1` 是手机自己 → 必然全链路请求失败。
 
+典型现象（真机调试控制台 / vConsole）：
+
+```
+Request URL: http://127.0.0.1:8000/api/build-info
+Provisional headers are shown
+失败: 网络连接失败
+```
+
+**现在的默认行为（已改）**：`config/base.ts` 在未设 `MP_API_BASE` 时会用 `os.networkInterfaces()`
+自动探测本机**局域网 IP**，编译成 `http://192.168.x.x:8000/api`。模拟器访问自己的局域网 IP 同样
+可达，所以本地体验没有损失，真机调试则开箱即用。构建时会打印：
+
+```
+[miniapp config] API = http://192.168.3.83:8000/api (自动探测, 未设 MP_API_BASE)
+[miniapp config] 真机调试请确保手机与电脑在同一 Wi-Fi, 并在开发者工具勾选「不校验合法域名」
+```
+
+自动探测猜错时（多网卡、虚拟机、公司网络隔离）显式指定即可：
+
+```bash
+MP_API_BASE=http://<电脑IP>:8000/api npm run dev:weapp
+```
+
+另外 `lib/request.ts` 在请求失败时会把**完整 URL**打到控制台
+（`[request] GET http://... /api/build-info 失败`），下次一眼就能看出包里编译的是哪个地址。
+
+真机仍失败时按序排查：手机与电脑同一 Wi-Fi → 后端监听 `0.0.0.0`
+（`lsof -nP -iTCP:8000 -sTCP:LISTEN` 应显示 `*:8000` 而不是 `127.0.0.1:8000`）→
+电脑防火墙放行 8000 → 开发者工具「详情 → 本地设置」勾选**不校验合法域名**（HTTP 必需）→
+用「真机调试」而不是「预览」（预览强制校验域名，http 必被拦）。
+
 ### 根因 4（中）：构建清目录导致工具误报
 
 Taro 每次 `taro build` 启动会先整体删除 `dist/`。开发者工具的文件监听会立刻触发重编译，
@@ -144,9 +175,12 @@ WAServiceMainContext…t=wechat&v=3.17.1:1
 **修复**：
 
 1. `config/dev.ts` 与 `config/prod.ts` **合并**成 `config/base.ts`；
-2. URL 默认 `http://127.0.0.1:8000/api`（本地一定能跑），通过环境变量 `MP_API_BASE` 切到
-   真机 IP 或 HTTPS 备案域名；
-3. `base.ts` 启动期打两处 warn：
+2. URL 默认**自动探测局域网 IP**（`http://192.168.x.x:8000/api`），取不到才回落到
+   `http://127.0.0.1:8000/api`；环境变量 `MP_API_BASE` 优先级最高，切真机 IP 或 HTTPS 备案域名；
+3. `base.ts` 启动期打多处 warn：
+   - 未设 `MP_API_BASE` 时打印实际使用的地址与来源；
+   - 拿不到局域网 IP（仍是 `127.0.0.1`）时提示「真机调试会连不上，请显式传 `MP_API_BASE`」；
+   - 自动探测到局域网 IP 时提示「同一 Wi-Fi + 勾选不校验合法域名」；
    - 仍指向 `https://127.0.0.1` 时提示「本地后端无 SSL，请传 `MP_API_BASE=http://...`」；
    - `NODE_ENV=production` 但默认 HTTP 时提示「上线前请用 HTTPS 备案域名」；
 4. `config/index.ts` 不再 `if (NODE_ENV === 'development')` 分支，所有环境都走同一个 base。

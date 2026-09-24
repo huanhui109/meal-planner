@@ -76,6 +76,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_feedback_user_created", table_name=TABLE)
-    op.drop_index("ix_feedback_status_created", table_name=TABLE)
+    # 只删表, 不单独 drop_index: MySQL 里 DROP TABLE 会连带删掉索引与外键,
+    # 而单独删一个被外键依赖的索引会报 1553
+    # (Cannot drop index ... needed in a foreign key constraint)。
+    # 先 drop_index 的写法在 SQLite 上能过、MySQL 上必炸 —— 这条回滚链路一直是坏的。
     op.drop_table(TABLE)

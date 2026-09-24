@@ -232,15 +232,20 @@ export function SetRow(props: {
   value?: string
   state?: 'ok' | 'warn' | 'none'
   onClick?: () => void
+  /**
+   * 右侧自定义控件 (开关 / 胶囊选择等)。给了 control 就不再渲染 value 文本,
+   * 也不会让整行可点 —— 避免"点一下整行"和"点开关"两个热区打架。
+   */
+  control?: ReactNode
 }) {
-  const { label, value, state = 'none', onClick } = props
+  const { label, value, state = 'none', onClick, control } = props
   return (
-    <View className={cx('set-row', onClick && 'tap')} onClick={onClick}>
+    <View className={cx('set-row', !control && onClick && 'tap')} onClick={control ? undefined : onClick}>
       <View style={{ display: 'flex', alignItems: 'center' }}>
         {state !== 'none' ? <View className={cx('state-dot', `state-dot--${state}`)} /> : null}
         <Text className="set-row__label">{label}</Text>
       </View>
-      <Text className="set-row__value">{value || '未设置'}</Text>
+      {control ?? <Text className="set-row__value">{value || '未设置'}</Text>}
     </View>
   )
 }

@@ -58,8 +58,18 @@ Thumbs.db
 *.pem
 *.key
 
-# Config overrides
+# Environment —— 真实配置一律不进版本库
+# 只提交 .env.example / config/default.yaml 这类**占位模板**;
+# 任何含真实账号、密码、密钥的文件都在下面列全。
+.env
+.env.*
+!.env.example
+!.env.*.example
 config/user.yaml
+# 运维/部署时导出的凭据快照
+*.credentials
+deploy/*.env
+deploy/.env.*
 
 # Agent 记忆/工作目录
 .workbuddy/

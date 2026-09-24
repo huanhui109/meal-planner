@@ -13,22 +13,43 @@ import {
   HomeOutlined,
   LogoutOutlined,
   SafetyOutlined,
+  ShoppingOutlined,
   WalletOutlined,
 } from '@ant-design/icons'
 import { Banner, Card, Chip, LoadingStack, PillButton } from '../../components/ui'
 import { LogoLockup } from '../../components/ui/logo'
 import { getAutomationStatus } from '../../api/automation'
+import { currentWeekStart, rebuildMenuFromFridge } from '../../api/menu'
+import { getToday } from '../../api/today'
 import FeishuConfigCard from './FeishuConfigCard'
 import { logout } from '../../api/auth'
 import { usePreferenceStore } from '../../stores/usePreferenceStore'
 import { useThemeStore } from '../../stores/useThemeStore'
 import { brand } from '@shared/brand'
 import { formatMoney } from '@shared/format'
-import type { AutomationStatus, CurrentUser } from '../../types'
+import { timelineTone } from '@shared/index'
+import type {
+  AutomationStatus,
+  CurrentUser,
+  FridgeRebuildSummary,
+  TimelineEntry,
+} from '../../types'
 
 interface MePanelProps {
   user: CurrentUser
   onNavigate: (to: string) => void
+}
+
+/** 「我的」面板里的一行: 多数是跳转表单, 「按冰箱重排」这种是当场执行动作 */
+interface GroupRow {
+  key: string
+  icon: React.ReactNode
+  title: string
+  value: string
+  hint: string
+  done: boolean
+  to: string
+  action?: () => void
 }
 
 const MePanel: React.FC<MePanelProps> = ({ user, onNavigate }) => {
@@ -36,6 +57,8 @@ const MePanel: React.FC<MePanelProps> = ({ user, onNavigate }) => {
   const [automation, setAutomation] = useState<AutomationStatus | null>(null)
   const [automationError, setAutomationError] = useState('')
   const [showAutomation, setShowAutomation] = useState(false)
+  const [rebuilding, setRebuilding] = useState(false)
+  const [fridgeSummary, setFridgeSummary] = useState<FridgeRebuildSummary | null>(null)
 
   const refreshAutomation = useCallback(() => {
     getAutomationStatus()
@@ -50,6 +73,22 @@ const MePanel: React.FC<MePanelProps> = ({ user, onNavigate }) => {
     fetchSummary().catch((error: Error) => message.error(error.message))
     refreshAutomation()
   }, [fetchSummary, refreshAutomation])
+
+  /** 按冰箱重排本周: 同步返回, 排完告诉用户清空了多少、还得买多少 */
+  const handleFridgeRebuild = useCallback(async () => {
+    setRebuilding(true)
+    try {
+      const payload = await rebuildMenuFromFridge(currentWeekStart())
+      setFridgeSummary(payload.summary)
+      message.success(
+        `已重排 ${payload.summary.changed_items} 餐, 其中 ${payload.summary.cookable_now} 餐现在就能做`,
+      )
+    } catch (error: unknown) {
+      message.error((error as Error).message)
+    } finally {
+      setRebuilding(false)
+    }
+  }, [])
 
   const handleLogout = useCallback(async () => {
     try {
@@ -73,7 +112,7 @@ const MePanel: React.FC<MePanelProps> = ({ user, onNavigate }) => {
   const goal = summary?.health_goal ?? null
   const budget = summary?.budget ?? null
 
-  const groups = [
+  const groups: GroupRow[] = [
     {
       key: 'household',
       icon: <HomeOutlined />,
@@ -121,6 +160,16 @@ const MePanel: React.FC<MePanelProps> = ({ user, onNavigate }) => {
       done: Boolean(automation?.feishu.configured),
       to: '',
     },
+    {
+      key: 'fridge',
+      icon: <ShoppingOutlined />,
+      title: '按冰箱重排本周',
+      value: rebuilding ? '重排中…' : '一键',
+      hint: '先把冰箱现有食材排进菜单, 再算出这一周要补的采购清单',
+      done: true,
+      to: '',
+      action: handleFridgeRebuild,
+    },
   ]
 
   return (
@@ -140,9 +189,10 @@ const MePanel: React.FC<MePanelProps> = ({ user, onNavigate }) => {
               key={group.key}
               type="button"
               className="set-row set-row--btn"
-              onClick={() =>
-                group.to ? onNavigate(group.to) : setShowAutomation((prev) => !prev)
-              }
+              onClick={() => {
+                if (group.action) return group.action()
+                return group.to ? onNavigate(group.to) : setShowAutomation((prev) => !prev)
+              }}
             >
               <div className="set-icon">{group.icon}</div>
               <div className="set-text">
@@ -166,6 +216,30 @@ const MePanel: React.FC<MePanelProps> = ({ user, onNavigate }) => {
         </>
       )}
 
+      {fridgeSummary && (
+        <Card>
+          <div className="card-head">
+            <div>
+              <div className="card-title">按冰箱重排结果</div>
+              <div className="card-sub">
+                {fridgeSummary.cookable_now} 餐现在就能做 · {fridgeSummary.need_shopping} 餐需要补货
+                {fridgeSummary.locked_items > 0
+                  ? ` · ${fridgeSummary.locked_items} 餐已锁定没动`
+                  : ''}
+              </div>
+            </div>
+          </div>
+          <div className="stack-actions">
+            <PillButton variant="gray" block onClick={() => onNavigate('/shopping')}>
+              去看这一周的采购清单
+            </PillButton>
+          </div>
+        </Card>
+      )}
+
+      {/* 运行状态: V1.2.0 从首页搬过来的「今日流程时间线」 */}
+      <RuntimeCard onNavigate={onNavigate} />
+
       <AppearanceCard />
 
       <div className="page-footnote">
@@ -179,6 +253,80 @@ const MePanel: React.FC<MePanelProps> = ({ user, onNavigate }) => {
       </PillButton>
     </div>
   )
+}
+
+/**
+ * 运行状态 —— 「今天的自动流程」在 V1.2.0 从首页搬到这里
+ *
+ * 那是**系统**的自动化日志("8:00 菜单推送 已完成"), 不是**用户**要做的事。
+ * 它在首页只会提醒用户"App 在替你跑东西", 而用户只关心"今晚吃啥"。
+ * 唯一用途是排障, 所以收进「我的」并默认折叠, 展开了才去拉数据。
+ */
+const RuntimeCard: React.FC<{ onNavigate: (to: string) => void }> = ({ onNavigate }) => {
+  const [open, setOpen] = useState(false)
+  const [entries, setEntries] = useState<TimelineEntry[] | null>(null)
+
+  const toggle = () => {
+    const next = !open
+    setOpen(next)
+    if (!next || entries) return
+    getToday()
+      .then((view) => setEntries(view.timeline))
+      .catch(() => setEntries([]))
+  }
+
+  return (
+    <Card tight>
+      <button type="button" className="set-row set-row--btn" onClick={toggle}>
+        <div className="set-icon">
+          <BellOutlined />
+        </div>
+        <div className="set-text">
+          <b>运行状态</b>
+          <span>今天的自动流程跑到哪一步了</span>
+        </div>
+        <div className="set-value">
+          <b>{open ? '收起' : '展开'}</b>
+        </div>
+      </button>
+      {open && entries ? (
+        <div className="timeline">
+          {entries.length === 0 ? (
+            <div className="card-sub">今天还没有自动流程记录</div>
+          ) : (
+            entries.map((entry) => (
+              <button
+                key={entry.key}
+                type="button"
+                className="timeline-row"
+                onClick={() => onNavigate(timelineTarget(entry))}
+              >
+                <span className={`state-dot ${TIMELINE_DOT[timelineTone(entry.status)]}`} />
+                <div className="timeline-text">
+                  <b>{entry.label}</b>
+                  <span>{entry.detail}</span>
+                </div>
+                <span className="timeline-time">{entry.time || '完成时'}</span>
+              </button>
+            ))
+          )}
+        </div>
+      ) : null}
+    </Card>
+  )
+}
+
+const TIMELINE_DOT: Record<string, string> = {
+  ok: '',
+  pending: 'is-pending',
+  failed: 'is-failed',
+  off: 'is-off',
+}
+
+function timelineTarget(entry: TimelineEntry): string {
+  if (entry.key === 'menu_push') return '/me'
+  if (entry.key === 'stock_check') return '/shopping'
+  return '/menus'
 }
 
 const AppearanceCard: React.FC = () => {

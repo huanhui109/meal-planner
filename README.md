@@ -1,4 +1,4 @@
-# 每周鲜 · AI 营养菜谱
+# 饭决 FAN·DECIDE · 今天吃啥，交给饭决
 
 > 把一周吃饭这件事交给 AI 排好：飞书扫码 / 微信一键登录 → 填偏好 → 生成一周菜单 →
 > 补单下单 → 做饭扣库存，形成闭环。H5 与微信小程序两个端共用同一套业务层与设计系统。
@@ -103,10 +103,11 @@ make build-miniapp     # 构建微信小程序, 产物在 miniapp/dist
 本地默认开启「本地开发登录」（免飞书）与「演示模式」（免 LLM Key），开箱即用。
 完整步骤、排障表与手动兜底流程见 **[docs/local-setup.md](docs/local-setup.md)**。
 
-> 机器上已经装过别的 MySQL？脚本会自己判断。如果系统的 MySQL 数据目录是更高版本
-> （例如 9.x）建的、8.0 打不开，脚本**不会动那份数据**，而是给本项目单独起一个实例
-> （端口 `3307`），用 `make db-status` / `make db-start` / `make db-stop` 管理。
-> 详见 [docs/local-setup.md 附录 C](docs/local-setup.md)。
+> 机器上已经装过别的 MySQL？脚本会自己判断：**优先复用 3306 上的系统 MySQL 8.0**。
+> 只有在系统实例不可用（例如数据目录是 9.x 建的、8.0 无法降级打开）时，脚本才**不动那份数据**，
+> 另外起一个项目专用实例（兜底端口 `3307`），用 `make db-status` / `make db-start` / `make db-stop` 管理。
+> 应用连接配置统一在 `.env` 的 `APP__DATABASE__URL`，详见
+> [docs/database-config.md](docs/database-config.md) 与 [docs/local-setup.md 附录 C](docs/local-setup.md)。
 
 ### 方式二：手动分步
 

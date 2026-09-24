@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>饭决 FAN·DECIDE · 项目管理工作台</title>
+<!-- 本工作台通过 WorkBuddy「资料库」skill 搭建、存储和部署 -->
+<style>
+:root{
+  --paper:#FFFFFF; --bg:#F5F4F1; --ink:#141414; --ink-2:#3D3D3A; --muted:#77766F;
+  --line:#E7E4DE; --line-2:#D6D2CA;
+  --brand:#D9722F; --brand-soft:#FDF0E7;
+  --ok:#2E8B57; --ok-soft:#EAF5EE;
+  --warn:#C77C1B; --warn-soft:#FDF3E3;
+  --danger:#C0392B; --danger-soft:#FBEBE9;
+  --info:#3A6EA5; --info-soft:#EAF1F8;
+  --r:14px; --r-sm:10px;
+  --sh:0 1px 2px rgba(20,20,20,.05), 0 6px 20px rgba(20,20,20,.04);
+  --sb:232px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{margin:0; font-weight:650; letter-spacing:-.01em}
+p{margin:0}
+a{color:inherit}
+button{font-family:inherit; cursor:pointer}
+input,select,textarea{font-family:inherit; font-size:16px}
+
+/* ---------- 布局 ---------- */
+.layout{display:flex; min-height:100vh}
+.sidebar{
+  width:var(--sb); flex:0 0 var(--sb); background:var(--paper);
+  border-right:1px solid var(--line); padding:20px 14px;
+  position:sticky; top:0; height:100vh; overflow-y:auto;
+}
+.main{flex:1 1 auto; min-width:0; padding:24px 28px 60px; max-width:1180px}
+.topbar{display:none}
+.tabbar{display:none}
+
+/* ---------- 品牌 ---------- */
+.brand{display:flex; align-items:center; gap:10px; padding:4px 8px 18px}
+.brand-mark{width:34px;height:34px;flex:0 0 34px;border-radius:10px;background:var(--ink);
+  display:flex;align-items:center;justify-content:center}
+.brand-name{font-size:15px;font-weight:700;letter-spacing:.01em;line-height:1.25}
+.brand-sub{font-size:11px;color:var(--muted);letter-spacing:.04em}
+
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav-item{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:11px 12px;border:0;border-radius:var(--r-sm);background:transparent;
+  color:var(--ink-2);font-size:14.5px;font-weight:500;min-height:44px;
+}
+.nav-item:hover{background:#F2F0EC}
+.nav-item.on{background:var(--ink);color:#fff}
+.nav-item.on svg{stroke:#fff}
+.nav-item svg{stroke:var(--muted);flex:0 0 18px}
+.nav-item .badge{margin-left:auto;font-size:11px;font-weight:600;padding:1px 7px;border-radius:20px;
+  background:#F0EEE9;color:var(--muted)}
+.nav-item.on .badge{background:rgba(255,255,255,.18);color:#fff}
+
+.side-foot{margin-top:auto;padding:16px 10px 0;font-size:11.5px;color:var(--muted);line-height:1.7;border-top:1px solid var(--line);margin-top:20px}
+.sync{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);padding:8px 10px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:0 0 7px}
+.dot.warn{background:var(--warn)}
+.dot.off{background:var(--line-2)}
+
+/* ---------- 卡片 ---------- */
+.page-head{margin-bottom:20px}
+.page-head h1{font-size:24px;letter-spacing:-.02em}
+.page-head p{color:var(--muted);font-size:13.5px;margin-top:6px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);padding:18px 20px;margin-bottom:16px}
+.card-h{display:flex;align-items:center;gap:9px;margin-bottom:14px;flex-wrap:wrap}
+.card-h h2{font-size:15.5px}
+.card-h .sub{font-size:12.5px;color:var(--muted)}
+.card-h .spacer{flex:1 1 auto}
+.hint{font-size:12.5px;color:var(--muted);line-height:1.65}
+
+.grid{display:grid;gap:14px}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+
+/* ---------- 指标卡 ---------- */
+.stat{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:15px 16px;box-shadow:var(--sh)}
+.stat .k{font-size:11.5px;color:var(--muted);letter-spacing:.02em;display:flex;align-items:center;gap:6px}
+.stat .v{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:6px;line-height:1.1}
+.stat .u{font-size:12px;font-weight:500;color:var(--muted);margin-left:3px}
+.stat .d{font-size:11.5px;color:var(--muted);margin-top:5px}
+.bar{height:5px;border-radius:5px;background:#EFEDE8;margin-top:9px;overflow:hidden}
+.bar > i{display:block;height:100%;border-radius:5px;background:var(--ink)}
+
+/* ---------- 待办 ---------- */
+.todo{display:flex;align-items:flex-start;gap:11px;padding:11px 0;border-bottom:1px solid #F2F0EC}
+.todo:last-child{border-bottom:0}
+.todo .cb{width:22px;height:22px;flex:0 0 22px;border:1.5px solid var(--line-2);border-radius:7px;background:#fff;
+  display:flex;align-items:center;justify-content:center;margin-top:1px;padding:0}
+.todo .cb:hover{border-color:var(--ink)}
+.todo .cb svg{opacity:0;stroke:#fff}
+.todo.done .cb{background:var(--ok);border-color:var(--ok)}
+.todo.done .cb svg{opacity:1}
+.todo .body{flex:1 1 auto;min-width:0}
+.todo .t{font-size:14.5px;font-weight:550;line-height:1.45}
+.todo.done .t{color:var(--muted);text-decoration:line-through}
+.todo .m{font-size:12px;color:var(--muted);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.todo .acts{display:flex;gap:6px;flex-shrink:0}
+.chip{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;letter-spacing:.01em}
+.chip.red{background:var(--danger-soft);color:var(--danger)}
+.chip.orange{background:var(--warn-soft);color:var(--warn)}
+.chip.green{background:var(--ok-soft);color:var(--ok)}
+.chip.blue{background:var(--info-soft);color:var(--info)}
+.chip.grey{background:#F1EFEA;color:var(--muted)}
+.chip.ink{background:var(--ink);color:#fff}
+
+/* ---------- 按钮 ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  min-height:40px;padding:0 15px;border-radius:999px;border:1px solid var(--line-2);
+  background:#fff;color:var(--ink);font-size:13.5px;font-weight:550;
+}
+.btn:hover{background:#FAF9F7}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.primary:hover{background:#000}
+.btn.brand{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.sm{min-height:34px;padding:0 12px;font-size:12.5px}
+.btn.danger{color:var(--danger);border-color:#EBC9C4}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn svg{flex:0 0 15px}
+
+/* ---------- 表单 ---------- */
+.field{display:flex;flex-direction:column;gap:6px;padding:12px 0;border-bottom:1px solid #F4F2EE}
+.field:last-child{border-bottom:0}
+.field .lb{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.field .nm{font-size:13.5px;font-weight:600}
+.field .env{font-size:11px;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#F5F3EF;padding:1px 6px;border-radius:5px}
+.field .ds{font-size:12px;color:var(--muted);line-height:1.55}
+.field .in{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.field input[type=text],.field input[type=number],.field input[type=password],.field select,.field textarea{
+  width:100%;min-height:44px;padding:9px 12px;border:1px solid var(--line-2);border-radius:var(--r-sm);
+  background:#fff;color:var(--ink);outline:none;
+}
+.field textarea{min-height:70px;resize:vertical;line-height:1.6}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--ink);box-shadow:0 0 0 3px rgba(20,20,20,.06)}
+.field input.changed{border-color:var(--brand);background:var(--brand-soft)}
+.switch{display:inline-flex;align-items:center;gap:9px;min-height:44px;cursor:pointer}
+.switch input{position:absolute;opacity:0;width:0;height:0}
+.switch .track{width:44px;height:26px;border-radius:999px;background:var(--line-2);position:relative;transition:.18s;flex:0 0 44px}
+.switch .track::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.18s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.switch input:checked + .track{background:var(--ok)}
+.switch input:checked + .track::after{transform:translateX(18px)}
+.switch .tl{font-size:13.5px;font-weight:550}
+.secret-wrap{position:relative;display:flex;gap:8px}
+.secret-wrap input{flex:1 1 auto}
+.eye{min-height:44px;min-width:44px;padding:0 12px;border:1px solid var(--line-2);border-radius:var(--r-sm);background:#fff;display:flex;align-items:center;justify-content:center}
+
+/* ---------- 分组折叠 ---------- */
+.group{border:1px solid var(--line);border-radius:var(--r);background:var(--paper);margin-bottom:12px;overflow:hidden}
+.group-h{display:flex;align-items:center;gap:10px;width:100%;padding:14px 16px;background:#fff;border:0;text-align:left;min-height:52px}
+.group-h:hover{background:#FAF9F7}
+.group-h .arw{transition:.18s;stroke:var(--muted);flex:0 0 16px}
+.group.open .group-h .arw{transform:rotate(90deg)}
+.group-h .ttl{font-size:14.5px;font-weight:650}
+.group-h .cnt{font-size:11.5px;color:var(--muted)}
+.group-h .spacer{flex:1 1 auto}
+.group-b{display:none;padding:2px 16px 8px;border-top:1px solid var(--line)}
+.group.open .group-b{display:block}
+.pill{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#F1EFEA;color:var(--muted)}
+.pill.on{background:var(--ok-soft);color:var(--ok)}
+.pill.dirty{background:var(--brand-soft);color:var(--brand)}
+
+/* ---------- 模块卡 ---------- */
+.mods{display:grid;gap:13px;grid-template-columns:repeat(2,1fr)}
+.mod{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:15px 16px;box-shadow:var(--sh);display:flex;flex-direction:column}
+.mod .mh{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.mod .ic{width:32px;height:32px;flex:0 0 32px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:#F3F1EC}
+.mod .ic svg{stroke:var(--ink)}
+.mod .mt{font-size:14.5px;font-weight:650}
+.mod .mp{font-size:11px;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.mod .md{font-size:12.5px;color:var(--ink-2);line-height:1.6;flex:1 1 auto}
+.eps{margin-top:10px;display:flex;flex-direction:column;gap:3px}
+.ep{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-2);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  padding:3px 0;flex-wrap:wrap}
+.mth{font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;letter-spacing:.03em;flex:0 0 auto}
+.mth.g{background:var(--ok-soft);color:var(--ok)}
+.mth.p{background:var(--info-soft);color:var(--info)}
+.mth.u{background:var(--warn-soft);color:var(--warn)}
+.mth.d{background:var(--danger-soft);color:var(--danger)}
+
+/* ---------- 文档列表 ---------- */
+.doclist{display:flex;flex-direction:column}
+.doc{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid #F2F0EC}
+.doc:last-child{border-bottom:0}
+.doc .di{width:30px;height:30px;flex:0 0 30px;border-radius:8px;background:#F3F1EC;display:flex;align-items:center;justify-content:center}
+.doc .di svg{stroke:var(--ink-2)}
+.doc .db{flex:1 1 auto;min-width:0}
+.doc .dt{font-size:14px;font-weight:550}
+.doc .dd{font-size:12px;color:var(--muted);margin-top:2px}
+.cmd{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #F2F0EC;flex-wrap:wrap}
+.cmd:last-child{border-bottom:0}
+.cmd code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;background:#F5F3EF;padding:3px 9px;border-radius:6px;color:var(--ink)}
+.cmd .cd{font-size:12.5px;color:var(--muted);flex:1 1 200px}
+
+/* ---------- 搜索 / 筛选 ---------- */
+.searchbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.searchbar input[type=text]{flex:1 1 240px;min-width:0;min-height:42px;padding:9px 13px;border:1px solid var(--line-2);border-radius:999px;outline:none;background:#fff}
+.searchbar input[type=text]:focus{border-color:var(--ink)}
+.seg{display:flex;gap:3px;background:#EFEDE8;padding:3px;border-radius:999px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;padding:7px 13px;border-radius:999px;font-size:12.5px;font-weight:550;color:var(--ink-2);min-height:36px}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.07)}
+
+/* ---------- Toast / Modal ---------- */
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);
+  background:var(--ink);color:#fff;padding:11px 20px;border-radius:999px;font-size:13.5px;font-weight:550;
+  opacity:0;pointer-events:none;transition:.22s;z-index:99;max-width:88vw;text-align:center;box-shadow:0 8px 26px rgba(0,0,0,.22)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.mask{position:fixed;inset:0;background:rgba(20,20,20,.42);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.mask.show{display:flex}
+.modal{background:#fff;border-radius:16px;padding:22px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.28)}
+.modal h3{font-size:16px;margin-bottom:8px}
+.modal p{font-size:13.5px;color:var(--ink-2);line-height:1.65}
+.modal .acts{display:flex;gap:9px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+
+/* ---------- 防溢出：长环境变量名 / 长 URL 必须能断行 ---------- */
+.main{overflow-x:clip}
+.card,.stat,.mod,.group,.doc,.cmd,.todo,.field{min-width:0}
+code,.env,.mp,.dd,.ds,.cd,.hint,.ep,.ep span,.chip,.foot-note{overflow-wrap:anywhere;word-break:break-word}
+.env{word-break:break-all}
+.grid > *,.mods > *{min-width:0}
+
+.empty{text-align:center;padding:34px 16px;color:var(--muted);font-size:13.5px}
+.panel{display:none}
+.panel.on{display:block}
+.foot-note{margin-top:26px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);line-height:1.8}
+
+/* ---------- 响应式 ---------- */
+@media (max-width:1023px){
+  .layout{display:block}
+  .sidebar{display:none}
+  .main{padding:0 14px 96px;max-width:100%}
+  .topbar{
+    display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:40;
+    background:rgba(255,255,255,.94);backdrop-filter:saturate(180%) blur(12px);
+    border-bottom:1px solid var(--line);padding:10px 14px;margin:0 -14px 14px;
+  }
+  .topbar .brand-mark{width:30px;height:30px;flex:0 0 30px}
+  .topbar .brand-name{font-size:14.5px}
+  .tabbar{
+    display:flex;position:fixed;left:0;right:0;bottom:0;z-index:50;
+    background:rgba(255,255,255,.96);backdrop-filter:saturate(180%) blur(12px);
+    border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  .tabbar button{flex:1 1 0;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:6px 2px;color:var(--muted);font-size:10.5px;font-weight:550;min-height:52px;border-radius:10px}
+  .tabbar button.on{color:var(--ink)}
+  .tabbar button.on svg{stroke:var(--ink)}
+  .tabbar svg{stroke:var(--muted)}
+  .page-head h1{font-size:20px}
+  .g4,.g3,.g2,.mods{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:600px){
+  .g4,.g3,.g2,.mods{grid-template-columns:1fr}
+  .card{padding:15px 14px;border-radius:12px}
+  .stat .v{font-size:23px}
+  .main{padding:0 12px 96px}
+  .topbar{margin:0 -12px 12px;padding:9px 12px}
+  .field .env{font-size:10.5px}
+  .mods{gap:11px}
+}
+@media (max-width:380px){
+  .tabbar button{font-size:9.5px}
+  .btn{padding:0 12px;font-size:13px}
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- ============ 侧栏（桌面） ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="10" cy="11" r="4.2"/><circle cx="10" cy="11" r="1.4" fill="#fff" stroke="none"/>
+          <path d="M14.2 11h6.3a2.5 2.5 0 0 1-2.5 2.5h-2"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">饭决 FAN·DECIDE</div>
+        <div class="brand-sub">项目管理工作台</div>
+      </div>
+    </div>
+
+    <nav class="nav" id="navDesk"></nav>
+
+    <div class="side-foot">
+      <div>版本 v1.1.2 · 三端同源</div>
+      <div style="margin-top:6px">H5 / 小程序 / 飞书 Bot</div>
+    </div>
+    <div class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">本地已同步</span></div>
+  </aside>
+
+  <!-- ============ 主区 ============ -->
+  <main class="main">
+    <!-- 移动端顶栏 -->
+    <div class="topbar">
+      <div class="brand-mark">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="10" cy="11" r="4.2"/><circle cx="10" cy="11" r="1.4" fill="#fff" stroke="none"/>
+          <path d="M14.2 11h6.3a2.5 2.5 0 0 1-2.5 2.5h-2"/>
+        </svg>
+      </div>
+      <div class="brand-name" id="topTitle">总览</div>
+      <div style="flex:1 1 auto"></div>
+      <div class="sync" style="padding:0"><span class="dot" id="syncDot2"></span></div>
+    </div>
+
+    <!-- ---------- 面板 1：总览 ---------- -->
+    <section class="panel on" id="panel-overview">
+      <div class="page-head">
+        <h1>总览</h1>
+        <p>饭决 FAN·DECIDE · 今天吃啥，交给饭决 —— 一套后端 + 三个交付面（H5 / 微信小程序 / 飞书机器人）</p>
+      </div>
+      <div id="ovStats" class="grid g4"></div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-h">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#141414" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l2.5 2.5"/><circle cx="12" cy="12" r="9"/></svg>
+          <h2>今天要处理</h2>
+          <span class="sub" id="todoSub"></span>
+          <div class="spacer"></div>
+          <button class="btn sm" id="btnAddTodo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            加一条
+          </button>
+        </div>
+        <div id="todoList"></div>
+      </div>
+      <div class="grid g2" style="margin-top:16px">
+        <div class="card">
+          <div class="card-h">
+            <h2>模块健康度</h2><div class="spacer"></div><span class="hint">按配置就绪度评估</span>
+          </div>
+          <div id="ovHealth"></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h2>核心链路</h2></div>
+          <div id="ovFlow"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-h"><h2>快速入口</h2><div class="spacer"></div><span class="hint">点击直达对应模块</span></div>
+        <div id="ovQuick" style="display:flex;gap:9px;flex-wrap:wrap"></div>
+      </div>
+      <div class="foot-note">
+        本工作台是<strong>项目管理面板</strong>，不承载业务数据（菜单 / 库存 / 用户）。配置改动保存在此浏览器本地，
+        可在「运维配置」页导出为 <code>.env</code> 片段后落到服务器。
+      </div>
+    </section>
+
+    <!-- ---------- 面板 2：功能地图 ---------- -->
+    <section class="panel" id="panel-modules">
+      <div class="page-head">
+        <h1>功能地图</h1>
+        <p>14 个 API 域 · 19 张数据表 · 三端页面入口 —— 集中呈现各功能模块与操作入口</p>
+      </div>
+      <div class="searchbar">
+        <input type="text" id="modSearch" placeholder="搜索模块名 / 端点 / 方法，如 decide、cooked">
+        <div class="seg" id="modFilter"></div>
+      </div>
+      <div id="modList" class="mods"></div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-h"><h2>数据模型（19 表）</h2></div>
+        <div id="modTables"></div>
+      </div>
+    </section>
+
+    <!-- ---------- 面板 3：运维配置 ---------- -->
+    <section class="panel" id="panel-admin">
+      <div class="page-head">
+        <h1>运维配置</h1>
+        <p>12 个配置组 · 参数级编辑 · 一键导出 <code>.env</code> —— 改动只存在本地，导出后再落到服务器</p>
+      </div>
+      <div class="card">
+        <div class="card-h">
+          <h2>配置操作</h2><div class="spacer"></div>
+          <span class="hint" id="adminStat"></span>
+        </div>
+        <div style="display:flex;gap:9px;flex-wrap:wrap">
+          <button class="btn primary" id="btnExportEnv">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            导出 .env
+          </button>
+          <button class="btn" id="btnExportJson">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            导出 JSON 备份
+          </button>
+          <button class="btn" id="btnImportJson">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+            导入恢复
+          </button>
+          <button class="btn danger" id="btnReset">重置为默认</button>
+          <input type="file" id="fileInput" accept=".json,application/json" style="display:none">
+        </div>
+        <p class="hint" style="margin-top:11px">
+          密钥字段（<code>jwt_secret</code> / <code>app_secret</code> / <code>api_key</code> 等）默认掩码显示，点眼睛图标可临时查看；
+          导出时按你填写的原值输出，请妥善保管。
+        </p>
+      </div>
+      <div class="searchbar">
+        <input type="text" id="cfgSearch" placeholder="搜索配置项，如 budget、redis、timeout">
+      </div>
+      <div id="cfgGroups"></div>
+    </section>
+
+    <!-- ---------- 面板 4：文档与运维 ---------- -->
+    <section class="panel" id="panel-docs">
+      <div class="page-head">
+        <h1>文档与运维</h1>
+        <p>项目文档归存于资料库「饭决 FAN·DECIDE · 项目资料库」文件夹 · 常用运维命令速查</p>
+      </div>
+      <div class="card">
+        <div class="card-h">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#141414" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          <h2>资料库项目文件夹</h2>
+        </div>
+        <div id="libFolder"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>项目文档索引</h2><div class="spacer"></div><span class="hint" id="docCount"></span></div>
+        <div class="searchbar" style="margin-bottom:6px"><input type="text" id="docSearch" placeholder="搜索文档标题 / 说明"></div>
+        <div class="doclist" id="docList"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>运维命令速查</h2></div>
+        <div id="cmdList"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>端到端入口</h2><div class="spacer"></div><span class="hint">本地开发默认端口</span></div>
+        <div id="epList"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- 移动端底部 Tab -->
+<nav class="tabbar" id="navMob"></nav>
+
+<div class="toast" id="toast"></div>
+<div class="mask" id="mask">
+  <div class="modal">
+    <h3 id="mkTitle">确认</h3>
+    <p id="mkBody"></p>
+    <div class="acts">
+      <button class="btn" id="mkNo">取消</button>
+      <button class="btn primary" id="mkYes">确定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   饭决 FAN·DECIDE 项目管理工作台
+   架构：数据层 → 计算层 → 渲染层，单向调用；统一入口 refreshAll()
+   ============================================================ */
+/* ========================= 数据层 1：配置参数定义 ========================= */
+/* 每个 item: {env, path[], label, type, def, desc, opts?, min?, max?, step?, secret?} */
+var CONFIG_GROUPS = [
+{
+  id:"app", title:"应用基础", env:"APP", icon:"server",
+  desc:"服务名 / 监听地址 / 调试开关 / CORS。改端口或域名后需重启服务。",
+  items:[
+    {env:"APP__APP__NAME", path:["app","name"], label:"应用名称", type:"text", def:"饭决 FAN·DECIDE", desc:"显示在 OpenAPI 文档与健康检查响应里"},
+    {env:"APP__APP__HOST", path:["app","host"], label:"监听地址", type:"text", def:"0.0.0.0", desc:"0.0.0.0 暴露全部网卡；仅本机访问填 127.0.0.1"},
+    {env:"APP__APP__PORT", path:["app","port"], label:"监听端口", type:"number", def:8000, min:1, max:65535, desc:"nginx 反代目标端口，改动需同步 deploy/nginx/*.conf"},
+    {env:"APP__APP__DEBUG", path:["app","debug"], label:"调试模式", type:"bool", def:false, desc:"开启后日志更详细并暴露堆栈；生产必须为 false"},
+    {env:"APP__APP__BASE_URL", path:["app","base_url"], label:"站点对外地址", type:"text", def:"http://127.0.0.1:8000", desc:"生产填 https://<你的域名>，用于飞书回调与分享链接拼接"},
+    {env:"APP__APP__CORS_ORIGINS", path:["app","cors_origins"], label:"CORS 允许来源", type:"textarea", def:"", desc:"每行一个，如 https://meal.example.com；留空则不加 CORS 中间件"}
+  ]
+},
+{
+  id:"database", title:"数据库连接", env:"DATABASE", icon:"db",
+  desc:"连接串是唯一真源：环境变量 > .env > config/default.yaml > 代码默认值。凭据禁止进版本库。",
+  items:[
+    {env:"APP__DATABASE__URL", path:["database","url"], label:"数据库连接串", type:"secret", def:"mysql+aiomysql://<user>:<password>@<host>:3306/<database>?charset=utf8mb4", desc:"密码含 @ : / ? # & 时必须 URL 编码。占位值会让服务启动即失败（快速失败设计）"},
+    {env:"APP__DATABASE__ECHO", path:["database","echo"], label:"打印 SQL", type:"bool", def:false, desc:"调试 SQL 时开启，生产关闭"},
+    {env:"APP__DATABASE__POOL_SIZE", path:["database","pool_size"], label:"连接池大小", type:"number", def:10, min:1, max:100, desc:"常驻连接数"},
+    {env:"APP__DATABASE__MAX_OVERFLOW", path:["database","max_overflow"], label:"最大溢出连接", type:"number", def:20, min:0, max:200, desc:"池满后允许临时新建的连接数"},
+    {env:"APP__DATABASE__POOL_RECYCLE", path:["database","pool_recycle"], label:"连接回收秒数", type:"number", def:1800, min:60, desc:"小于 MySQL wait_timeout 可避免连接被服务端踢掉"},
+    {env:"APP__DATABASE__POOL_TIMEOUT", path:["database","pool_timeout"], label:"获取连接超时秒数", type:"number", def:30, min:1, desc:"池耗尽时等待多久抛错"}
+  ]
+},
+{
+  id:"auth", title:"认证与会话", env:"AUTH", icon:"lock",
+  desc:"JWT 签发与 Cookie 通道。密钥过短服务会拒绝启动 —— 这是为了防止线上签发无效令牌。",
+  items:[
+    {env:"APP__AUTH__JWT_SECRET", path:["auth","jwt_secret"], label:"JWT 密钥", type:"secret", def:"", desc:"至少 32 字符随机串；缺失或过短服务直接拒绝启动"},
+    {env:"APP__AUTH__JWT_ALGORITHM", path:["auth","jwt_algorithm"], label:"签名算法", type:"select", def:"HS256", opts:["HS256","HS384","HS512"], desc:"自签 JWT 对称算法"},
+    {env:"APP__AUTH__ACCESS_TOKEN_MINUTES", path:["auth","access_token_minutes"], label:"访问令牌有效期（分钟）", type:"number", def:120, min:1, desc:"H5 走 httpOnly Cookie，小程序走 Bearer"},
+    {env:"APP__AUTH__REFRESH_TOKEN_DAYS", path:["auth","refresh_token_days"], label:"刷新令牌有效期（天）", type:"number", def:30, min:1, desc:"决定用户多久需要重新登录一次"},
+    {env:"APP__AUTH__COOKIE_SECURE", path:["auth","cookie_secure"], label:"Cookie 仅 HTTPS", type:"bool", def:true, desc:"生产必须为 true；本地 http 调试可临时关闭"},
+    {env:"APP__AUTH__COOKIE_DOMAIN", path:["auth","cookie_domain"], label:"Cookie 域名", type:"text", def:"", desc:"留空表示当前域名；跨子域共享会话时填 .example.com"},
+    {env:"APP__AUTH__ACCESS_COOKIE_NAME", path:["auth","access_cookie_name"], label:"访问令牌 Cookie 名", type:"text", def:"mp_access", desc:"改名会让已登录用户掉线"},
+    {env:"APP__AUTH__REFRESH_COOKIE_NAME", path:["auth","refresh_cookie_name"], label:"刷新令牌 Cookie 名", type:"text", def:"mp_refresh", desc:"同上"},
+    {env:"APP__AUTH__DEV_LOGIN", path:["auth","dev_login"], label:"开发登录", type:"bool", def:false, desc:"任何人凭昵称即可登录，生产务必关闭（开启时启动日志会告警）"}
+  ]
+},
+{
+  id:"menu", title:"周菜单生成", env:"MENU", icon:"calendar",
+  desc:"异步生成配额与多样性控制。首批生成与重新生成分两档额度，互不占用。",
+  items:[
+    {env:"APP__MENU__DAILY_GENERATION_LIMIT", path:["menu","daily_generation_limit"], label:"每日首次生成上限", type:"number", def:3, min:0, desc:"探索性生成额度，超限返回 429"},
+    {env:"APP__MENU__DAILY_REGENERATE_LIMIT", path:["menu","daily_regenerate_limit"], label:"每日重新生成上限", type:"number", def:10, min:0, desc:"常规编辑动作，额度比首生成宽松"},
+    {env:"APP__MENU__GENERATION_CONCURRENCY", path:["menu","generation_concurrency"], label:"生成并发数", type:"number", def:2, min:1, max:16, desc:"进程内 worker 并发；受 LLM QPS 限制不宜过高"},
+    {env:"APP__MENU__TASK_TIMEOUT_SECONDS", path:["menu","task_timeout_seconds"], label:"任务超时秒数", type:"number", def:900, min:60, desc:"超时任务由 recover_stale_tasks 扫回 failed，用户可重试"},
+    {env:"APP__MENU__HISTORY_WEEKS", path:["menu","history_weeks"], label:"多样性比对周数", type:"number", def:4, min:1, max:26, desc:"与近 N 周菜名做 Jaccard 比对，冲突自动重生成一次"},
+    {env:"APP__MENU__DIVERSITY_MIN_SCORE", path:["menu","diversity_min_score"], label:"多样性最低分", type:"number", def:0.7, min:0, max:1, step:0.05, desc:"低于该分触发一次补生成"},
+    {env:"APP__MENU__BUDGET_TOLERANCE", path:["menu","budget_tolerance"], label:"预算容差", type:"number", def:0.05, min:0, max:1, step:0.01, desc:"超支比例在此以内只告警不阻断"},
+    {env:"APP__MENU__LOCAL_FIRST", path:["menu","local_first"], label:"本地菜谱库优先", type:"bool", def:true, desc:"先用本地库编排，填充率不足才交给 LLM；关闭则全部走模型"},
+    {env:"APP__MENU__LOCAL_MIN_FILL", path:["menu","local_min_fill"], label:"本地最低填充率", type:"number", def:0.8, min:0, max:1, step:0.05, desc:"低于该比例才调用 AI 兜底"},
+    {env:"APP__MENU__LOCAL_CANDIDATE_POOL", path:["menu","local_candidate_pool"], label:"本地候选池规模", type:"number", def:300, min:10, desc:"参与打分的本地菜谱条数"}
+  ]
+},
+{
+  id:"decide", title:"饭决决策引擎", env:"DECIDE", icon:"target",
+  desc:"「这一顿吃什么」的打分与硬规则。改权重会立刻改变推荐结果，建议先在测试库验证。",
+  items:[
+    {env:"APP__DECIDE__NO_REPEAT_DAYS", path:["decide","no_repeat_days"], label:"近 N 天不重复", type:"number", def:7, min:0, desc:"硬排除窗口，是「近 7 天不重复」的唯一口径"},
+    {env:"APP__DECIDE__CATEGORY_SPREAD_MEALS", path:["decide","category_spread_meals"], label:"品类打散参考餐数", type:"number", def:3, min:1, desc:"统计最近 N 餐品类分布，出现越多惩罚越大"},
+    {env:"APP__DECIDE__CATEGORY_PENALTY_STEP", path:["decide","category_penalty_step"], label:"品类惩罚步长", type:"number", def:25, min:0, desc:"每出现 1 次扣的分"},
+    {env:"APP__DECIDE__SAME_CUISINE_PENALTY", path:["decide","same_cuisine_penalty"], label:"同菜系连击惩罚", type:"number", def:15, min:0, desc:"同一菜系连续出现的额外扣分"},
+    {env:"APP__DECIDE__MAIN_INGREDIENT_PENALTY", path:["decide","main_ingredient_penalty"], label:"主料重合惩罚", type:"number", def:40, min:0, desc:"上一餐主料重合时的扣分，保证连续两餐不重样"},
+    {env:"APP__DECIDE__RANDOM_BAND", path:["decide","random_band"], label:"软随机分差带", type:"number", def:5, min:0, desc:"分差在此之内的候选一起参与抽签"},
+    {env:"APP__DECIDE__RANDOM_MIN_CHOICES", path:["decide","random_min_choices"], label:"随机候选下限", type:"number", def:3, min:1, desc:"只取 top3 会让连点时在固定几道菜间横跳，故设下限"},
+    {env:"APP__DECIDE__LOCAL_CANDIDATE_SCAN", path:["decide","local_candidate_scan"], label:"单次扫描菜谱上限", type:"number", def:600, min:10, desc:"决策要快，不能全表捞"},
+    {env:"APP__DECIDE__SCORE_CUISINE", path:["decide","score_cuisine"], label:"权重 · 菜系", type:"number", def:20, min:0, desc:"偏好菜系命中得分"},
+    {env:"APP__DECIDE__SCORE_SPICE", path:["decide","score_spice"], label:"权重 · 辣度", type:"number", def:15, min:0, desc:"辣度贴合得分"},
+    {env:"APP__DECIDE__SCORE_INVENTORY", path:["decide","score_inventory"], label:"权重 · 库存命中", type:"number", def:25, min:0, desc:"冰箱现有食材命中得分"},
+    {env:"APP__DECIDE__SCORE_WEATHER", path:["decide","score_weather"], label:"权重 · 天气", type:"number", def:18, min:0, desc:"天气启用时才生效，否则该权重不参与"},
+    {env:"APP__DECIDE__SCORE_BUDGET", path:["decide","score_budget"], label:"权重 · 预算贴合", type:"number", def:15, min:0, desc:"落在每餐预算内给满分"},
+    {env:"APP__DECIDE__BUDGET_OVER_TOLERANCE", path:["decide","budget_over_tolerance"], label:"超预算容忍倍数", type:"number", def:1.2, min:1, step:0.05, desc:"超出预算该倍数以上开始扣分"},
+    {env:"APP__DECIDE__LATE_NIGHT_MAX_MINUTES", path:["decide","late_night_max_minutes"], label:"深夜出餐时间上限", type:"number", def:20, min:1, desc:"深夜只保留能在该分钟内做完的菜"},
+    {env:"APP__DECIDE__LATE_NIGHT_FROM", path:["decide","late_night_from"], label:"深夜起始（时）", type:"number", def:22, min:0, max:23, desc:"含头不含尾，跨零点"},
+    {env:"APP__DECIDE__LATE_NIGHT_TO", path:["decide","late_night_to"], label:"深夜结束（时）", type:"number", def:5, min:0, max:23, desc:"跨零点区间"},
+    {env:"APP__DECIDE__QUICK_STEPS_MIN", path:["decide","quick_steps_min"], label:"极简做法步数下限", type:"number", def:3, min:1, desc:"结果卡的 3-5 步做法区间"},
+    {env:"APP__DECIDE__QUICK_STEPS_MAX", path:["decide","quick_steps_max"], label:"极简做法步数上限", type:"number", def:5, min:1, desc:"同上"},
+    {env:"APP__DECIDE__REASON_MAX_CHARS", path:["decide","reason_max_chars"], label:"理由最大字数", type:"number", def:20, min:1, desc:"一句话理由，纯规则生成不调 LLM"},
+    {env:"APP__DECIDE__STUBBORN_AFTER", path:["decide","stubborn_after"], label:"倔强提示阈值", type:"number", def:3, min:1, desc:"连续决策多少次后弹「别挑了」提示"}
+  ]
+},
+{
+  id:"weather", title:"天气服务", env:"WEATHER", icon:"cloud",
+  desc:"默认关闭 —— 任何外部天气 API 都可能不可达，失败必须静默降级，绝不能让「决定吃什么」这件事失败。",
+  items:[
+    {env:"APP__WEATHER__ENABLED", path:["weather","enabled"], label:"启用天气", type:"bool", def:false, desc:"关闭时 score_weather 权重不参与打分"},
+    {env:"APP__WEATHER__PROVIDER", path:["weather","provider"], label:"服务商", type:"select", def:"open-meteo", opts:["none","open-meteo","heweather"], desc:"open-meteo 免密钥；heweather 需填 API Key"},
+    {env:"APP__WEATHER__API_KEY", path:["weather","api_key"], label:"API Key", type:"secret", def:"", desc:"仅 heweather 需要；也可由环境变量 WEATHER_API_KEY 注入"},
+    {env:"APP__WEATHER__CITY", path:["weather","city"], label:"城市", type:"text", def:"深圳", desc:"用于日志与展示"},
+    {env:"APP__WEATHER__LATITUDE", path:["weather","latitude"], label:"纬度", type:"number", def:22.5431, step:0.0001, desc:"open-meteo 按经纬度查询"},
+    {env:"APP__WEATHER__LONGITUDE", path:["weather","longitude"], label:"经度", type:"number", def:114.0579, step:0.0001, desc:"同上"},
+    {env:"APP__WEATHER__CACHE_MINUTES", path:["weather","cache_minutes"], label:"缓存分钟数", type:"number", def:15, min:0, desc:"进程内缓存，避免每次决策都打外部接口"},
+    {env:"APP__WEATHER__TIMEOUT_SECONDS", path:["weather","timeout_seconds"], label:"超时秒数", type:"number", def:3, min:1, desc:"超时即降级，不阻塞决策"},
+    {env:"APP__WEATHER__HOT_TEMP_C", path:["weather","hot_temp_c"], label:"高温阈值 ℃", type:"number", def:32, step:0.5, desc:"超过则倾向清凉菜品"},
+    {env:"APP__WEATHER__COLD_TEMP_C", path:["weather","cold_temp_c"], label:"低温阈值 ℃", type:"number", def:5, step:0.5, desc:"低于则倾向热食"}
+  ]
+},
+{
+  id:"scheduler", title:"定时推送调度", env:"SCHEDULER", icon:"clock",
+  desc:"默认关闭。多 worker 部署时每个进程都会注册任务，会重复推送 —— 生产只让抢到 MySQL GET_LOCK 的那一个开。",
+  items:[
+    {env:"APP__SCHEDULER__ENABLED", path:["scheduler","enabled"], label:"启用调度器", type:"bool", def:false, desc:"打开后由 APScheduler 注册下列任务"},
+    {env:"APP__SCHEDULER__TIMEZONE", path:["scheduler","timezone"], label:"时区", type:"text", def:"Asia/Shanghai", desc:"影响所有 cron 表达式的解释"},
+    {env:"APP__SCHEDULER__DB_URL", path:["scheduler","db_url"], label:"调度器库连接串", type:"secret", def:"", desc:"留空则自动继承 database.url（apply_derived_defaults）"},
+    {env:"APP__SCHEDULER__DAILY_MENU_PUSH", path:["scheduler","daily_menu_push"], label:"每日菜单推送", type:"text", def:"08:00", desc:"写法：HH:MM 每天 / SUN HH:MM 每周 / 5 段 crontab；留空表示不注册"},
+    {env:"APP__SCHEDULER__EVENING_CHECK", path:["scheduler","evening_check"], label:"傍晚缺料检查", type:"text", def:"17:30", desc:"推送当天还缺的食材提醒"},
+    {env:"APP__SCHEDULER__WEEKLY_GENERATION", path:["scheduler","weekly_generation"], label:"周菜单自动生成", type:"text", def:"SUN 20:00", desc:"周日晚上为下周预生成"},
+    {env:"APP__SCHEDULER__DAILY_SCRAPE", path:["scheduler","daily_scrape"], label:"每日商品采集", type:"text", def:"09:00", desc:"V3.0 脚手架，scraping.enabled=false 时不真实采集"},
+    {env:"APP__SCHEDULER__EXPIRY_CHECK", path:["scheduler","expiry_check"], label:"临期食材检查", type:"text", def:"10:00", desc:"推送临期提醒"}
+  ]
+},
+{
+  id:"llm", title:"大模型与视觉", env:"LLM", icon:"spark",
+  desc:"降级链 GLM-4 → Qwen-Max → DeepSeek →（可选）本地模型。拍照识别入库受每日额度限流。",
+  items:[
+    {env:"APP__LLM__PRIMARY__NAME", path:["llm","primary","name"], label:"主模型名称", type:"select", def:"", opts:["","glm-4","qwen-max","deepseek-chat"], desc:"留空则不调用 LLM，仅走本地菜谱库"},
+    {env:"APP__LLM__PRIMARY__API_BASE", path:["llm","primary","api_base"], label:"主模型 API 地址", type:"text", def:"", desc:"OpenAI 兼容地址"},
+    {env:"APP__LLM__PRIMARY__API_KEY", path:["llm","primary","api_key"], label:"主模型 API Key", type:"secret", def:"", desc:"仅由环境变量注入，不落配置文件"},
+    {env:"APP__LLM__PRIMARY__MODEL", path:["llm","primary","model"], label:"主模型标识", type:"text", def:"", desc:"实际请求的 model 字段"},
+    {env:"APP__LLM__PRIMARY__MAX_TOKENS", path:["llm","primary","max_tokens"], label:"主模型最大 token", type:"number", def:6000, min:256, desc:"一次生成的上限"},
+    {env:"APP__LLM__MONTHLY_BUDGET_CNY", path:["llm","monthly_budget_cny"], label:"月度预算（元）", type:"number", def:50, min:0, step:1, desc:"超出后停止调用模型，改走本地库"},
+    {env:"APP__LLM__RATE_LIMIT_QPS", path:["llm","rate_limit_qps"], label:"限流 QPS", type:"number", def:5, min:1, desc:"太高会触发服务商限流"},
+    {env:"APP__LLM__DEMO", path:["llm","demo"], label:"演示模式", type:"bool", def:false, desc:"不真实调用模型，返回预置内容"},
+    {env:"APP__LLM__LOCAL__ENABLED", path:["llm","local","enabled"], label:"启用本地模型", type:"bool", def:false, desc:"降级链最后一环"},
+    {env:"APP__LLM__LOCAL__MODEL_PATH", path:["llm","local","model_path"], label:"本地模型路径", type:"text", def:"qwen2.5-7b-instruct-4bit", desc:"mlx_lm 可用的量化模型"},
+    {env:"APP__LLM__LOCAL__SERVER_PORT", path:["llm","local","server_port"], label:"本地模型端口", type:"number", def:8080, min:1, max:65535, desc:"本地推理服务监听端口"},
+    {env:"APP__LLM__VISION__ENABLED", path:["llm","vision","enabled"], label:"启用拍照识别", type:"bool", def:true, desc:"冰箱入库用；未配 Key 时接口返回 503，前端按钮置灰"},
+    {env:"APP__LLM__VISION__MODEL", path:["llm","vision","model"], label:"视觉模型", type:"text", def:"glm-4v-flash", desc:"识别冰箱食材的视觉大模型"},
+    {env:"APP__LLM__VISION__API_BASE", path:["llm","vision","api_base"], label:"视觉 API 地址", type:"text", def:"", desc:"留空则复用 primary 的地址"},
+    {env:"APP__LLM__VISION__API_KEY", path:["llm","vision","api_key"], label:"视觉 API Key", type:"secret", def:"", desc:"留空则复用 primary 的 Key"},
+    {env:"APP__LLM__VISION__MAX_IMAGE_MB", path:["llm","vision","max_image_mb"], label:"图片大小上限 MB", type:"number", def:6, min:0.5, step:0.5, desc:"超过需前端压缩后再传"},
+    {env:"APP__LLM__VISION__MAX_EDGE_PX", path:["llm","vision","max_edge_px"], label:"图片长边上限 px", type:"number", def:1280, min:320, desc:"自动缩放后再送模型"},
+    {env:"APP__LLM__VISION__DAILY_LIMIT", path:["llm","vision","daily_limit"], label:"每日识别次数上限", type:"number", def:20, min:0, desc:"超限降级为手动添加"},
+    {env:"APP__LLM__VISION__MAX_TOKENS", path:["llm","vision","max_tokens"], label:"视觉最大 token", type:"number", def:1500, min:128, desc:"候选清单输出上限"}
+  ]
+},
+{
+  id:"feishu", title:"飞书开放平台", env:"FEISHU", icon:"chat",
+  desc:"扫码登录 + 事件回调 + 机器人推送。用户也可在「我的 → 自动化」填自己的凭证（加密存储，只回掩码）。",
+  items:[
+    {env:"APP__FEISHU__APP_ID", path:["feishu","app_id"], label:"App ID", type:"text", def:"", desc:"网页应用（不是机器人应用）的标识"},
+    {env:"APP__FEISHU__APP_SECRET", path:["feishu","app_secret"], label:"App Secret", type:"secret", def:"", desc:"用于换取 tenant_access_token"},
+    {env:"APP__FEISHU__VERIFICATION_TOKEN", path:["feishu","verification_token"], label:"校验 Token", type:"secret", def:"", desc:"事件回调签名校验"},
+    {env:"APP__FEISHU__ENCRYPT_KEY", path:["feishu","encrypt_key"], label:"加密 Key", type:"secret", def:"", desc:"事件回调 AES 解密"},
+    {env:"APP__FEISHU__DEFAULT_CHAT_ID", path:["feishu","default_chat_id"], label:"默认会话 ID", type:"text", def:"", desc:"推送目标，留空需用户自行绑定"},
+    {env:"APP__FEISHU__REDIRECT_URI", path:["feishu","redirect_uri"], label:"回调地址", type:"text", def:"", desc:"必须与开放平台后台填的完全一致，否则报 redirect_uri 不匹配"},
+    {env:"APP__FEISHU__LOGIN_SUCCESS_REDIRECT", path:["feishu","login_success_redirect"], label:"登录成功后跳转", type:"text", def:"/", desc:"前端路由路径"}
+  ]
+},
+{
+  id:"wechat", title:"微信小程序", env:"WECHAT", icon:"phone",
+  desc:"微信一键登录自动建号，与飞书账号并存不绑定（user.open_id 用前缀区分来源）。",
+  items:[
+    {env:"APP__WECHAT__APP_ID", path:["wechat","app_id"], label:"小程序 AppID", type:"text", def:"", desc:"小程序后台获取"},
+    {env:"APP__WECHAT__APP_SECRET", path:["wechat","app_secret"], label:"小程序 AppSecret", type:"secret", def:"", desc:"用于 code2session 换取 openid"}
+  ]
+},
+{
+  id:"platforms", title:"外部平台出口", env:"PLATFORMS", icon:"link",
+  desc:"补齐单与外卖出口：search_template 里的 {keyword} 会替换成 URL 编码后的食材名。",
+  items:[
+    {env:"APP__PLATFORMS__XIAOXIANG__ENABLED", path:["platforms","xiaoxiang","enabled"], label:"启用小象超市", type:"bool", def:true, desc:"补单 deeplink 出口"},
+    {env:"APP__PLATFORMS__XIAOXIANG__BASE_URL", path:["platforms","xiaoxiang","base_url"], label:"小象站点地址", type:"text", def:"https://h5.waimai.meituan.com", desc:"H5 落地页根地址"},
+    {env:"APP__PLATFORMS__XIAOXIANG__SEARCH_TEMPLATE", path:["platforms","xiaoxiang","search_template"], label:"小象搜索模板", type:"text", def:"https://i.waimai.meituan.com/search/?keyword={keyword}", desc:"必须保留 {keyword} 占位符"},
+    {env:"APP__PLATFORMS__XIAOXIANG__MINIAPP_APP_ID", path:["platforms","xiaoxiang","miniapp_app_id"], label:"小象小程序 AppID", type:"text", def:"", desc:"填了才能在小程序端 navigateToMiniProgram"},
+    {env:"APP__PLATFORMS__XIAOXIANG__MIN_ORDER_AMOUNT", path:["platforms","xiaoxiang","min_order_amount"], label:"起送价（元）", type:"number", def:20, min:0, step:1, desc:"不够起送价时从「本周迟早要买」的缺料里凑单"},
+    {env:"APP__PLATFORMS__XIAOXIANG__DELIVERY_NOTE", path:["platforms","xiaoxiang","delivery_note"], label:"配送备注", type:"text", def:"", desc:"展示在补单卡片上"},
+    {env:"APP__PLATFORMS__MEITUAN_WAIMAI__ENABLED", path:["platforms","meituan_waimai","enabled"], label:"启用美团外卖", type:"bool", def:true, desc:"自做 vs 外卖里的「点外卖」出口"},
+    {env:"APP__PLATFORMS__MEITUAN_WAIMAI__BASE_URL", path:["platforms","meituan_waimai","base_url"], label:"美团站点地址", type:"text", def:"https://wm.waimai.meituan.com", desc:"H5 落地页根地址"},
+    {env:"APP__PLATFORMS__MEITUAN_WAIMAI__SEARCH_TEMPLATE", path:["platforms","meituan_waimai","search_template"], label:"美团搜索模板", type:"text", def:"https://i.waimai.meituan.com/search/?keyword={keyword}", desc:"必须保留 {keyword} 占位符"},
+    {env:"APP__PLATFORMS__MEITUAN_WAIMAI__MINIAPP_APP_ID", path:["platforms","meituan_waimai","miniapp_app_id"], label:"美团小程序 AppID", type:"text", def:"", desc:"填了才能跳转小程序"},
+    {env:"APP__PLATFORMS__MEITUAN_WAIMAI__MIN_ORDER_AMOUNT", path:["platforms","meituan_waimai","min_order_amount"], label:"起送价（元）", type:"number", def:0, min:0, step:1, desc:"外卖对比用"},
+    {env:"APP__PLATFORMS__MEITUAN_WAIMAI__DELIVERY_NOTE", path:["platforms","meituan_waimai","delivery_note"], label:"配送备注", type:"text", def:"", desc:"展示在对比卡片上"}
+  ]
+},
+{
+  id:"scraping", title:"数据采集（二期）", env:"SCRAPING", icon:"download",
+  desc:"V3.0 脚手架：调度器已注册任务但默认不真实采集。V2.0 补单链路已用「参考价 + deeplink」打通。",
+  items:[
+    {env:"APP__SCRAPING__ENABLED", path:["scraping","enabled"], label:"启用采集", type:"bool", def:false, desc:"总开关，打开才会真实抓取商品与价格"},
+    {env:"APP__SCRAPING__HEADLESS", path:["scraping","headless"], label:"无头浏览器", type:"bool", def:true, desc:"Playwright 无头模式"},
+    {env:"APP__SCRAPING__TIMEOUT", path:["scraping","timeout"], label:"超时毫秒", type:"number", def:30000, min:1000, step:1000, desc:"单次页面加载超时"},
+    {env:"APP__SCRAPING__RETRY_COUNT", path:["scraping","retry_count"], label:"重试次数", type:"number", def:2, min:0, desc:"失败后重试"},
+    {env:"APP__SCRAPING__RETRY_DELAY", path:["scraping","retry_delay"], label:"重试间隔秒数", type:"number", def:5, min:0, desc:"退避间隔"}
+  ]
+},
+{
+  id:"recipes", title:"开源菜谱导入", env:"RECIPES", icon:"book",
+  desc:"本地菜谱库来源：proj.kitchen（静态 JSON API）+ HowToCook（GitHub 仓库），均为开源许可。",
+  items:[
+    {env:"APP__RECIPES__CACHE_DIR", path:["recipes","cache_dir"], label:"缓存目录", type:"text", def:".cache/recipes", desc:"原始数据落地位置"},
+    {env:"APP__RECIPES__NUTRITION_BATCH_SIZE", path:["recipes","nutrition_batch_size"], label:"营养补全批大小", type:"number", def:20, min:1, desc:"用 LLM 批量补全热量与三大营养素"},
+    {env:"APP__RECIPES__NUTRITION_MAX_ATTEMPTS", path:["recipes","nutrition_max_attempts"], label:"营养补全最大尝试", type:"number", def:2, min:1, desc:"失败重试次数"},
+    {env:"APP__RECIPES__PROJ_KITCHEN__ENABLED", path:["recipes","proj_kitchen","enabled"], label:"启用 proj.kitchen", type:"bool", def:true, desc:"开源菜谱数据源之一"},
+    {env:"APP__RECIPES__PROJ_KITCHEN__INDEX_URL", path:["recipes","proj_kitchen","index_url"], label:"列表接口", type:"text", def:"https://proj.kitchen/api/recipes", desc:"静态 JSON API"},
+    {env:"APP__RECIPES__PROJ_KITCHEN__DETAIL_URL", path:["recipes","proj_kitchen","detail_url"], label:"详情接口", type:"text", def:"https://proj.kitchen/api/recipes/{id}", desc:"{id} 会被替换"},
+    {env:"APP__RECIPES__HOWTOCOOK__ENABLED", path:["recipes","howtocook","enabled"], label:"启用 HowToCook", type:"bool", def:true, desc:"开源菜谱仓库"},
+    {env:"APP__RECIPES__HOWTOCOOK__REPO_URL", path:["recipes","howtocook","repo_url"], label:"仓库地址", type:"text", def:"https://github.com/Anduin2017/HowToCook", desc:"拉取源"},
+    {env:"APP__RECIPES__HOWTOCOOK__BRANCH", path:["recipes","howtocook","branch"], label:"分支", type:"text", def:"master", desc:"拉取分支"}
+  ]
+}
+];
+
+/* ---------- 存储层：读写 localStorage（唯一入口） ---------- */
+var LS_KEY_CFG = "wb_fandecide_cfg_v1";
+var LS_KEY_TODO = "wb_fandecide_todo_v1";
+var LS_KEY_UI = "wb_fandecide_ui_v1";
+
+function lsGet(key, fallback){
+  try{ var raw = localStorage.getItem(key); if(!raw) return fallback; var v = JSON.parse(raw); return (v===null||v===undefined)?fallback:v; }
+  catch(e){ return fallback; }
+}
+function lsSet(key, val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); return true; }
+  catch(e){ toast("本地存储写入失败，可能空间已满"); return false; }
+}
+
+/* 配置默认值扁平表：env -> def */
+var CFG_DEFAULTS = {};
+(function(){
+  for(var i=0;i<CONFIG_GROUPS.length;i++){
+    var items = CONFIG_GROUPS[i].items;
+    for(var j=0;j<items.length;j++){ CFG_DEFAULTS[items[j].env] = items[j].def; }
+  }
+})();
+
+function loadCfg(){
+  var saved = lsGet(LS_KEY_CFG, {});
+  var out = {};
+  for(var k in CFG_DEFAULTS){ if(Object.prototype.hasOwnProperty.call(CFG_DEFAULTS,k)){ out[k] = (saved[k]!==undefined)?saved[k]:CFG_DEFAULTS[k]; } }
+  return out;
+}
+function saveCfg(){ lsSet(LS_KEY_CFG, state.cfg); }
+function isDirty(env){ return String(state.cfg[env]) !== String(CFG_DEFAULTS[env]); }
+function dirtyCount(){
+  var n=0; for(var k in CFG_DEFAULTS){ if(Object.prototype.hasOwnProperty.call(CFG_DEFAULTS,k) && isDirty(k)) n++; } return n;
+}
+function groupDirtyCount(g){
+  var n=0; for(var i=0;i<g.items.length;i++){ if(isDirty(g.items[i].env)) n++; } return n;
+}
+function cfgNum(env){ var v = parseFloat(state.cfg[env]); return isNaN(v)?0:v; }
+function cfgBool(env){
+  var v = state.cfg[env];
+  if(typeof v === "boolean") return v;
+  return String(v) === "true";
+}
+function cfgVal(pathArr){
+  var env = "APP";
+  for(var i=0;i<pathArr.length;i++){ env += "__" + pathArr[i].toUpperCase(); }
+  return state.cfg[env];
+}
+/* ========================= 数据层 2：模块地图 ========================= */
+var ICONS = {
+  lock:'<path d="M5 11h14v10H5z"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  user:'<circle cx="12" cy="8" r="3.4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
+  target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>',
+  calendar:'<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  fridge:'<rect x="5" y="2.5" width="14" height="19" rx="3"/><path d="M5 10h14M8 6.5v2.5M8 13.5v3"/>',
+  cart:'<circle cx="9.5" cy="20" r="1.4"/><circle cx="17.5" cy="20" r="1.4"/><path d="M2.5 3h2.4l2.6 12h11.2l2.2-8H6.4"/>',
+  chat:'<path d="M20.5 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 20.5 12z"/>',
+  bell:'<path d="M18 9a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7"/><path d="M10.3 20a2 2 0 0 0 3.4 0"/>',
+  gift:'<rect x="3" y="8.5" width="18" height="12.5" rx="2"/><path d="M3 13h18M12 8.5V21"/><path d="M12 8.5S10.5 3 8 3a2.5 2.5 0 0 0 0 5.5M12 8.5S13.5 3 16 3a2.5 2.5 0 0 1 0 5.5"/>',
+  chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  tag:'<path d="M20.6 13.4 12 22l-9-9 8.6-8.6a2 2 0 0 1 1.4-.6H20a2 2 0 0 1 2 2v6.2a2 2 0 0 1-.6 1.4z"/><circle cx="16.5" cy="7.5" r="1.3"/>',
+  heart:'<path d="M20.4 5.8a5 5 0 0 0-7.1 0L12 7.1l-1.3-1.3a5 5 0 1 0-7.1 7.1L12 21l8.4-8.1a5 5 0 0 0 0-7.1z"/>',
+  server:'<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/>',
+  cloud:'<path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.3 11.2A3.9 3.9 0 0 0 7 19z"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 6.5V12l3.5 2"/>',
+  spark:'<path d="M12 2.5l2.2 5.9 5.8 2.1-5.8 2.1L12 18.5l-2.2-5.9L4 10.5l5.8-2.1z"/>',
+  link:'<path d="M10 13a5 5 0 0 0 7.1 0l2.4-2.4a5 5 0 0 0-7.1-7.1L11 5"/><path d="M14 11a5 5 0 0 0-7.1 0L4.5 13.4a5 5 0 0 0 7.1 7.1L13 19"/>',
+  download:'<path d="M12 3v12"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M4 19h16"/>',
+  book:'<path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v18H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 17.5A2.5 2.5 0 0 1 6.5 15H20"/>',
+  db:'<ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
+  phone:'<rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M10.5 18.5h3"/>',
+  doc:'<path d="M14 2.5H6.5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V8z"/><path d="M14 2.5V8h5.5"/>'
+};
+function ic(name, size, stroke){
+  var s = size || 18, c = stroke || "currentColor";
+  return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(ICONS[name]||ICONS.server)+'</svg>';
+}
+
+var MODULE_TAGS = [
+  {id:"all", label:"全部"},
+  {id:"core", label:"核心链路"},
+  {id:"data", label:"档案与数据"},
+  {id:"ops", label:"集成与运维"},
+  {id:"monitor", label:"监控与反馈"}
+];
+
+var MODULES = [
+{
+  id:"auth", title:"认证与身份", prefix:"/api/auth", icon:"lock", tag:"ops",
+  desc:"飞书扫码 + 微信一键登录 + 本地开发登录。三种身份并存互不可见，open_id 前缀区分来源，新增登录方式无需加表。",
+  eps:[
+    {m:"GET", p:"/feishu/login-url", n:"取扫码地址（PC 二维码 / 手机唤起）"},
+    {m:"GET", p:"/feishu/callback", n:"扫码回调，写入 httpOnly Cookie"},
+    {m:"POST", p:"/wechat/mini-login", n:"小程序 code2session，自动建号"},
+    {m:"POST", p:"/refresh", n:"刷新 access token"},
+    {m:"GET", p:"/me", n:"当前用户信息"},
+    {m:"GET", p:"/providers", n:"已启用的登录方式"},
+    {m:"POST", p:"/logout", n:"登出并清 Cookie"},
+    {m:"POST", p:"/dev-login", n:"开发登录（仅 dev_login=true）"}
+  ]
+},
+{
+  id:"decide", title:"饭决决策引擎", prefix:"/api/decide", icon:"target", tag:"core",
+  desc:"产品内核：一次点击 ≤2 秒出结果 + 一句话理由 + 3-5 步做法。三条硬规则（近 7 天不重复 / 同品类打散 / 连续两餐不重样）+ 五维打分。断网也能出答案。",
+  eps:[
+    {m:"POST", p:"", n:"决策这一餐，返回菜品 / 理由 / 极简做法"},
+    {m:"GET", p:"/last", n:"上一次决策结果"},
+    {m:"GET", p:"/profile", n:"决策档案（口味 / 忌口 / 时间预算）"},
+    {m:"GET", p:"/recent", n:"最近决策历史"},
+    {m:"POST", p:"/{id}/feedback", n:"对结果点赞或点踩"}
+  ]
+},
+{
+  id:"today", title:"今日聚合", prefix:"/api/today", icon:"sun", tag:"core",
+  desc:"一次请求返回全部：今日预算 / 餐次 / 采购缺口 / 补单建议 / 自做 vs 外卖 / 临期食材 / 自动流程时间线。任何一块缺失都不让整页失败。",
+  eps:[
+    {m:"GET", p:"", n:"今日页全量聚合"},
+    {m:"POST", p:"/takeout-price", n:"记住用户改过的外卖参考价"}
+  ]
+},
+{
+  id:"menus", title:"周菜单", prefix:"/api/menus", icon:"calendar", tag:"core",
+  desc:"异步生成（202 + task_id，前端轮询可关页面）。本地菜谱库优先编排，换一道也走本地优先；支持锁定餐次、标记已做、撤销。",
+  eps:[
+    {m:"POST", p:"/generate", n:"生成一周菜单（202 异步）"},
+    {m:"GET", p:"/generation-tasks/{task_id}", n:"轮询生成进度"},
+    {m:"GET", p:"/current", n:"当前周菜单"},
+    {m:"POST", p:"/fridge-rebuild", n:"按冰箱现有食材重排"},
+    {m:"PUT", p:"/{id}/items/{item_id}/replace", n:"换一道（本地优先 / force_ai）"},
+    {m:"PUT", p:"/{id}/items/{item_id}/lock", n:"锁定餐次（不被重生成覆盖）"},
+    {m:"PUT", p:"/{id}/items/{item_id}/unlock", n:"解锁餐次"},
+    {m:"PUT", p:"/{id}/items/{item_id}/cooked", n:"标记已做 → 扣库存"},
+    {m:"DELETE", p:"/{id}/items/{item_id}/cooked", n:"撤销已做 → 回滚库存"},
+    {m:"GET", p:"/{id}/shopping-list", n:"采购清单（冰箱差集）"},
+    {m:"GET", p:"/{id}/order-suggestion", n:"补单建议（凑起送价）"},
+    {m:"POST", p:"/{id}/confirm", n:"确认菜单"},
+    {m:"GET", p:"/history", n:"历史菜单"},
+    {m:"GET", p:"/{id}", n:"菜单详情"}
+  ]
+},
+{
+  id:"inventory", title:"冰箱库存", prefix:"/api/inventory", icon:"fridge", tag:"data",
+  desc:"库存是决策与采购的共同底座。拍照 → 视觉模型 → 候选清单逐条可编辑 → 确认入库；未配置视觉模型时降级为手动添加。",
+  eps:[
+    {m:"GET", p:"", n:"库存列表"},
+    {m:"POST", p:"", n:"新增库存（201）"},
+    {m:"DELETE", p:"/{item_id}", n:"删除库存"},
+    {m:"GET", p:"/expiring", n:"临期食材"},
+    {m:"POST", p:"/recognize", n:"拍照识别入库（受每日额度限流）"}
+  ]
+},
+{
+  id:"preferences", title:"偏好档案", prefix:"/api/preferences", icon:"user", tag:"data",
+  desc:"口味档案即约束：家庭人数 / 饮食偏好 / 过敏源 / 健康目标 / 预算。引导（Onboarding）选的偏好会落库，未登录时暂存、登录后补交。",
+  eps:[
+    {m:"GET", p:"/summary", n:"档案总览（引导页与我的页复用）"},
+    {m:"GET", p:"/household", n:"家庭人数与做饭时间"},
+    {m:"PUT", p:"/household", n:"更新家庭信息"},
+    {m:"GET", p:"/diet", n:"饮食偏好（菜系 / 辣度）"},
+    {m:"PUT", p:"/diet", n:"更新饮食偏好"},
+    {m:"GET", p:"/allergy", n:"过敏与忌口"},
+    {m:"PUT", p:"/allergy", n:"更新过敏源"},
+    {m:"GET", p:"/health-goal", n:"健康目标"},
+    {m:"PUT", p:"/health-goal", n:"更新健康目标"},
+    {m:"GET", p:"/budget", n:"预算设定"},
+    {m:"PUT", p:"/budget", n:"更新预算"}
+  ]
+},
+{
+  id:"automation", title:"飞书自动化", prefix:"/api/automation", icon:"chat", tag:"ops",
+  desc:"机器人凭证按用户隔离、加密存储且只回掩码。用户可在「我的 → 自动化」自助填 App ID / Secret / 接收人并一键发测试消息。",
+  eps:[
+    {m:"GET", p:"/status", n:"机器人状态卡（连接 / 调度 / 下次运行）"},
+    {m:"GET", p:"/feishu", n:"读取自己的飞书配置（Secret 掩码）"},
+    {m:"PUT", p:"/feishu", n:"保存飞书配置"},
+    {m:"DELETE", p:"/feishu", n:"解绑飞书配置"},
+    {m:"POST", p:"/feishu/test", n:"发一条测试消息"}
+  ]
+},
+{
+  id:"bot", title:"飞书事件回调", prefix:"/feishu", icon:"bell", tag:"ops",
+  desc:"事件回调：签名校验 + AES 解密 + event_id 去重 + 1 秒内响应。指令「菜单 / 库存 / 添加库存 / 完成某餐 / 帮助」直接查库并回复。",
+  eps:[
+    {m:"POST", p:"/webhook", n:"事件与指令入口（不带 /api 前缀）"}
+  ]
+},
+{
+  id:"products", title:"商品与价格", prefix:"/api/products", icon:"cart", tag:"data",
+  desc:"二期采集的商品库与价格快照。当前补单链路用「参考价 + deeplink」已打通，采集只用于把估算换成实价。",
+  eps:[
+    {m:"GET", p:"", n:"商品列表"},
+    {m:"GET", p:"/search", n:"商品搜索"}
+  ]
+},
+{
+  id:"feedback", title:"意见反馈", prefix:"/api/feedback", icon:"heart", tag:"monitor",
+  desc:"用户反馈与决策点踩走同一张表，是调优决策权重的原始输入。",
+  eps:[
+    {m:"POST", p:"", n:"提交反馈（201）"},
+    {m:"GET", p:"/mine", n:"我的反馈列表"}
+  ]
+},
+{
+  id:"events", title:"埋点", prefix:"/api/events", icon:"chart", tag:"monitor",
+  desc:"前端埋点落 event 表，健康检查会读最近事件时间来判断「服务是否还活着」。",
+  eps:[
+    {m:"POST", p:"", n:"上报埋点事件"}
+  ]
+},
+{
+  id:"subscribe", title:"订阅消息", prefix:"/api/subscribe", icon:"bell", tag:"ops",
+  desc:"小程序订阅消息模板与授权状态管理。",
+  eps:[
+    {m:"GET", p:"/templates", n:"可用模板列表"},
+    {m:"POST", p:"/grant", n:"记录授权"},
+    {m:"GET", p:"/status/{template_id}", n:"查询授权状态"}
+  ]
+},
+{
+  id:"invite", title:"邀请码", prefix:"/api/invite", icon:"gift", tag:"ops",
+  desc:"内测期邀请码发放与核销，控制灰度范围。",
+  eps:[
+    {m:"GET", p:"/code", n:"取我的邀请码"},
+    {m:"POST", p:"/redeem", n:"核销邀请码"}
+  ]
+},
+{
+  id:"build", title:"构建与健康", prefix:"/api", icon:"server", tag:"monitor",
+  desc:"运维看这两个端点就够了：构建信息对齐版本，健康检查含数据库连通性、调度器状态、最近事件与最近生成时间。",
+  eps:[
+    {m:"GET", p:"/build-info", n:"构建号 / 版本 / 提交"},
+    {m:"GET", p:"/health", n:"健康检查（DB 挂了返回 503）"}
+  ]
+}
+];
+
+var TABLE_GROUPS = [
+  {g:"用户侧（6）", t:["user 用户","household 家庭","diet_preference 饮食偏好","allergy_restriction 过敏源","health_goal 健康目标","budget 预算"]},
+  {g:"内容（3）", t:["ingredient 食材（含参考价）","recipe 菜谱","recipe_ingredient 菜谱食材（含用量原文）"]},
+  {g:"外部（2）", t:["product 商品","product_mapping 商品映射"]},
+  {g:"运行（7）", t:["fridge_inventory 冰箱库存","consumption_record 消耗流水","menu 菜单","menu_item 餐次","menu_generation_task 生成任务","purchase_record 采购记录","activity_log 活动日志"]},
+  {g:"配置与运营（4）", t:["user_feishu_config 用户飞书凭证","feedback 反馈","event 埋点","subscribe_message 订阅消息"]},
+  {g:"决策（2）", t:["decision 决策记录","invite 邀请码"]}
+];
+
+var OPS_CMDS = [
+  {c:"make up", d:"后台启动 数据库 + 后端 + 前端（不占终端）"},
+  {c:"make status", d:"查看后端 / 前端 / 数据库状态"},
+  {c:"make logs SVC=backend", d:"实时看日志（backend | frontend | db）"},
+  {c:"make ops", d:"打开交互式运维台（启动/停止/重启/日志/自检）"},
+  {c:"make migrate", d:"执行数据库迁移 alembic upgrade head"},
+  {c:"make migration MSG=\"...\"", d:"自动生成新迁移脚本"},
+  {c:"make seed", d:"导入食材与参考价种子数据"},
+  {c:"make import-recipes", d:"开源菜谱幂等落库（391 道）"},
+  {c:"make backfill-decide-fields", d:"回填决策字段（品类/主料/标签/极简做法），纯规则"},
+  {c:"make backfill-nutrition", d:"用 LLM 补全缺失的卡路里与三大营养素"},
+  {c:"make ci", d:"ruff + pytest + 令牌校验 + 前端/小程序构建"},
+  {c:"make test", d:"运行后端测试（集成测试需 TEST_DATABASE_URL）"},
+  {c:"make backup", d:"备份 MySQL 并清理 14 天前的备份"},
+  {c:"make build-miniapp", d:"构建微信小程序（产物在 miniapp/dist）"},
+  {c:"make deploy-internal-test MP_API_BASE=...", d:"内测灰度：构建 H5 + 小程序并打印隧道指引"}
+];
+
+var ENDPOINTS = [
+  {n:"后端 API", v:"http://127.0.0.1:8000", d:"uvicorn 监听，nginx 反代 /api"},
+  {n:"API 文档", v:"/docs", d:"FastAPI 自动生成的 OpenAPI 交互文档"},
+  {n:"健康检查", v:"/api/health", d:"DB 连通性 / 调度器 / 最近事件 / 版本号"},
+  {n:"H5 前端", v:"http://127.0.0.1:5173", d:"npm run dev（Vite）"},
+  {n:"小程序 H5 预览", v:"miniapp/dist-h5", d:"build:h5 产物，浏览器验证走这个"},
+  {n:"小程序真机", v:"miniapp/dist", d:"build:weapp 产物，微信开发者工具导入 miniapp/"},
+  {n:"飞书回调", v:"/feishu/webhook", d:"需 HTTPS，本地用 ngrok http 8000"}
+];
+/* ========================= 数据层 3：文档 / 示例数据 ========================= */
+var LIB_FOLDER = {
+  title:"饭决 FAN·DECIDE · 项目资料库",
+  url:"https://www.workbuddy.cn/space/d/qaeE0BqrJwDmO9tFgYVJb1",
+  note:"项目文档与资源的归存目录（资料库原生文件夹），当前含 1 个工作台页面 + 15 篇核心文档（架构 / 部署 / 数据库 / 设计系统 / 产品 / 小程序 / 运维）。工作台页面本身也挂在该文件夹下，后续迭代更新内容、链接不变。"
+};
+
+/* 已归档到资料库的文档：项目相对路径 -> 在线文档地址 */
+var DOC_LINKS = {
+  "docs/architecture.md":"https://www.workbuddy.cn/space/d/4VQlfldr20OQmBGIbViEi4",
+  "deploy/README.md":"https://www.workbuddy.cn/space/d/gD3BA8QOSuaEokAfnNxMr9",
+  "docs/database.md":"https://www.workbuddy.cn/space/d/F4Ou2do1bxgwP56iWwvqen",
+  "docs/design-system.md":"https://www.workbuddy.cn/space/d/rLdq7buw9D1F9njG2Vf7LB",
+  "docs/product-v2.md":"https://www.workbuddy.cn/space/d/Xf8wxLttCY1Lv2RbytM03s",
+  "docs/v1.0-fan-decide-plan.md":"https://www.workbuddy.cn/space/d/sMOkuyuonexSK26dQIKqG9",
+  "docs/local-setup.md":"https://www.workbuddy.cn/space/d/MQ8ZvoLr6WnG1EchXiHjzh",
+  "docs/database-config.md":"https://www.workbuddy.cn/space/d/eTEu9pObRU34Yabft3ya6D",
+  "docs/feishu-setup.md":"https://www.workbuddy.cn/space/d/VaMceCqvx6Pk5BJxXIXptV",
+  "docs/miniapp-troubleshooting.md":"https://www.workbuddy.cn/space/d/QXuXO1P3Dd1wuYkic28MKM",
+  "docs/master-plan.md":"https://www.workbuddy.cn/space/d/t98X77x9px0jWdmCGjFPiz",
+  "docs/project-audit.md":"https://www.workbuddy.cn/space/d/h7UONaDPyzqwgaatKqK6zD",
+  "docs/v3.0-scraper-spec.md":"https://www.workbuddy.cn/space/d/VRRUn6F6MRXlJ6H9vp30L8",
+  "docs/miniapp-setup.md":"https://www.workbuddy.cn/space/d/e5dJGa6Tzn0oKMN5pzsYse",
+  "docs/requirements-v2.5-dark-mode.md":"https://www.workbuddy.cn/space/d/Tg53AbmfCC1XVXxcW7ykIK"
+};
+
+var DOCS = [
+  {t:"系统架构", f:"docs/architecture.md", d:"分层架构图 / 技术选型 / 19 张表 / 生成→编辑→采购→库存核心链路", icon:"server", cat:"架构"},
+  {t:"产品方案 V2", f:"docs/product-v2.md", d:"命名与 Logo、信息架构、交互优先级", icon:"book", cat:"产品"},
+  {t:"饭决 V1.0 迭代计划", f:"docs/v1.0-fan-decide-plan.md", d:"从「每周鲜」到「饭决」的内核转变、10 项架构决策、需求拆解", icon:"target", cat:"产品"},
+  {t:"需求清单 V2.3", f:"docs/requirements-v2.3.md", d:"本地菜谱库优先等本期需求口径", icon:"book", cat:"产品"},
+  {t:"需求清单 V2.4", f:"docs/requirements-v2.4.md", d:"周菜单编辑与库存闭环需求", icon:"book", cat:"产品"},
+  {t:"深色模式 V2.5", f:"docs/requirements-v2.5-dark-mode.md", d:"三态主题 + auto 跟随系统", icon:"book", cat:"产品"},
+  {t:"设计系统", f:"docs/design-system.md", d:"色板 / 对比度 / 令牌单一真源，两端零漂移", icon:"spark", cat:"设计"},
+  {t:"数据库说明", f:"docs/database.md", d:"由脚本反向生成：表结构 / 索引 / 外键 / ER 图 / 字段含义", icon:"db", cat:"运维"},
+  {t:"数据库配置", f:"docs/database-config.md", d:"连接串唯一真源、快速失败、占位密码校验", icon:"db", cat:"运维"},
+  {t:"部署手册", f:"deploy/README.md", d:"nginx + systemd + certbot，含 .env 必填字段清单", icon:"server", cat:"运维"},
+  {t:"本地环境搭建", f:"docs/local-setup.md", d:"一键脚本之外的手动步骤与排错", icon:"server", cat:"运维"},
+  {t:"内网测试发布", f:"deploy/internal-test.md", d:"H5 + 小程序内测灰度与隧道配置指引", icon:"server", cat:"运维"},
+  {t:"飞书接入", f:"docs/feishu-setup.md", d:"网页应用创建、权限、回调地址与机器人配置", icon:"chat", cat:"集成"},
+  {t:"小程序搭建", f:"docs/miniapp-setup.md", d:"Taro 工程结构与构建产物的用途区分", icon:"phone", cat:"集成"},
+  {t:"小程序构建", f:"miniapp/BUILD.md", d:"weapp / h5 两套产物互不覆盖的具体命令", icon:"phone", cat:"集成"},
+  {t:"小程序排错", f:"docs/miniapp-troubleshooting.md", d:"真机连不通、主题失效、定时器等坑位记录", icon:"phone", cat:"集成"},
+  {t:"小程序审查 2026-09", f:"docs/miniapp-audit-2026-09.md", d:"小程序侧完整审查结论", icon:"phone", cat:"集成"},
+  {t:"小程序品牌资源", f:"docs/miniapp-brand-assets.md", d:"Logo / 胶囊 / 图标资源与用法", icon:"spark", cat:"设计"},
+  {t:"项目审查", f:"docs/project-audit.md", d:"全量代码审查结论与风险项", icon:"chart", cat:"架构"},
+  {t:"P0 修复与引导重构", f:"docs/p0-fix-and-guide-refactor-2026-09-15.md", d:"引导回弹死循环的定位与修复记录", icon:"chart", cat:"架构"},
+  {t:"V3.0 采集规格", f:"docs/v3.0-scraper-spec.md", d:"二期采集：登录态、商品库、价格快照、食材匹配", icon:"download", cat:"产品"},
+  {t:"主计划", f:"docs/master-plan.md", d:"版本节奏与里程碑", icon:"calendar", cat:"产品"}
+];
+
+/* 核心链路（总览用） */
+var FLOW = [
+  {t:"填偏好", d:"Onboarding 3 问 → 落库；未登录暂存，登录后补交"},
+  {t:"点饭决", d:"一次请求 ≤2 秒 → 菜品 + 一句话理由 + 3-5 步做法"},
+  {t:"排周菜单", d:"本地菜谱库优先编排，凑不齐才调 AI「时代」"},
+  {t:"补单", d:"菜单 vs 冰箱差集 → 凑起送价 → deeplink 直达"},
+  {t:"标记已做", d:"临期优先扣库存 → 写消耗流水，可撤销"}
+];
+
+/* 待办示例数据：首屏预置，含 1 条逾期 */
+function todayStr(){
+  var d = new Date();
+  return d.getFullYear() + "-" + ("0"+(d.getMonth()+1)).slice(-2) + "-" + ("0"+d.getDate()).slice(-2);
+}
+function offsetDate(n){
+  var d = new Date(); d.setDate(d.getDate()+n);
+  return d.getFullYear() + "-" + ("0"+(d.getMonth()+1)).slice(-2) + "-" + ("0"+d.getDate()).slice(-2);
+}
+function sampleTodos(){
+  return [
+    {id:"t1", t:"补齐生产 .env 的真实凭据", due:offsetDate(-2), tag:"P0", note:"JWT_SECRET ≥32 字符 + 数据库真实账号密码；占位值会让服务启动即失败"},
+    {id:"t2", t:"核对飞书回调地址与开放平台后台一致", due:todayStr(), tag:"P0", note:"APP__FEISHU__REDIRECT_URI 必须 HTTPS 且与后台填写完全一致"},
+    {id:"t3", t:"确认 scheduler.enabled 只在抢到锁的那一个 worker 开启", due:todayStr(), tag:"P1", note:"多 worker 全开会重复推送"},
+    {id:"t4", t:"调完决策权重后先在测试库验证再上生产", due:offsetDate(3), tag:"P2", note:"改动立刻影响推荐结果，权重分差带建议先跑 A/B"},
+    {id:"t5", t:"小程序真机实测（iOS / Android 各一台）", due:offsetDate(7), tag:"P2", note:"V3.0 剩余项：真机实测 + ICP 备案 + 法务"}
+  ];
+}
+
+/* ---------- 全局状态 ---------- */
+var state = {
+  tab:"overview",
+  cfg:{},
+  todos:[],
+  modFilter:"all",
+  modQuery:"",
+  cfgQuery:"",
+  docQuery:"",
+  openGroups:{},
+  showSecret:{}
+};
+/* ========================= 公共工具（无状态副作用） ========================= */
+function $(id){ return document.getElementById(id); }
+function esc(s){
+  return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+var toastTimer = null;
+function toast(msg){
+  var t = $("toast"); if(!t) return;
+  t.textContent = msg; t.classList.add("show");
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 2200);
+}
+var confirmCb = null;
+function askConfirm(title, body, cb){
+  $("mkTitle").textContent = title; $("mkBody").textContent = body;
+  confirmCb = cb; $("mask").classList.add("show");
+}
+function closeConfirm(){ $("mask").classList.remove("show"); confirmCb = null; }
+function mth(m){ return m==="GET"?"g":(m==="POST"?"p":(m==="PUT"?"u":"d")); }
+function daysBetween(a, b){
+  var d1 = new Date(a+"T00:00:00"), d2 = new Date(b+"T00:00:00");
+  return Math.round((d1 - d2) / 86400000);
+}
+
+/* ========================= 渲染层 1：总览 ========================= */
+/* 就绪检查：读配置 → 返回 [{name, ok, note}]，纯计算不改状态 */
+function healthChecks(){
+  var url = String(state.cfg["APP__DATABASE__URL"] || "");
+  var secret = String(state.cfg["APP__AUTH__JWT_SECRET"] || "");
+  var llmName = String(state.cfg["APP__LLM__PRIMARY__NAME"] || "");
+  var fsId = String(state.cfg["APP__FEISHU__APP_ID"] || "");
+  return [
+    {name:"数据库", ok: url.indexOf("<")<0 && url.indexOf("{")<0 && url.length>10 && url.indexOf("password")<0, note:"连接串必须替换成真实凭据"},
+    {name:"认证密钥", ok: secret.length>=32, note:"JWT_SECRET 至少 32 字符"},
+    {name:"决策引擎", ok: cfgNum("APP__DECIDE__NO_REPEAT_DAYS")>0 && cfgNum("APP__DECIDE__LOCAL_CANDIDATE_SCAN")>0, note:"硬规则与扫描上限需为正"},
+    {name:"菜谱库", ok: cfgBool("APP__MENU__LOCAL_FIRST") || llmName.length>0, note:"本地优先或已配主模型"},
+    {name:"周菜单生成", ok: cfgNum("APP__MENU__DAILY_GENERATION_LIMIT")>0, note:"生成配额需大于 0"},
+    {name:"飞书集成", ok: fsId.length>0, note:"填 App ID 才能扫码登录"},
+    {name:"定时推送", ok: cfgBool("APP__SCHEDULER__ENABLED"), note:"默认关闭，按需开启（只开一个 worker）"},
+    {name:"天气服务", ok: cfgBool("APP__WEATHER__ENABLED"), note:"默认关闭，失败静默降级"}
+  ];
+}
+
+function renderStats(){
+  var epCount = 0;
+  for(var i=0;i<MODULES.length;i++){ epCount += MODULES[i].eps.length; }
+  var hc = healthChecks(), okN = 0;
+  for(var j=0;j<hc.length;j++){ if(hc[j].ok) okN++; }
+  var pct = Math.round(okN / hc.length * 100);
+
+  var cards = [
+    {k:"当前版本", v:"1.1.2", u:"", d:"FastAPI · 三端同源", pct:null},
+    {k:"API 端点", v:String(epCount), u:"个", d:MODULES.length + " 个业务域", pct:null},
+    {k:"数据表", v:"19", u:"张", d:"MySQL 8.0 · Alembic 迁移", pct:null},
+    {k:"配置就绪度", v:String(pct), u:"%", d:okN + " / " + hc.length + " 项通过检查", pct:pct}
+  ];
+  var html = "";
+  for(var c=0;c<cards.length;c++){
+    var it = cards[c];
+    html += '<div class="stat"><div class="k">'+esc(it.k)+'</div>'
+         +  '<div class="v">'+esc(it.v)+'<span class="u">'+esc(it.u)+'</span></div>'
+         +  '<div class="d">'+esc(it.d)+'</div>';
+    if(it.pct!==null){
+      var col = it.pct>=75 ? "var(--ok)" : (it.pct>=45 ? "var(--warn)" : "var(--danger)");
+      html += '<div class="bar"><i style="width:'+it.pct+'%;background:'+col+'"></i></div>';
+    }
+    html += '</div>';
+  }
+  $("ovStats").innerHTML = html;
+}
+
+function renderTodo(){
+  var list = state.todos.slice();
+  var today = todayStr();
+  var pending = [], overdueN = 0;
+  for(var i=0;i<list.length;i++){
+    if(list[i].done) continue;
+    var diff = daysBetween(list[i].due, today);
+    if(diff <= 0){ pending.push(list[i]); if(diff<0) overdueN++; }
+  }
+  pending.sort(function(a,b){ return a.due < b.due ? -1 : (a.due>b.due?1:0); });
+  var openAll = [];
+  for(var k=0;k<list.length;k++){ if(!list[k].done) openAll.push(list[k]); }
+
+  $("todoSub").textContent = pending.length
+    ? (overdueN ? "共 " + openAll.length + " 项未完成，其中 " + overdueN + " 项已逾期（逾期项自动顺延到今天）" : "今天 " + pending.length + " 项")
+    : (openAll.length ? "今天没有到期项，后续 " + openAll.length + " 项待办" : "全部完成");
+
+  var show = pending.length ? pending : (openAll.length ? openAll.slice(0,3) : []);
+  var html = "";
+
+  if(state.addingTodo){
+    html += '<div class="todo" style="padding-bottom:14px">'
+      + '<div style="flex:0 0 22px"></div><div class="body">'
+      + '<input type="text" id="newTodoInput" placeholder="要做什么？例如：核对生产 .env 的 JWT_SECRET" style="width:100%;min-height:44px;padding:9px 12px;border:1px solid var(--line-2);border-radius:10px;outline:none">'
+      + '<div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap;align-items:center">'
+      + '<select id="newTodoTag" style="min-height:40px;padding:6px 10px;border:1px solid var(--line-2);border-radius:999px;background:#fff"><option value="P0">P0 紧急</option><option value="P1" selected>P1 重要</option><option value="P2">P2 常规</option></select>'
+      + '<button class="btn primary sm" data-act="save-todo">保存（今天到期）</button>'
+      + '<button class="btn sm" data-act="cancel-todo">取消</button>'
+      + '</div></div></div>';
+  }
+
+  if(!show.length && !state.addingTodo){
+    $("todoList").innerHTML = '<div class="empty">暂无待办 —— 点右上角「加一条」记录运维事项</div>';
+    return;
+  }
+  for(var s=0;s<show.length;s++){
+    var t = show[s], diff2 = daysBetween(t.due, today);
+    var late = diff2 < 0;
+    var dueTxt = diff2===0 ? "今天到期" : (late ? "逾期 " + (-diff2) + " 天" : "还剩 " + diff2 + " 天");
+    html += '<div class="todo">'
+      + '<button class="cb" data-act="toggle-todo" data-id="'+esc(t.id)+'" aria-label="标记完成">'
+      + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg></button>'
+      + '<div class="body"><div class="t">'+esc(t.t)+'</div><div class="m">'
+      + '<span class="chip '+(late?"red":"grey")+'">'+esc(dueTxt)+'</span>'
+      + '<span class="chip '+(t.tag==="P0"?"red":(t.tag==="P1"?"orange":"blue"))+'">'+esc(t.tag||"")+'</span>'
+      + (t.note? '<span>'+esc(t.note)+'</span>' : '')
+      + '</div></div>'
+      + '<div class="acts">'
+      + (late? '<button class="btn sm" data-act="defer-todo" data-id="'+esc(t.id)+'">顺延到今天</button>' : '')
+      + '<button class="btn sm danger" data-act="del-todo" data-id="'+esc(t.id)+'">删除</button>'
+      + '</div></div>';
+  }
+  $("todoList").innerHTML = html;
+}
+
+function renderHealth(){
+  var hc = healthChecks(), html = "";
+  for(var i=0;i<hc.length;i++){
+    var it = hc[i];
+    html += '<div class="todo" style="border-bottom:1px solid #F2F0EC">'
+      + '<div style="flex:0 0 auto;margin-top:3px"><span class="chip '+(it.ok?"green":"orange")+'">'+(it.ok?"已就绪":"待配置")+'</span></div>'
+      + '<div class="body"><div class="t" style="font-size:14px">'+esc(it.name)+'</div>'
+      + '<div class="m"><span>'+esc(it.note)+'</span></div></div></div>';
+  }
+  $("ovHealth").innerHTML = html;
+}
+
+function renderFlow(){
+  var html = "";
+  for(var i=0;i<FLOW.length;i++){
+    html += '<div class="todo">'
+      + '<div style="flex:0 0 26px;height:26px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;margin-top:1px">'+(i+1)+'</div>'
+      + '<div class="body"><div class="t" style="font-size:14px">'+esc(FLOW[i].t)+'</div>'
+      + '<div class="m"><span>'+esc(FLOW[i].d)+'</span></div></div></div>';
+  }
+  $("ovFlow").innerHTML = html;
+}
+
+function renderQuick(){
+  var q = [
+    {tab:"admin", label:"改配置参数", icon:"server"},
+    {tab:"modules", label:"查 API 端点", icon:"link"},
+    {tab:"admin", label:"导出 .env", icon:"download"},
+    {tab:"docs", label:"看文档索引", icon:"book"},
+    {tab:"modules", label:"看数据表", icon:"db"},
+    {tab:"docs", label:"运维命令", icon:"spark"}
+  ];
+  var html = "";
+  for(var i=0;i<q.length;i++){
+    html += '<button class="btn" data-act="goto" data-tab="'+esc(q[i].tab)+'" style="min-height:44px">'
+      + ic(q[i.icon], 15, "#141414") + esc(q[i].label) + '</button>';
+  }
+  $("ovQuick").innerHTML = html;
+}
+
+function renderOverview(){
+  renderStats();
+  renderTodo();
+  renderHealth();
+  renderFlow();
+  renderQuick();
+}
+/* ========================= 渲染层 2：功能地图 ========================= */
+function renderModFilter(){
+  var html = "";
+  for(var i=0;i<MODULE_TAGS.length;i++){
+    var t = MODULE_TAGS[i];
+    html += '<button data-act="mod-filter" data-v="'+esc(t.id)+'" class="'+(state.modFilter===t.id?"on":"")+'">'+esc(t.label)+'</button>';
+  }
+  $("modFilter").innerHTML = html;
+}
+
+function filteredModules(){
+  var q = state.modQuery.trim().toLowerCase();
+  var out = [];
+  for(var i=0;i<MODULES.length;i++){
+    var m = MODULES[i];
+    if(state.modFilter!=="all" && m.tag!==state.modFilter) continue;
+    if(q){
+      var hay = (m.title + " " + m.prefix + " " + m.desc + " " + m.tag).toLowerCase();
+      var hit = hay.indexOf(q) >= 0;
+      if(!hit){
+        for(var j=0;j<m.eps.length && !hit;j++){
+          if((m.eps[j].m + " " + m.prefix + m.eps[j].p + " " + m.eps[j].n).toLowerCase().indexOf(q) >= 0) hit = true;
+        }
+      }
+      if(!hit) continue;
+    }
+    out.push(m);
+  }
+  return out;
+}
+
+function renderModules(){
+  var list = filteredModules();
+  if(!list.length){
+    $("modList").innerHTML = '<div class="empty" style="grid-column:1/-1">没有匹配的模块，换个关键词试试</div>';
+  } else {
+    var html = "";
+    for(var i=0;i<list.length;i++){
+      var m = list[i];
+      html += '<div class="mod"><div class="mh"><div class="ic">'+ic(m.icon,17,"#141414")+'</div>'
+        + '<div style="flex:1 1 auto;min-width:0"><div class="mt">'+esc(m.title)+'</div>'
+        + '<div class="mp">'+esc(m.prefix)+'</div></div>'
+        + '<span class="chip grey">'+esc(m.tag==="core"?"核心":(m.tag==="data"?"数据":(m.tag==="ops"?"运维":"监控")))+'</span></div>'
+        + '<div class="md">'+esc(m.desc)+'</div><div class="eps">';
+      for(var j=0;j<m.eps.length;j++){
+        var e = m.eps[j];
+        html += '<div class="ep"><span class="mth '+mth(e.m)+'">'+esc(e.m)+'</span>'
+          + '<span style="color:var(--ink)">'+esc(m.prefix+e.p)+'</span>'
+          + '<span style="color:var(--muted)">'+esc(e.n)+'</span></div>';
+      }
+      html += '</div></div>';
+    }
+    $("modList").innerHTML = html;
+  }
+  renderTables();
+}
+
+function renderTables(){
+  var html = "";
+  for(var i=0;i<TABLE_GROUPS.length;i++){
+    var g = TABLE_GROUPS[i];
+    html += '<div style="padding:11px 0;border-bottom:1px solid #F2F0EC">'
+      + '<div style="font-size:13px;font-weight:650;margin-bottom:7px">'+esc(g.g)+'</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+    for(var j=0;j<g.t.length;j++){
+      html += '<span class="chip grey" style="font-family:ui-monospace,Menlo,monospace;font-weight:500">'+esc(g.t[j])+'</span>';
+    }
+    html += '</div></div>';
+  }
+  html += '<p class="hint" style="margin-top:11px">单一字段 <code>user_id</code> 贯穿所有用户侧数据，所有查询都带它过滤，越权一律 404。</p>';
+  $("modTables").innerHTML = html;
+}
+/* ========================= 渲染层 3：运维配置 ========================= */
+function renderField(it){
+  var v = state.cfg[it.env];
+  if(v===undefined || v===null) v = it.def;
+  var dirty = isDirty(it.env);
+  var html = '<div class="field" data-env="'+esc(it.env)+'">'
+    + '<div class="lb"><span class="nm">'+esc(it.label)+'</span>'
+    + '<code class="env">'+esc(it.env)+'</code>'
+    + (dirty? '<span class="pill dirty">已改动</span>' : '')
+    + '</div>';
+
+  if(it.type==="bool"){
+    var on = (String(v)==="true" || v===true);
+    html += '<label class="switch"><input type="checkbox" data-act="cfg-bool" data-env="'+esc(it.env)+'"'+(on?" checked":"")+'>'
+      + '<span class="track"></span><span class="tl">'+(on?"已开启":"已关闭")+'</span></label>';
+  } else if(it.type==="select"){
+    html += '<div class="in"><select data-act="cfg-val" data-env="'+esc(it.env)+'">';
+    for(var o=0;o<it.opts.length;o++){
+      var op = it.opts[o];
+      html += '<option value="'+esc(op)+'"'+(String(v)===String(op)?" selected":"")+'>'+esc(op===""?"（未设置）":op)+'</option>';
+    }
+    html += '</select></div>';
+  } else if(it.type==="textarea"){
+    html += '<textarea data-act="cfg-val" data-env="'+esc(it.env)+'" placeholder="'+esc(String(it.def||""))+'">'+esc(String(v||""))+'</textarea>';
+  } else if(it.type==="secret"){
+    var shown = !!state.showSecret[it.env];
+    html += '<div class="secret-wrap">'
+      + '<input type="'+(shown?"text":"password")+'" data-act="cfg-val" data-env="'+esc(it.env)+'" value="'+esc(String(v||""))+'" placeholder="'+esc(String(it.def||""))+'" spellcheck="false" autocomplete="off">'
+      + '<button class="eye" data-act="toggle-secret" data-env="'+esc(it.env)+'" aria-label="显示或隐藏">'
+      + ic(shown?"lock":"doc", 16, "#3D3D3A") + '</button></div>';
+  } else if(it.type==="number"){
+    html += '<div class="in"><input type="number" data-act="cfg-val" data-env="'+esc(it.env)+'" value="'+esc(String(v===""?0:v))+'"'
+      + (it.min!==undefined? ' min="'+it.min+'"':'') + (it.max!==undefined? ' max="'+it.max+'"':'')
+      + (it.step!==undefined? ' step="'+it.step+'"':'') + '></div>';
+  } else {
+    html += '<div class="in"><input type="text" data-act="cfg-val" data-env="'+esc(it.env)+'" value="'+esc(String(v||""))+'" placeholder="'+esc(String(it.def||""))+'" spellcheck="false"></div>';
+  }
+  html += '<div class="ds">'+esc(it.desc)+'　默认值：<code>'+esc(String(it.def===""?"（空）":it.def))+'</code></div>';
+  html += '</div>';
+  return html;
+}
+
+function renderAdmin(){
+  var q = state.cfgQuery.trim().toLowerCase();
+  var html = "";
+  for(var i=0;i<CONFIG_GROUPS.length;i++){
+    var g = CONFIG_GROUPS[i];
+    var items = g.items;
+    if(q){
+      var keep = [];
+      for(var j=0;j<items.length;j++){
+        var it = items[j];
+        var hay = (it.label + " " + it.env + " " + it.desc).toLowerCase();
+        if(hay.indexOf(q)>=0) keep.push(it);
+      }
+      if(!keep.length) continue;
+      items = keep;
+    }
+    var dc = groupDirtyCount(g);
+    var open = state.openGroups[g.id] || (q.length>0);
+    html += '<div class="group'+(open?" open":"")+'" data-g="'+esc(g.id)+'">'
+      + '<button class="group-h" data-act="toggle-group" data-g="'+esc(g.id)+'">'
+      + '<svg class="arw" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#77766F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>'
+      + ic(g.icon, 17, "#141414")
+      + '<span class="ttl">'+esc(g.title)+'</span>'
+      + '<span class="cnt">'+items.length+' 项</span>'
+      + '<span class="spacer"></span>'
+      + '<span class="pill'+(dc?" dirty":"")+'">'+(dc? dc+" 项已改" : "默认")+'</span>'
+      + '</button><div class="group-b">'
+      + '<p class="hint" style="padding:10px 0 4px">'+esc(g.desc)+'</p>';
+    for(var k=0;k<items.length;k++){ html += renderField(items[k]); }
+    html += '</div></div>';
+  }
+  if(!html) html = '<div class="empty">没有匹配的配置项</div>';
+  $("cfgGroups").innerHTML = html;
+  renderAdminStat();
+}
+
+function renderAdminStat(){
+  var n = dirtyCount();
+  $("adminStat").textContent = n ? (n + " 项配置已改动（未落服务器）") : "当前全部为默认值";
+}
+
+/* ---------- 计算层：配置改动（只改数据，不碰 DOM） ---------- */
+function setCfg(env, val){
+  state.cfg[env] = val;
+  saveCfg();
+  markFieldDirty(env);
+  renderAdminStat();
+}
+function markFieldDirty(env){
+  var wrap = document.querySelector('.field[data-env="'+env+'"]');
+  if(!wrap) return;
+  var dirty = isDirty(env);
+  var pill = wrap.querySelector(".pill.dirty");
+  if(dirty && !pill){
+    var lb = wrap.querySelector(".lb");
+    if(lb){ var s=document.createElement("span"); s.className="pill dirty"; s.textContent="已改动"; lb.appendChild(s); }
+  } else if(!dirty && pill){ pill.parentNode.removeChild(pill); }
+  var input = wrap.querySelector("input[data-act='cfg-val'],textarea");
+  if(input){ if(dirty) input.classList.add("changed"); else input.classList.remove("changed"); }
+  var g = wrap.closest ? wrap.closest(".group") : null;
+  if(g){
+    var gid = g.getAttribute("data-g");
+    for(var i=0;i<CONFIG_GROUPS.length;i++){
+      if(CONFIG_GROUPS[i].id===gid){
+        var dc = groupDirtyCount(CONFIG_GROUPS[i]);
+        var p = g.querySelector(".group-h .pill");
+        if(p){ p.className = "pill"+(dc?" dirty":""); p.textContent = dc? dc+" 项已改" : "默认"; }
+        break;
+      }
+    }
+  }
+}
+
+/* ---------- 计算层：导出 ---------- */
+function download(filename, text, mime){
+  var blob = new Blob([text], {type: mime || "text/plain;charset=utf-8"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
+}
+
+function buildEnv(){
+  var lines = [];
+  lines.push("# 饭决 FAN·DECIDE · 运维配置导出");
+  lines.push("# 生成时间：" + new Date().toLocaleString("zh-CN"));
+  lines.push("# 说明：仅包含与默认值不同的配置项；未列出的项服务会走内置默认值。");
+  lines.push("");
+  var n = 0;
+  for(var i=0;i<CONFIG_GROUPS.length;i++){
+    var g = CONFIG_GROUPS[i], block = [];
+    for(var j=0;j<g.items.length;j++){
+      var it = g.items[j];
+      if(!isDirty(it.env)) continue;
+      var v = state.cfg[it.env];
+      if(v==="") continue;
+      block.push(it.env + "=" + v);
+      n++;
+    }
+    if(block.length){
+      lines.push("# ---------- " + g.title + " ----------");
+      lines = lines.concat(block);
+      lines.push("");
+    }
+  }
+  return {text: lines.join("\n"), n: n};
+}
+
+function buildBackup(){
+  return JSON.stringify({
+    app:"饭决 FAN·DECIDE 工作台",
+    schema:1,
+    exportedAt:new Date().toISOString(),
+    cfg:state.cfg,
+    todos:state.todos
+  }, null, 2);
+}
+/* ========================= 渲染层 4：文档与运维 ========================= */
+function renderLib(){
+  $("libFolder").innerHTML =
+    '<div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">'
+    + '<div style="flex:1 1 260px;min-width:0">'
+    + '<div style="font-size:14.5px;font-weight:650">'+esc(LIB_FOLDER.title)+'</div>'
+    + '<p class="hint" style="margin-top:5px">'+esc(LIB_FOLDER.note)+'</p></div>'
+    + '<a class="btn primary" href="'+esc(LIB_FOLDER.url)+'" target="_blank" rel="noopener" style="min-height:44px">'
+    + ic("link", 15, "#fff") + '打开资料库文件夹</a></div>';
+}
+
+function filteredDocs(){
+  var q = state.docQuery.trim().toLowerCase();
+  var out = [];
+  for(var i=0;i<DOCS.length;i++){
+    var d = DOCS[i];
+    if(q && (d.t+" "+d.f+" "+d.d+" "+d.cat).toLowerCase().indexOf(q)<0) continue;
+    out.push(d);
+  }
+  /* 已归档到资料库的排前面 */
+  out.sort(function(a,b){
+    var ua = DOC_LINKS[a.f] ? 0 : 1, ub = DOC_LINKS[b.f] ? 0 : 1;
+    return ua - ub;
+  });
+  return out;
+}
+
+function renderDocs(){
+  var list = filteredDocs();
+  var arcN = 0;
+  for(var k in DOC_LINKS){ if(Object.prototype.hasOwnProperty.call(DOC_LINKS,k)) arcN++; }
+  $("docCount").textContent = "资料库已归档 " + arcN + " 篇 · 索引 " + list.length + "/" + DOCS.length + " 篇";
+  if(!list.length){ $("docList").innerHTML = '<div class="empty">没有匹配的文档</div>'; }
+  else {
+    var html = "";
+    for(var i=0;i<list.length;i++){
+      var d = list[i];
+      var u = DOC_LINKS[d.f];
+      html += '<div class="doc"><div class="di">'+ic(d.icon,16,"#3D3D3A")+'</div>'
+        + '<div class="db"><div class="dt">'+esc(d.t)
+        + (u? '<span class="chip green" style="margin-left:7px">已归档</span>' : '')+'</div>'
+        + '<div class="dd">'+esc(d.d)+'</div>'
+        + '<div class="dd" style="font-family:ui-monospace,Menlo,monospace;margin-top:3px">'+esc(d.f)+'</div></div>';
+      if(u){
+        html += '<a class="btn sm primary" href="'+esc(u)+'" target="_blank" rel="noopener" style="min-height:36px">在线打开</a>';
+      } else {
+        html += '<button class="btn sm" data-act="copy-path" data-v="'+esc(d.f)+'">复制路径</button>';
+      }
+      html += '</div>';
+    }
+    $("docList").innerHTML = html;
+  }
+  renderCmds();
+  renderEndpoints();
+}
+
+function renderCmds(){
+  var html = "";
+  for(var i=0;i<OPS_CMDS.length;i++){
+    var c = OPS_CMDS[i];
+    html += '<div class="cmd"><code>'+esc(c.c)+'</code><span class="cd">'+esc(c.d)+'</span>'
+      + '<button class="btn sm" data-act="copy-path" data-v="'+esc(c.c)+'" style="min-height:34px">复制</button></div>';
+  }
+  $("cmdList").innerHTML = html;
+}
+
+function renderEndpoints(){
+  var html = "";
+  for(var i=0;i<ENDPOINTS.length;i++){
+    var e = ENDPOINTS[i];
+    html += '<div class="doc"><div class="di">'+ic("server",16,"#3D3D3A")+'</div>'
+      + '<div class="db"><div class="dt">'+esc(e.n)+'</div>'
+      + '<div class="dd" style="font-family:ui-monospace,Menlo,monospace">'+esc(e.v)+'</div>'
+      + '<div class="dd">'+esc(e.d)+'</div></div></div>';
+  }
+  $("epList").innerHTML = html;
+}
+/* ========================= 导航 ========================= */
+var TABS = [
+  {id:"overview", label:"总览", short:"总览", icon:"chart"},
+  {id:"modules", label:"功能模块", short:"模块", icon:"link"},
+  {id:"admin", label:"运维配置", short:"配置", icon:"server"},
+  {id:"docs", label:"文档运维", short:"文档", icon:"doc"}
+];
+
+function renderNav(){
+  var d = "", m = "";
+  for(var i=0;i<TABS.length;i++){
+    var t = TABS[i], on = state.tab===t.id;
+    d += '<button class="nav-item'+(on?" on":"")+'" data-act="goto" data-tab="'+t.id+'">'
+      + ic(t.icon, 18, "currentColor") + '<span>'+esc(t.label)+'</span>'
+      + (t.id==="admin"? '<span class="badge" id="navBadge"></span>' : '') + '</button>';
+    m += '<button class="'+(on?"on":"")+'" data-act="goto" data-tab="'+t.id+'">'
+      + ic(t.icon, 20, "currentColor") + '<span>'+esc(t.short)+'</span></button>';
+  }
+  $("navDesk").innerHTML = d;
+  $("navMob").innerHTML = m;
+}
+
+function switchTab(id){
+  state.tab = id;
+  for(var i=0;i<TABS.length;i++){
+    var p = $("panel-" + TABS[i].id);
+    if(p){ if(TABS[i].id===id) p.classList.add("on"); else p.classList.remove("on"); }
+  }
+  renderNav();
+  var title = "总览";
+  for(var j=0;j<TABS.length;j++){ if(TABS[j].id===id) title = TABS[j].label; }
+  $("topTitle").textContent = title;
+  var nb = $("navBadge"); if(nb){ var n = dirtyCount(); nb.textContent = n? n : ""; nb.style.display = n? "" : "none"; }
+  saveUI();
+  window.scrollTo(0,0);
+}
+function saveUI(){ lsSet(LS_KEY_UI, {tab:state.tab, openGroups:state.openGroups}); }
+
+/* ========================= 统一刷新入口 ========================= */
+/* 单向：refreshAll → 各渲染函数；渲染函数之间严禁互调 */
+function refreshAll(){
+  renderNav();
+  renderOverview();
+  renderModFilter();
+  renderModules();
+  renderAdmin();
+  renderLib();
+  renderDocs();
+  var n = dirtyCount();
+  var nb = $("navBadge"); if(nb){ nb.textContent = n? n : ""; }
+}
+
+/* ========================= 事件处理（改数据 → 统一刷新） ========================= */
+function handleClick(act, el){
+  var env, id, tab, v;
+  switch(act){
+    case "goto":
+      tab = el.getAttribute("data-tab");
+      if(tab){ switchTab(tab); }
+      break;
+
+    case "toggle-group":
+      var gid = el.getAttribute("data-g");
+      state.openGroups[gid] = !state.openGroups[gid];
+      var gEl = el.parentNode;
+      if(state.openGroups[gid]) gEl.classList.add("open"); else gEl.classList.remove("open");
+      saveUI();
+      break;
+
+    case "toggle-secret":
+      env = el.getAttribute("data-env");
+      state.showSecret[env] = !state.showSecret[env];
+      var field = el.closest ? el.closest(".field") : null;
+      if(field){ field.outerHTML = renderField(findItem(env)); }
+      break;
+
+    case "add-todo":
+      state.addingTodo = true;
+      renderTodo();
+      var inp = $("newTodoInput");
+      if(inp) inp.focus();
+      break;
+
+    case "cancel-todo":
+      state.addingTodo = false;
+      renderTodo();
+      break;
+
+    case "save-todo":
+      var txt = ($("newTodoInput") && $("newTodoInput").value || "").trim();
+      if(!txt){ toast("先写点内容"); return; }
+      var sel = $("newTodoTag");
+      state.todos.push({id:"t"+Date.now(), t:txt, due:todayStr(), tag:(sel?sel.value:"P2"), note:"", done:false});
+      state.addingTodo = false;
+      lsSet(LS_KEY_TODO, state.todos);
+      refreshAll();
+      toast("已添加待办");
+      break;
+
+    case "toggle-todo":
+      id = el.getAttribute("data-id");
+      for(var i=0;i<state.todos.length;i++){
+        if(state.todos[i].id===id){ state.todos[i].done = !state.todos[i].done; break; }
+      }
+      lsSet(LS_KEY_TODO, state.todos);
+      renderTodo();
+      break;
+
+    case "defer-todo":
+      id = el.getAttribute("data-id");
+      for(var k=0;k<state.todos.length;k++){
+        if(state.todos[k].id===id){ state.todos[k].due = todayStr(); break; }
+      }
+      lsSet(LS_KEY_TODO, state.todos);
+      renderTodo();
+      toast("已顺延到今天");
+      break;
+
+    case "del-todo":
+      id = el.getAttribute("data-id");
+      askConfirm("删除这条待办？", "删除后无法恢复。", function(){
+        var out = [];
+        for(var z=0;z<state.todos.length;z++){ if(state.todos[z].id!==id) out.push(state.todos[z]); }
+        state.todos = out;
+        lsSet(LS_KEY_TODO, state.todos);
+        renderTodo();
+        toast("已删除");
+      });
+      break;
+
+    case "mod-filter":
+      state.modFilter = el.getAttribute("data-v");
+      renderModFilter();
+      renderModules();
+      break;
+
+    case "copy-path":
+      v = el.getAttribute("data-v");
+      copyText(v);
+      break;
+
+    case "export-env": {
+      var r = buildEnv();
+      if(!r.n){ toast("还没有改动任何配置，可先修改几项再导出"); return; }
+      download("fandecide.env", r.text, "text/plain;charset=utf-8");
+      toast("已导出 " + r.n + " 项配置");
+      break;
+    }
+    case "export-json":
+      download("fandecide-workspace-backup.json", buildBackup(), "application/json;charset=utf-8");
+      toast("备份已下载");
+      break;
+
+    case "import-json":
+      $("fileInput").click();
+      break;
+
+    case "reset-cfg":
+      askConfirm("重置全部配置为默认值？", "已改动的配置项会全部丢失，建议先导出 JSON 备份。", function(){
+        state.cfg = {};
+        for(var kk in CFG_DEFAULTS){ if(Object.prototype.hasOwnProperty.call(CFG_DEFAULTS,kk)) state.cfg[kk] = CFG_DEFAULTS[kk]; }
+        saveCfg();
+        refreshAll();
+        toast("已重置为默认值");
+      });
+      break;
+  }
+}
+
+function findItem(env){
+  for(var i=0;i<CONFIG_GROUPS.length;i++){
+    var items = CONFIG_GROUPS[i].items;
+    for(var j=0;j<items.length;j++){ if(items[j].env===env) return items[j]; }
+  }
+  return null;
+}
+
+function copyText(txt){
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(function(){ toast("已复制：" + txt); }, function(){ fallbackCopy(txt); });
+    } else { fallbackCopy(txt); }
+  }catch(e){ fallbackCopy(txt); }
+}
+function fallbackCopy(txt){
+  var ta = document.createElement("textarea");
+  ta.value = txt; ta.style.position="fixed"; ta.style.opacity="0";
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); toast("已复制：" + txt); }catch(e){ toast("复制失败，请手动选取"); }
+  document.body.removeChild(ta);
+}
+
+/* ========================= 初始化 ========================= */
+function bindEvents(){
+  document.addEventListener("click", function(e){
+    var el = e.target.closest ? e.target.closest("[data-act]") : null;
+    if(el){ handleClick(el.getAttribute("data-act"), el); }
+  });
+
+  /* 配置值变化：只改数据 + 局部标记，避免重建表单导致失焦 */
+  document.addEventListener("input", function(e){
+    var el = e.target;
+    var act = el.getAttribute && el.getAttribute("data-act");
+    if(act==="cfg-val"){ setCfg(el.getAttribute("data-env"), el.value); }
+  });
+  document.addEventListener("change", function(e){
+    var el = e.target;
+    var act = el.getAttribute && el.getAttribute("data-act");
+    if(act==="cfg-val"){ setCfg(el.getAttribute("data-env"), el.value); }
+    if(act==="cfg-bool"){
+      var env = el.getAttribute("data-env");
+      setCfg(env, el.checked);
+      var lbl = el.parentNode.querySelector(".tl");
+      if(lbl) lbl.textContent = el.checked ? "已开启" : "已关闭";
+      var g = el.closest ? el.closest(".group") : null;
+      if(g){
+        var gid = g.getAttribute("data-g");
+        for(var i=0;i<CONFIG_GROUPS.length;i++){
+          if(CONFIG_GROUPS[i].id===gid){
+            var dc = groupDirtyCount(CONFIG_GROUPS[i]);
+            var p = g.querySelector(".group-h .pill");
+            if(p){ p.className = "pill"+(dc?" dirty":""); p.textContent = dc? dc+" 项已改" : "默认"; }
+            break;
+          }
+        }
+      }
+    }
+  });
+
+  /* 搜索：只重渲染对应区块，不整体刷新 */
+  var ms = $("modSearch");
+  if(ms) ms.addEventListener("input", function(){ state.modQuery = ms.value; renderModules(); });
+  var cs = $("cfgSearch");
+  if(cs) cs.addEventListener("input", function(){ state.cfgQuery = cs.value; renderAdmin(); });
+  var ds = $("docSearch");
+  if(ds) ds.addEventListener("input", function(){ state.docQuery = ds.value; renderDocs(); });
+
+  var fi = $("fileInput");
+  if(fi) fi.addEventListener("change", function(){
+    var f = fi.files && fi.files[0];
+    if(!f) return;
+    var rd = new FileReader();
+    rd.onload = function(){
+      try{
+        var obj = JSON.parse(rd.result);
+        if(obj && obj.cfg){
+          for(var k in obj.cfg){ if(Object.prototype.hasOwnProperty.call(obj.cfg,k) && CFG_DEFAULTS[k]!==undefined){ state.cfg[k] = obj.cfg[k]; } }
+          saveCfg();
+        }
+        if(obj && obj.todos && obj.todos.length){ state.todos = obj.todos; lsSet(LS_KEY_TODO, state.todos); }
+        refreshAll();
+        toast("已恢复备份");
+      }catch(err){ toast("文件格式不对，需要本工作台导出的 JSON"); }
+      fi.value = "";
+    };
+    rd.readAsText(f);
+  });
+
+  $("mkNo").addEventListener("click", closeConfirm);
+  $("mkYes").addEventListener("click", function(){ var cb = confirmCb; closeConfirm(); if(cb) cb(); });
+  $("mask").addEventListener("click", function(e){ if(e.target === $("mask")) closeConfirm(); });
+
+  /* 顶部按钮 */
+  $("btnAddTodo").setAttribute("data-act","add-todo");
+  $("btnExportEnv").setAttribute("data-act","export-env");
+  $("btnExportJson").setAttribute("data-act","export-json");
+  $("btnImportJson").setAttribute("data-act","import-json");
+  $("btnReset").setAttribute("data-act","reset-cfg");
+}
+
+function init(){
+  state.cfg = loadCfg();
+  state.todos = lsGet(LS_KEY_TODO, null);
+  if(!state.todos || !state.todos.length){ state.todos = sampleTodos(); lsSet(LS_KEY_TODO, state.todos); }
+  var ui = lsGet(LS_KEY_UI, {});
+  state.tab = ui.tab || "overview";
+  state.openGroups = ui.openGroups || {};
+  if(!state.openGroups || typeof state.openGroups !== "object") state.openGroups = {};
+  state.openGroups["database"] = true;
+  state.openGroups["auth"] = true;
+  state.addingTodo = false;
+
+  bindEvents();
+  refreshAll();
+  switchTab(state.tab);
+
+  var sd = $("syncDot"), sd2 = $("syncDot2");
+  if(sd){ sd.className = "dot"; $("syncTxt").textContent = "本地已保存"; }
+  if(sd2) sd2.className = "dot";
+}
+
+if(document.readyState === "loading"){
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>

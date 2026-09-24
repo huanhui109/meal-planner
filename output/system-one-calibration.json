@@ -1,0 +1,2146 @@
+{
+  "fit": {
+    "noul": {
+      "pairs": 636,
+      "accept": 0.91,
+      "reject": 0.2,
+      "score": 516,
+      "ceiling": 636,
+      "accuracy": 0.811,
+      "f1": 0.863,
+      "current": 0.732,
+      "strategies": {
+        "rule": {
+          "tp": 57,
+          "fp": 8,
+          "fn": 19,
+          "tn": 552,
+          "precision": 0.8769230769230769,
+          "recall": 0.75,
+          "f1": 0.8085106382978723
+        },
+        "model": {
+          "tp": 25,
+          "fp": 6,
+          "fn": 51,
+          "tn": 554,
+          "precision": 0.8064516129032258,
+          "recall": 0.32894736842105265,
+          "f1": 0.4672897196261682
+        },
+        "fusion": {
+          "tp": 66,
+          "fp": 11,
+          "fn": 10,
+          "tn": 549,
+          "precision": 0.8571428571428571,
+          "recall": 0.868421052631579,
+          "f1": 0.8627450980392157
+        }
+      },
+      "per_question": [
+        {
+          "key": "use_fridge",
+          "n_true": 10,
+          "n_false": 96,
+          "min_true": 0.074,
+          "max_false": 0.742,
+          "median_true": 0.814,
+          "median_false": 0.272,
+          "gap": -0.668
+        },
+        {
+          "key": "rush",
+          "n_true": 16,
+          "n_false": 90,
+          "min_true": 0.053,
+          "max_false": 0.572,
+          "median_true": 0.683,
+          "median_false": 0.169,
+          "gap": -0.519
+        },
+        {
+          "key": "avoid_meat",
+          "n_true": 12,
+          "n_false": 94,
+          "min_true": 0.392,
+          "max_false": 0.765,
+          "median_true": 0.857,
+          "median_false": 0.112,
+          "gap": -0.373
+        },
+        {
+          "key": "avoid_spicy",
+          "n_true": 14,
+          "n_false": 92,
+          "min_true": 0.618,
+          "max_false": 0.975,
+          "median_true": 0.953,
+          "median_false": 0.387,
+          "gap": -0.358
+        },
+        {
+          "key": "want_soup",
+          "n_true": 8,
+          "n_false": 98,
+          "min_true": 0.61,
+          "max_false": 0.897,
+          "median_true": 0.908,
+          "median_false": 0.14,
+          "gap": -0.287
+        },
+        {
+          "key": "require_light",
+          "n_true": 16,
+          "n_false": 90,
+          "min_true": 0.757,
+          "max_false": 0.954,
+          "median_true": 0.873,
+          "median_false": 0.378,
+          "gap": -0.197
+        }
+      ]
+    },
+    "confidence": {
+      "samples": 106,
+      "min_confidence": 0.9,
+      "score": 86,
+      "ceiling": 106,
+      "accuracy": 0.811,
+      "curve": [
+        [
+          0.3,
+          -92
+        ],
+        [
+          0.35,
+          -81
+        ],
+        [
+          0.4,
+          -51
+        ],
+        [
+          0.45,
+          -39
+        ],
+        [
+          0.5,
+          -30
+        ],
+        [
+          0.55,
+          -3
+        ],
+        [
+          0.6,
+          12
+        ],
+        [
+          0.65,
+          23
+        ],
+        [
+          0.7,
+          44
+        ],
+        [
+          0.75,
+          49
+        ],
+        [
+          0.8,
+          58
+        ],
+        [
+          0.85,
+          78
+        ],
+        [
+          0.9,
+          86
+        ]
+      ]
+    }
+  },
+  "rows": [
+    {
+      "utterance": "今天吃啥",
+      "group": "无诉求",
+      "labels": {},
+      "ms": 172.4,
+      "ok": true,
+      "noul": {
+        "require_light": 0.3034,
+        "avoid_spicy": 0.3848,
+        "rush": 0.1258,
+        "use_fridge": 0.0661,
+        "avoid_meat": 0.0654,
+        "want_soup": 0.0932
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.0897
+    },
+    {
+      "utterance": "随便",
+      "group": "无诉求",
+      "labels": {},
+      "ms": 182.9,
+      "ok": true,
+      "noul": {
+        "require_light": 0.1019,
+        "avoid_spicy": 0.1833,
+        "rush": 0.0567,
+        "use_fridge": 0.024,
+        "avoid_meat": 0.045,
+        "want_soup": 0.0152
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.8216
+    },
+    {
+      "utterance": "你来定",
+      "group": "无诉求",
+      "labels": {},
+      "ms": 183.2,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2983,
+        "avoid_spicy": 0.2115,
+        "rush": 0.1388,
+        "use_fridge": 0.0716,
+        "avoid_meat": 0.0468,
+        "want_soup": 0.023
+      },
+      "cuisine": "无所谓",
+      "cuisine_conf": 0.1841
+    },
+    {
+      "utterance": "随便吃点什么都行",
+      "group": "无诉求",
+      "labels": {},
+      "ms": 191.4,
+      "ok": true,
+      "noul": {
+        "require_light": 0.4881,
+        "avoid_spicy": 0.2919,
+        "rush": 0.1024,
+        "use_fridge": 0.0836,
+        "avoid_meat": 0.3524,
+        "want_soup": 0.0578
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.2115
+    },
+    {
+      "utterance": "帮我选一个",
+      "group": "无诉求",
+      "labels": {},
+      "ms": 177.0,
+      "ok": true,
+      "noul": {
+        "require_light": 0.1836,
+        "avoid_spicy": 0.1691,
+        "rush": 0.1655,
+        "use_fridge": 0.3461,
+        "avoid_meat": 0.0565,
+        "want_soup": 0.0412
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.097
+    },
+    {
+      "utterance": "不知道吃啥",
+      "group": "无诉求",
+      "labels": {},
+      "ms": 177.7,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2653,
+        "avoid_spicy": 0.6641,
+        "rush": 0.0624,
+        "use_fridge": 0.0633,
+        "avoid_meat": 0.2253,
+        "want_soup": 0.0472
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.2449
+    },
+    {
+      "utterance": "都行",
+      "group": "无诉求",
+      "labels": {},
+      "ms": 175.4,
+      "ok": true,
+      "noul": {
+        "require_light": 0.5157,
+        "avoid_spicy": 0.0703,
+        "rush": 0.2504,
+        "use_fridge": 0.1082,
+        "avoid_meat": 0.0724,
+        "want_soup": 0.0398
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.691
+    },
+    {
+      "utterance": "看着办吧",
+      "group": "无诉求",
+      "labels": {},
+      "ms": 178.2,
+      "ok": true,
+      "noul": {
+        "require_light": 0.5793,
+        "avoid_spicy": 0.2145,
+        "rush": 0.416,
+        "use_fridge": 0.1551,
+        "avoid_meat": 0.1115,
+        "want_soup": 0.022
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.4639
+    },
+    {
+      "utterance": "今天吃什么呢",
+      "group": "无诉求",
+      "labels": {},
+      "ms": 174.8,
+      "ok": true,
+      "noul": {
+        "require_light": 0.314,
+        "avoid_spicy": 0.3639,
+        "rush": 0.2533,
+        "use_fridge": 0.1529,
+        "avoid_meat": 0.1182,
+        "want_soup": 0.144
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.3945
+    },
+    {
+      "utterance": "换一个看看",
+      "group": "无诉求",
+      "labels": {},
+      "ms": 175.3,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2302,
+        "avoid_spicy": 0.2161,
+        "rush": 0.1496,
+        "use_fridge": 0.0455,
+        "avoid_meat": 0.0545,
+        "want_soup": 0.0143
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.0895
+    },
+    {
+      "utterance": "今天想吃清淡点的",
+      "group": "清淡",
+      "labels": {
+        "require_light": true
+      },
+      "ms": 179.7,
+      "ok": true,
+      "noul": {
+        "require_light": 0.7914,
+        "avoid_spicy": 0.7192,
+        "rush": 0.2038,
+        "use_fridge": 0.1936,
+        "avoid_meat": 0.162,
+        "want_soup": 0.1254
+      },
+      "cuisine": "粤菜",
+      "cuisine_conf": 0.7706
+    },
+    {
+      "utterance": "来点清爽的",
+      "group": "清淡",
+      "labels": {
+        "require_light": true
+      },
+      "ms": 184.8,
+      "ok": true,
+      "noul": {
+        "require_light": 0.9572,
+        "avoid_spicy": 0.8318,
+        "rush": 0.5635,
+        "use_fridge": 0.5879,
+        "avoid_meat": 0.1869,
+        "want_soup": 0.7801
+      },
+      "cuisine": "粤菜",
+      "cuisine_conf": 0.5855
+    },
+    {
+      "utterance": "不要太油腻",
+      "group": "清淡",
+      "labels": {
+        "require_light": true
+      },
+      "ms": 180.8,
+      "ok": true,
+      "noul": {
+        "require_light": 0.967,
+        "avoid_spicy": 0.8244,
+        "rush": 0.3219,
+        "use_fridge": 0.4651,
+        "avoid_meat": 0.6436,
+        "want_soup": 0.4783
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.6224
+    },
+    {
+      "utterance": "想吃点轻食",
+      "group": "清淡",
+      "labels": {
+        "require_light": true
+      },
+      "ms": 189.8,
+      "ok": true,
+      "noul": {
+        "require_light": 0.8598,
+        "avoid_spicy": 0.6361,
+        "rush": 0.1916,
+        "use_fridge": 0.3972,
+        "avoid_meat": 0.462,
+        "want_soup": 0.0997
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.3718
+    },
+    {
+      "utterance": "减脂期, 来点低卡的",
+      "group": "清淡",
+      "labels": {
+        "require_light": true
+      },
+      "ms": 183.6,
+      "ok": true,
+      "noul": {
+        "require_light": 0.8731,
+        "avoid_spicy": 0.7589,
+        "rush": 0.5676,
+        "use_fridge": 0.6652,
+        "avoid_meat": 0.3741,
+        "want_soup": 0.139
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.1927
+    },
+    {
+      "utterance": "少油少盐",
+      "group": "清淡",
+      "labels": {
+        "require_light": true
+      },
+      "ms": 177.7,
+      "ok": true,
+      "noul": {
+        "require_light": 0.8357,
+        "avoid_spicy": 0.7397,
+        "rush": 0.0985,
+        "use_fridge": 0.3691,
+        "avoid_meat": 0.535,
+        "want_soup": 0.1083
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.2302
+    },
+    {
+      "utterance": "胃不舒服, 吃点清淡的",
+      "group": "清淡",
+      "labels": {
+        "require_light": true
+      },
+      "ms": 189.6,
+      "ok": true,
+      "noul": {
+        "require_light": 0.9314,
+        "avoid_spicy": 0.6784,
+        "rush": 0.194,
+        "use_fridge": 0.4188,
+        "avoid_meat": 0.269,
+        "want_soup": 0.5394
+      },
+      "cuisine": "粤菜",
+      "cuisine_conf": 0.8297
+    },
+    {
+      "utterance": "最近上火, 来点清淡的",
+      "group": "清淡",
+      "labels": {
+        "require_light": true
+      },
+      "ms": 181.6,
+      "ok": true,
+      "noul": {
+        "require_light": 0.7568,
+        "avoid_spicy": 0.626,
+        "rush": 0.0924,
+        "use_fridge": 0.2387,
+        "avoid_meat": 0.1164,
+        "want_soup": 0.1343
+      },
+      "cuisine": "粤菜",
+      "cuisine_conf": 0.659
+    },
+    {
+      "utterance": "想要不腻的",
+      "group": "清淡",
+      "labels": {
+        "require_light": true
+      },
+      "ms": 176.4,
+      "ok": true,
+      "noul": {
+        "require_light": 0.8683,
+        "avoid_spicy": 0.6366,
+        "rush": 0.5688,
+        "use_fridge": 0.4908,
+        "avoid_meat": 0.4845,
+        "want_soup": 0.2603
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.3744
+    },
+    {
+      "utterance": "今天想吃得健康一点",
+      "group": "清淡",
+      "labels": {
+        "require_light": true
+      },
+      "ms": 179.5,
+      "ok": true,
+      "noul": {
+        "require_light": 0.801,
+        "avoid_spicy": 0.6016,
+        "rush": 0.3553,
+        "use_fridge": 0.3249,
+        "avoid_meat": 0.2019,
+        "want_soup": 0.1798
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.5752
+    },
+    {
+      "utterance": "别太辣",
+      "group": "不辣",
+      "labels": {
+        "avoid_spicy": true
+      },
+      "ms": 177.5,
+      "ok": true,
+      "noul": {
+        "require_light": 0.8141,
+        "avoid_spicy": 0.9525,
+        "rush": 0.2372,
+        "use_fridge": 0.5432,
+        "avoid_meat": 0.4142,
+        "want_soup": 0.3413
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.5113
+    },
+    {
+      "utterance": "不吃辣",
+      "group": "不辣",
+      "labels": {
+        "avoid_spicy": true
+      },
+      "ms": 175.6,
+      "ok": true,
+      "noul": {
+        "require_light": 0.9173,
+        "avoid_spicy": 0.9762,
+        "rush": 0.169,
+        "use_fridge": 0.6802,
+        "avoid_meat": 0.121,
+        "want_soup": 0.1206
+      },
+      "cuisine": "粤菜",
+      "cuisine_conf": 0.1891
+    },
+    {
+      "utterance": "一点辣都不要",
+      "group": "不辣",
+      "labels": {
+        "avoid_spicy": true
+      },
+      "ms": 177.1,
+      "ok": true,
+      "noul": {
+        "require_light": 0.9051,
+        "avoid_spicy": 0.9773,
+        "rush": 0.1664,
+        "use_fridge": 0.7419,
+        "avoid_meat": 0.765,
+        "want_soup": 0.127
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.4742
+    },
+    {
+      "utterance": "微辣就行",
+      "group": "不辣",
+      "labels": {
+        "avoid_spicy": true
+      },
+      "ms": 176.5,
+      "ok": true,
+      "noul": {
+        "require_light": 0.5115,
+        "avoid_spicy": 0.7619,
+        "rush": 0.1421,
+        "use_fridge": 0.2966,
+        "avoid_meat": 0.0545,
+        "want_soup": 0.6925
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.3794
+    },
+    {
+      "utterance": "不要放辣椒",
+      "group": "不辣",
+      "labels": {
+        "avoid_spicy": true
+      },
+      "ms": 176.4,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2064,
+        "avoid_spicy": 0.9155,
+        "rush": 0.0899,
+        "use_fridge": 0.2619,
+        "avoid_meat": 0.1047,
+        "want_soup": 0.0168
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.287
+    },
+    {
+      "utterance": "孩子也吃, 别辣",
+      "group": "不辣",
+      "labels": {
+        "avoid_spicy": true
+      },
+      "ms": 178.1,
+      "ok": true,
+      "noul": {
+        "require_light": 0.792,
+        "avoid_spicy": 0.9782,
+        "rush": 0.2759,
+        "use_fridge": 0.53,
+        "avoid_meat": 0.2682,
+        "want_soup": 0.3944
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.2859
+    },
+    {
+      "utterance": "我忌辣",
+      "group": "不辣",
+      "labels": {
+        "avoid_spicy": true
+      },
+      "ms": 176.2,
+      "ok": true,
+      "noul": {
+        "require_light": 0.6259,
+        "avoid_spicy": 0.9729,
+        "rush": 0.1554,
+        "use_fridge": 0.4217,
+        "avoid_meat": 0.1634,
+        "want_soup": 0.3228
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.6548
+    },
+    {
+      "utterance": "少放点辣",
+      "group": "不辣",
+      "labels": {
+        "avoid_spicy": true
+      },
+      "ms": 179.0,
+      "ok": true,
+      "noul": {
+        "require_light": 0.6094,
+        "avoid_spicy": 0.8322,
+        "rush": 0.2161,
+        "use_fridge": 0.3806,
+        "avoid_meat": 0.1099,
+        "want_soup": 0.1659
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.5577
+    },
+    {
+      "utterance": "我只能吃一点点辣",
+      "group": "不辣",
+      "labels": {
+        "avoid_spicy": true
+      },
+      "ms": 177.9,
+      "ok": true,
+      "noul": {
+        "require_light": 0.626,
+        "avoid_spicy": 0.7376,
+        "rush": 0.1381,
+        "use_fridge": 0.3743,
+        "avoid_meat": 0.1481,
+        "want_soup": 0.4878
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.7671
+    },
+    {
+      "utterance": "今天不想吃辣的",
+      "group": "不辣",
+      "labels": {
+        "avoid_spicy": true
+      },
+      "ms": 177.6,
+      "ok": true,
+      "noul": {
+        "require_light": 0.5011,
+        "avoid_spicy": 0.9582,
+        "rush": 0.1121,
+        "use_fridge": 0.3217,
+        "avoid_meat": 0.1648,
+        "want_soup": 0.0757
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.6773
+    },
+    {
+      "utterance": "想吃辣的",
+      "group": "要辣",
+      "labels": {},
+      "ms": 177.7,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2178,
+        "avoid_spicy": 0.0927,
+        "rush": 0.2294,
+        "use_fridge": 0.2143,
+        "avoid_meat": 0.0754,
+        "want_soup": 0.749
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.8004
+    },
+    {
+      "utterance": "来点重口味的",
+      "group": "要辣",
+      "labels": {},
+      "ms": 176.4,
+      "ok": true,
+      "noul": {
+        "require_light": 0.4365,
+        "avoid_spicy": 0.5259,
+        "rush": 0.3019,
+        "use_fridge": 0.4247,
+        "avoid_meat": 0.0649,
+        "want_soup": 0.618
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.83
+    },
+    {
+      "utterance": "无辣不欢",
+      "group": "要辣",
+      "labels": {},
+      "ms": 178.7,
+      "ok": true,
+      "noul": {
+        "require_light": 0.6864,
+        "avoid_spicy": 0.9674,
+        "rush": 0.2048,
+        "use_fridge": 0.2993,
+        "avoid_meat": 0.4973,
+        "want_soup": 0.0696
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.1661
+    },
+    {
+      "utterance": "越辣越好",
+      "group": "要辣",
+      "labels": {},
+      "ms": 175.4,
+      "ok": true,
+      "noul": {
+        "require_light": 0.4274,
+        "avoid_spicy": 0.3897,
+        "rush": 0.1956,
+        "use_fridge": 0.4272,
+        "avoid_meat": 0.0102,
+        "want_soup": 0.2951
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.5502
+    },
+    {
+      "utterance": "想吃麻辣的",
+      "group": "要辣",
+      "labels": {
+        "cuisine": "川湘"
+      },
+      "ms": 177.0,
+      "ok": true,
+      "noul": {
+        "require_light": 0.3074,
+        "avoid_spicy": 0.1535,
+        "rush": 0.164,
+        "use_fridge": 0.2325,
+        "avoid_meat": 0.0981,
+        "want_soup": 0.4542
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.5786
+    },
+    {
+      "utterance": "来个水煮鱼, 要辣的",
+      "group": "要辣",
+      "labels": {
+        "cuisine": "川湘"
+      },
+      "ms": 180.2,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2316,
+        "avoid_spicy": 0.2241,
+        "rush": 0.1946,
+        "use_fridge": 0.2505,
+        "avoid_meat": 0.0522,
+        "want_soup": 0.5874
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.5528
+    },
+    {
+      "utterance": "赶时间, 快点",
+      "group": "赶时间",
+      "labels": {
+        "rush": true
+      },
+      "ms": 174.6,
+      "ok": true,
+      "noul": {
+        "require_light": 0.3643,
+        "avoid_spicy": 0.1592,
+        "rush": 0.6833,
+        "use_fridge": 0.2859,
+        "avoid_meat": 0.1352,
+        "want_soup": 0.0392
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.4694
+    },
+    {
+      "utterance": "十分钟内能搞定吗",
+      "group": "赶时间",
+      "labels": {
+        "rush": true
+      },
+      "ms": 181.0,
+      "ok": true,
+      "noul": {
+        "require_light": 0.0462,
+        "avoid_spicy": 0.1896,
+        "rush": 0.2778,
+        "use_fridge": 0.0524,
+        "avoid_meat": 0.0922,
+        "want_soup": 0.084
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.5366
+    },
+    {
+      "utterance": "我只有二十分钟",
+      "group": "赶时间",
+      "labels": {
+        "rush": true
+      },
+      "ms": 178.1,
+      "ok": true,
+      "noul": {
+        "require_light": 0.1598,
+        "avoid_spicy": 0.2884,
+        "rush": 0.3831,
+        "use_fridge": 0.0141,
+        "avoid_meat": 0.0371,
+        "want_soup": 0.0163
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.8029
+    },
+    {
+      "utterance": "简单点, 来个快手菜",
+      "group": "赶时间",
+      "labels": {
+        "rush": true
+      },
+      "ms": 182.3,
+      "ok": true,
+      "noul": {
+        "require_light": 0.7267,
+        "avoid_spicy": 0.7131,
+        "rush": 0.5251,
+        "use_fridge": 0.44,
+        "avoid_meat": 0.1299,
+        "want_soup": 0.3548
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.2455
+    },
+    {
+      "utterance": "马上要出门, 随便来个快的",
+      "group": "赶时间",
+      "labels": {
+        "rush": true
+      },
+      "ms": 182.4,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2402,
+        "avoid_spicy": 0.2786,
+        "rush": 0.6723,
+        "use_fridge": 0.2376,
+        "avoid_meat": 0.0915,
+        "want_soup": 0.0664
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.5163
+    },
+    {
+      "utterance": "太饿了, 要快",
+      "group": "赶时间",
+      "labels": {
+        "rush": true
+      },
+      "ms": 180.7,
+      "ok": true,
+      "noul": {
+        "require_light": 0.3454,
+        "avoid_spicy": 0.3878,
+        "rush": 0.9191,
+        "use_fridge": 0.4422,
+        "avoid_meat": 0.2485,
+        "want_soup": 0.3275
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.5462
+    },
+    {
+      "utterance": "别整太复杂的",
+      "group": "赶时间",
+      "labels": {
+        "rush": true
+      },
+      "ms": 177.2,
+      "ok": true,
+      "noul": {
+        "require_light": 0.4103,
+        "avoid_spicy": 0.7522,
+        "rush": 0.055,
+        "use_fridge": 0.3592,
+        "avoid_meat": 0.3521,
+        "want_soup": 0.0422
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.6871
+    },
+    {
+      "utterance": "五分钟能搞定的有吗",
+      "group": "赶时间",
+      "labels": {
+        "rush": true
+      },
+      "ms": 185.6,
+      "ok": true,
+      "noul": {
+        "require_light": 0.0509,
+        "avoid_spicy": 0.0851,
+        "rush": 0.0533,
+        "use_fridge": 0.0173,
+        "avoid_meat": 0.0262,
+        "want_soup": 0.0141
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.3563
+    },
+    {
+      "utterance": "来得及吗, 我赶时间",
+      "group": "赶时间",
+      "labels": {
+        "rush": true
+      },
+      "ms": 179.1,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2479,
+        "avoid_spicy": 0.1969,
+        "rush": 0.772,
+        "use_fridge": 0.5176,
+        "avoid_meat": 0.0623,
+        "want_soup": 0.0565
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.4387
+    },
+    {
+      "utterance": "冰箱里还有鸡蛋和西红柿",
+      "group": "冰箱",
+      "labels": {
+        "use_fridge": true
+      },
+      "ms": 180.8,
+      "ok": true,
+      "noul": {
+        "require_light": 0.0935,
+        "avoid_spicy": 0.3873,
+        "rush": 0.0104,
+        "use_fridge": 0.0742,
+        "avoid_meat": 0.0146,
+        "want_soup": 0.0109
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.2796
+    },
+    {
+      "utterance": "家里剩了半棵白菜, 用掉",
+      "group": "冰箱",
+      "labels": {
+        "use_fridge": true
+      },
+      "ms": 181.1,
+      "ok": true,
+      "noul": {
+        "require_light": 0.1805,
+        "avoid_spicy": 0.4589,
+        "rush": 0.2868,
+        "use_fridge": 0.9584,
+        "avoid_meat": 0.1087,
+        "want_soup": 0.0372
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.6751
+    },
+    {
+      "utterance": "看看冰箱有啥就做啥",
+      "group": "冰箱",
+      "labels": {
+        "use_fridge": true
+      },
+      "ms": 179.0,
+      "ok": true,
+      "noul": {
+        "require_light": 0.06,
+        "avoid_spicy": 0.0495,
+        "rush": 0.0354,
+        "use_fridge": 0.2358,
+        "avoid_meat": 0.0274,
+        "want_soup": 0.0056
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.4078
+    },
+    {
+      "utterance": "别浪费, 把剩菜解决了",
+      "group": "冰箱",
+      "labels": {
+        "use_fridge": true
+      },
+      "ms": 180.7,
+      "ok": true,
+      "noul": {
+        "require_light": 0.8442,
+        "avoid_spicy": 0.9374,
+        "rush": 0.5719,
+        "use_fridge": 0.8295,
+        "avoid_meat": 0.5988,
+        "want_soup": 0.2033
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.8459
+    },
+    {
+      "utterance": "现有食材能做点什么",
+      "group": "冰箱",
+      "labels": {
+        "use_fridge": true
+      },
+      "ms": 180.2,
+      "ok": true,
+      "noul": {
+        "require_light": 0.313,
+        "avoid_spicy": 0.2406,
+        "rush": 0.0555,
+        "use_fridge": 0.8144,
+        "avoid_meat": 0.0621,
+        "want_soup": 0.1671
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.15
+    },
+    {
+      "utterance": "冰箱里有鸡胸肉, 拿来用",
+      "group": "冰箱",
+      "labels": {
+        "use_fridge": true
+      },
+      "ms": 183.4,
+      "ok": true,
+      "noul": {
+        "require_light": 0.179,
+        "avoid_spicy": 0.3155,
+        "rush": 0.0952,
+        "use_fridge": 0.7853,
+        "avoid_meat": 0.0875,
+        "want_soup": 0.1081
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.2669
+    },
+    {
+      "utterance": "昨天的剩饭别浪费",
+      "group": "冰箱",
+      "labels": {
+        "use_fridge": true
+      },
+      "ms": 180.9,
+      "ok": true,
+      "noul": {
+        "require_light": 0.8402,
+        "avoid_spicy": 0.7521,
+        "rush": 0.4087,
+        "use_fridge": 0.763,
+        "avoid_meat": 0.2805,
+        "want_soup": 0.1399
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.7209
+    },
+    {
+      "utterance": "今天吃素",
+      "group": "吃素",
+      "labels": {
+        "avoid_meat": true
+      },
+      "ms": 179.6,
+      "ok": true,
+      "noul": {
+        "require_light": 0.9538,
+        "avoid_spicy": 0.914,
+        "rush": 0.5529,
+        "use_fridge": 0.1874,
+        "avoid_meat": 0.3919,
+        "want_soup": 0.024
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.5468
+    },
+    {
+      "utterance": "不吃肉",
+      "group": "吃素",
+      "labels": {
+        "avoid_meat": true
+      },
+      "ms": 174.3,
+      "ok": true,
+      "noul": {
+        "require_light": 0.8381,
+        "avoid_spicy": 0.3609,
+        "rush": 0.1692,
+        "use_fridge": 0.1184,
+        "avoid_meat": 0.7758,
+        "want_soup": 0.0134
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.1977
+    },
+    {
+      "utterance": "想吃素食",
+      "group": "吃素",
+      "labels": {
+        "avoid_meat": true
+      },
+      "ms": 178.0,
+      "ok": true,
+      "noul": {
+        "require_light": 0.5397,
+        "avoid_spicy": 0.2333,
+        "rush": 0.1542,
+        "use_fridge": 0.1778,
+        "avoid_meat": 0.9532,
+        "want_soup": 0.0819
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.1935
+    },
+    {
+      "utterance": "不要肉, 来点素的",
+      "group": "吃素",
+      "labels": {
+        "avoid_meat": true
+      },
+      "ms": 181.3,
+      "ok": true,
+      "noul": {
+        "require_light": 0.8712,
+        "avoid_spicy": 0.4405,
+        "rush": 0.3063,
+        "use_fridge": 0.5097,
+        "avoid_meat": 0.9608,
+        "want_soup": 0.0789
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.1924
+    },
+    {
+      "utterance": "最近在吃斋",
+      "group": "吃素",
+      "labels": {
+        "avoid_meat": true
+      },
+      "ms": 179.3,
+      "ok": true,
+      "noul": {
+        "require_light": 0.6682,
+        "avoid_spicy": 0.5252,
+        "rush": 0.1619,
+        "use_fridge": 0.2282,
+        "avoid_meat": 0.5847,
+        "want_soup": 0.033
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.898
+    },
+    {
+      "utterance": "荤的不要",
+      "group": "吃素",
+      "labels": {
+        "avoid_meat": true
+      },
+      "ms": 178.2,
+      "ok": true,
+      "noul": {
+        "require_light": 0.8551,
+        "avoid_spicy": 0.9753,
+        "rush": 0.4924,
+        "use_fridge": 0.3542,
+        "avoid_meat": 0.9684,
+        "want_soup": 0.1049
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.12
+    },
+    {
+      "utterance": "别给我推荐肉菜",
+      "group": "吃素",
+      "labels": {
+        "avoid_meat": true
+      },
+      "ms": 179.9,
+      "ok": true,
+      "noul": {
+        "require_light": 0.1513,
+        "avoid_spicy": 0.9044,
+        "rush": 0.0917,
+        "use_fridge": 0.5929,
+        "avoid_meat": 0.4792,
+        "want_soup": 0.0418
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.6379
+    },
+    {
+      "utterance": "今天想吃素一点的",
+      "group": "吃素",
+      "labels": {
+        "avoid_meat": true,
+        "require_light": true
+      },
+      "ms": 181.8,
+      "ok": true,
+      "noul": {
+        "require_light": 0.9318,
+        "avoid_spicy": 0.8169,
+        "rush": 0.2405,
+        "use_fridge": 0.381,
+        "avoid_meat": 0.8568,
+        "want_soup": 0.0547
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.5708
+    },
+    {
+      "utterance": "想喝汤",
+      "group": "喝汤",
+      "labels": {
+        "want_soup": true
+      },
+      "ms": 179.6,
+      "ok": true,
+      "noul": {
+        "require_light": 0.5843,
+        "avoid_spicy": 0.2029,
+        "rush": 0.1664,
+        "use_fridge": 0.2652,
+        "avoid_meat": 0.0387,
+        "want_soup": 0.9722
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.5377
+    },
+    {
+      "utterance": "来个汤",
+      "group": "喝汤",
+      "labels": {
+        "want_soup": true
+      },
+      "ms": 179.8,
+      "ok": true,
+      "noul": {
+        "require_light": 0.4232,
+        "avoid_spicy": 0.4341,
+        "rush": 0.2246,
+        "use_fridge": 0.2697,
+        "avoid_meat": 0.0388,
+        "want_soup": 0.9304
+      },
+      "cuisine": "粤菜",
+      "cuisine_conf": 0.2049
+    },
+    {
+      "utterance": "今天想吃点带汤的",
+      "group": "喝汤",
+      "labels": {
+        "want_soup": true
+      },
+      "ms": 181.1,
+      "ok": true,
+      "noul": {
+        "require_light": 0.6013,
+        "avoid_spicy": 0.1223,
+        "rush": 0.0684,
+        "use_fridge": 0.096,
+        "avoid_meat": 0.0443,
+        "want_soup": 0.8649
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.3411
+    },
+    {
+      "utterance": "炖个汤吧",
+      "group": "喝汤",
+      "labels": {
+        "want_soup": true
+      },
+      "ms": 178.7,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2447,
+        "avoid_spicy": 0.4017,
+        "rush": 0.136,
+        "use_fridge": 0.2352,
+        "avoid_meat": 0.014,
+        "want_soup": 0.8804
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.281
+    },
+    {
+      "utterance": "天冷, 想喝碗热汤",
+      "group": "喝汤",
+      "labels": {
+        "want_soup": true
+      },
+      "ms": 181.5,
+      "ok": true,
+      "noul": {
+        "require_light": 0.0993,
+        "avoid_spicy": 0.1697,
+        "rush": 0.1431,
+        "use_fridge": 0.2308,
+        "avoid_meat": 0.0166,
+        "want_soup": 0.9076
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.152
+    },
+    {
+      "utterance": "想吃川菜",
+      "group": "菜系",
+      "labels": {
+        "cuisine": "川湘"
+      },
+      "ms": 180.0,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2938,
+        "avoid_spicy": 0.3036,
+        "rush": 0.1825,
+        "use_fridge": 0.1275,
+        "avoid_meat": 0.2201,
+        "want_soup": 0.5055
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.5712
+    },
+    {
+      "utterance": "来点粤菜",
+      "group": "菜系",
+      "labels": {
+        "cuisine": "粤菜"
+      },
+      "ms": 173.3,
+      "ok": true,
+      "noul": {
+        "require_light": 0.3741,
+        "avoid_spicy": 0.1982,
+        "rush": 0.2193,
+        "use_fridge": 0.1137,
+        "avoid_meat": 0.0521,
+        "want_soup": 0.1526
+      },
+      "cuisine": "粤菜",
+      "cuisine_conf": 0.9904
+    },
+    {
+      "utterance": "想吃日料",
+      "group": "菜系",
+      "labels": {
+        "cuisine": "日韩"
+      },
+      "ms": 178.1,
+      "ok": true,
+      "noul": {
+        "require_light": 0.5133,
+        "avoid_spicy": 0.3789,
+        "rush": 0.2293,
+        "use_fridge": 0.3529,
+        "avoid_meat": 0.5182,
+        "want_soup": 0.1943
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.1989
+    },
+    {
+      "utterance": "想吃意面",
+      "group": "菜系",
+      "labels": {
+        "cuisine": "西餐"
+      },
+      "ms": 176.7,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2988,
+        "avoid_spicy": 0.3754,
+        "rush": 0.1843,
+        "use_fridge": 0.1619,
+        "avoid_meat": 0.1271,
+        "want_soup": 0.4106
+      },
+      "cuisine": "西餐",
+      "cuisine_conf": 0.9967
+    },
+    {
+      "utterance": "想吃碗面",
+      "group": "菜系",
+      "labels": {
+        "cuisine": "西北"
+      },
+      "ms": 177.1,
+      "ok": true,
+      "noul": {
+        "require_light": 0.7038,
+        "avoid_spicy": 0.3006,
+        "rush": 0.167,
+        "use_fridge": 0.2418,
+        "avoid_meat": 0.0991,
+        "want_soup": 0.8233
+      },
+      "cuisine": "西北",
+      "cuisine_conf": 0.1847
+    },
+    {
+      "utterance": "想吃红烧肉",
+      "group": "菜系",
+      "labels": {
+        "cuisine": "江浙"
+      },
+      "ms": 175.2,
+      "ok": true,
+      "noul": {
+        "require_light": 0.3198,
+        "avoid_spicy": 0.1835,
+        "rush": 0.1264,
+        "use_fridge": 0.1636,
+        "avoid_meat": 0.1073,
+        "want_soup": 0.2125
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.238
+    },
+    {
+      "utterance": "想吃寿司",
+      "group": "菜系",
+      "labels": {
+        "cuisine": "日韩"
+      },
+      "ms": 175.5,
+      "ok": true,
+      "noul": {
+        "require_light": 0.3969,
+        "avoid_spicy": 0.2796,
+        "rush": 0.235,
+        "use_fridge": 0.272,
+        "avoid_meat": 0.236,
+        "want_soup": 0.499
+      },
+      "cuisine": "日韩",
+      "cuisine_conf": 0.9452
+    },
+    {
+      "utterance": "来份沙拉",
+      "group": "菜系",
+      "labels": {
+        "cuisine": "西餐"
+      },
+      "ms": 178.3,
+      "ok": true,
+      "noul": {
+        "require_light": 0.3653,
+        "avoid_spicy": 0.4457,
+        "rush": 0.2631,
+        "use_fridge": 0.2031,
+        "avoid_meat": 0.043,
+        "want_soup": 0.106
+      },
+      "cuisine": "西餐",
+      "cuisine_conf": 0.877
+    },
+    {
+      "utterance": "想吃家常菜",
+      "group": "菜系",
+      "labels": {
+        "cuisine": "家常"
+      },
+      "ms": 178.0,
+      "ok": true,
+      "noul": {
+        "require_light": 0.6493,
+        "avoid_spicy": 0.6741,
+        "rush": 0.1322,
+        "use_fridge": 0.3607,
+        "avoid_meat": 0.3429,
+        "want_soup": 0.6612
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.7303
+    },
+    {
+      "utterance": "想吃泡菜炒饭",
+      "group": "菜系",
+      "labels": {
+        "cuisine": "日韩"
+      },
+      "ms": 179.4,
+      "ok": true,
+      "noul": {
+        "require_light": 0.4404,
+        "avoid_spicy": 0.3756,
+        "rush": 0.1542,
+        "use_fridge": 0.2719,
+        "avoid_meat": 0.0338,
+        "want_soup": 0.6761
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.1889
+    },
+    {
+      "utterance": "想吃烤肉",
+      "group": "菜系",
+      "labels": {
+        "cuisine": "西北"
+      },
+      "ms": 173.4,
+      "ok": true,
+      "noul": {
+        "require_light": 0.251,
+        "avoid_spicy": 0.376,
+        "rush": 0.1526,
+        "use_fridge": 0.2295,
+        "avoid_meat": 0.248,
+        "want_soup": 0.0857
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.1618
+    },
+    {
+      "utterance": "想吃蒸菜",
+      "group": "菜系",
+      "labels": {
+        "cuisine": "粤菜"
+      },
+      "ms": 176.3,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2903,
+        "avoid_spicy": 0.2629,
+        "rush": 0.1404,
+        "use_fridge": 0.2501,
+        "avoid_meat": 0.1176,
+        "want_soup": 0.3809
+      },
+      "cuisine": "粤菜",
+      "cuisine_conf": 0.3337
+    },
+    {
+      "utterance": "想吃牛排",
+      "group": "菜系",
+      "labels": {
+        "cuisine": "西餐"
+      },
+      "ms": 176.1,
+      "ok": true,
+      "noul": {
+        "require_light": 0.3128,
+        "avoid_spicy": 0.1857,
+        "rush": 0.191,
+        "use_fridge": 0.1637,
+        "avoid_meat": 0.1309,
+        "want_soup": 0.2163
+      },
+      "cuisine": "西餐",
+      "cuisine_conf": 0.2726
+    },
+    {
+      "utterance": "今天想吃清淡点的, 别太辣",
+      "group": "组合",
+      "labels": {
+        "require_light": true,
+        "avoid_spicy": true
+      },
+      "ms": 190.1,
+      "ok": true,
+      "noul": {
+        "require_light": 0.915,
+        "avoid_spicy": 0.9327,
+        "rush": 0.1256,
+        "use_fridge": 0.3113,
+        "avoid_meat": 0.4456,
+        "want_soup": 0.6182
+      },
+      "cuisine": "粤菜",
+      "cuisine_conf": 0.6169
+    },
+    {
+      "utterance": "冰箱里还有鸡蛋, 赶时间",
+      "group": "组合",
+      "labels": {
+        "use_fridge": true,
+        "rush": true
+      },
+      "ms": 180.3,
+      "ok": true,
+      "noul": {
+        "require_light": 0.5534,
+        "avoid_spicy": 0.5447,
+        "rush": 0.7138,
+        "use_fridge": 0.8741,
+        "avoid_meat": 0.1325,
+        "want_soup": 0.154
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.3916
+    },
+    {
+      "utterance": "清淡点, 十分钟内搞定",
+      "group": "组合",
+      "labels": {
+        "require_light": true,
+        "rush": true
+      },
+      "ms": 182.5,
+      "ok": true,
+      "noul": {
+        "require_light": 0.9298,
+        "avoid_spicy": 0.8145,
+        "rush": 0.6982,
+        "use_fridge": 0.4667,
+        "avoid_meat": 0.5446,
+        "want_soup": 0.3849
+      },
+      "cuisine": "粤菜",
+      "cuisine_conf": 0.9497
+    },
+    {
+      "utterance": "想吃辣的, 越快越好",
+      "group": "组合",
+      "labels": {
+        "rush": true
+      },
+      "ms": 183.6,
+      "ok": true,
+      "noul": {
+        "require_light": 0.3192,
+        "avoid_spicy": 0.0934,
+        "rush": 0.9497,
+        "use_fridge": 0.476,
+        "avoid_meat": 0.0455,
+        "want_soup": 0.6137
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.7735
+    },
+    {
+      "utterance": "今天吃素, 来个汤",
+      "group": "组合",
+      "labels": {
+        "avoid_meat": true,
+        "want_soup": true
+      },
+      "ms": 180.0,
+      "ok": true,
+      "noul": {
+        "require_light": 0.8246,
+        "avoid_spicy": 0.6392,
+        "rush": 0.1896,
+        "use_fridge": 0.1351,
+        "avoid_meat": 0.8651,
+        "want_soup": 0.9393
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.3965
+    },
+    {
+      "utterance": "别太油, 也不要肉",
+      "group": "组合",
+      "labels": {
+        "require_light": true,
+        "avoid_meat": true
+      },
+      "ms": 182.4,
+      "ok": true,
+      "noul": {
+        "require_light": 0.926,
+        "avoid_spicy": 0.8768,
+        "rush": 0.1549,
+        "use_fridge": 0.5538,
+        "avoid_meat": 0.8475,
+        "want_soup": 0.0529
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.2788
+    },
+    {
+      "utterance": "赶时间, 冰箱里有啥用啥",
+      "group": "组合",
+      "labels": {
+        "rush": true,
+        "use_fridge": true
+      },
+      "ms": 182.3,
+      "ok": true,
+      "noul": {
+        "require_light": 0.3777,
+        "avoid_spicy": 0.0768,
+        "rush": 0.2868,
+        "use_fridge": 0.4139,
+        "avoid_meat": 0.0219,
+        "want_soup": 0.0183
+      },
+      "cuisine": "粤菜",
+      "cuisine_conf": 0.4148
+    },
+    {
+      "utterance": "来点川菜, 但要微辣",
+      "group": "组合",
+      "labels": {
+        "cuisine": "川湘",
+        "avoid_spicy": true
+      },
+      "ms": 181.8,
+      "ok": true,
+      "noul": {
+        "require_light": 0.529,
+        "avoid_spicy": 0.6175,
+        "rush": 0.0638,
+        "use_fridge": 0.3157,
+        "avoid_meat": 0.0967,
+        "want_soup": 0.162
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.8182
+    },
+    {
+      "utterance": "想吃清淡的家常菜",
+      "group": "组合",
+      "labels": {
+        "require_light": true,
+        "cuisine": "家常"
+      },
+      "ms": 178.1,
+      "ok": true,
+      "noul": {
+        "require_light": 0.8116,
+        "avoid_spicy": 0.8869,
+        "rush": 0.1359,
+        "use_fridge": 0.5043,
+        "avoid_meat": 0.2308,
+        "want_soup": 0.2403
+      },
+      "cuisine": "粤菜",
+      "cuisine_conf": 0.6051
+    },
+    {
+      "utterance": "二十分钟内, 不要辣, 用冰箱的菜",
+      "group": "组合",
+      "labels": {
+        "rush": true,
+        "avoid_spicy": true,
+        "use_fridge": true
+      },
+      "ms": 191.9,
+      "ok": true,
+      "noul": {
+        "require_light": 0.7503,
+        "avoid_spicy": 0.9666,
+        "rush": 0.6809,
+        "use_fridge": 0.8869,
+        "avoid_meat": 0.6297,
+        "want_soup": 0.0718
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.4025
+    },
+    {
+      "utterance": "想喝汤, 别放香菜",
+      "group": "组合",
+      "labels": {
+        "want_soup": true
+      },
+      "ms": 182.5,
+      "ok": true,
+      "noul": {
+        "require_light": 0.3654,
+        "avoid_spicy": 0.6808,
+        "rush": 0.2149,
+        "use_fridge": 0.4187,
+        "avoid_meat": 0.4127,
+        "want_soup": 0.6099
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.3601
+    },
+    {
+      "utterance": "素的, 快点的",
+      "group": "组合",
+      "labels": {
+        "avoid_meat": true,
+        "rush": true
+      },
+      "ms": 178.9,
+      "ok": true,
+      "noul": {
+        "require_light": 0.8694,
+        "avoid_spicy": 0.8776,
+        "rush": 0.833,
+        "use_fridge": 0.3963,
+        "avoid_meat": 0.8151,
+        "want_soup": 0.0938
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.8082
+    },
+    {
+      "utterance": "想吃番茄炒蛋",
+      "group": "陷阱",
+      "labels": {},
+      "ms": 178.7,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2928,
+        "avoid_spicy": 0.3892,
+        "rush": 0.2245,
+        "use_fridge": 0.2362,
+        "avoid_meat": 0.0479,
+        "want_soup": 0.6859
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.3547
+    },
+    {
+      "utterance": "来个宫保鸡丁",
+      "group": "陷阱",
+      "labels": {},
+      "ms": 178.7,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2407,
+        "avoid_spicy": 0.5329,
+        "rush": 0.1386,
+        "use_fridge": 0.4864,
+        "avoid_meat": 0.166,
+        "want_soup": 0.6627
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.3737
+    },
+    {
+      "utterance": "想吃鸡蛋羹",
+      "group": "陷阱",
+      "labels": {},
+      "ms": 176.3,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2486,
+        "avoid_spicy": 0.1541,
+        "rush": 0.103,
+        "use_fridge": 0.2121,
+        "avoid_meat": 0.0418,
+        "want_soup": 0.7669
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.3219
+    },
+    {
+      "utterance": "我想吃牛肉面",
+      "group": "陷阱",
+      "labels": {
+        "cuisine": "西北"
+      },
+      "ms": 176.5,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2693,
+        "avoid_spicy": 0.2202,
+        "rush": 0.2516,
+        "use_fridge": 0.1855,
+        "avoid_meat": 0.0669,
+        "want_soup": 0.4472
+      },
+      "cuisine": "西北",
+      "cuisine_conf": 0.9012
+    },
+    {
+      "utterance": "今天不想吃清淡的",
+      "group": "陷阱",
+      "labels": {},
+      "ms": 181.0,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2928,
+        "avoid_spicy": 0.7182,
+        "rush": 0.2022,
+        "use_fridge": 0.136,
+        "avoid_meat": 0.2526,
+        "want_soup": 0.068
+      },
+      "cuisine": "粤菜",
+      "cuisine_conf": 0.8931
+    },
+    {
+      "utterance": "不用着急, 慢慢来",
+      "group": "陷阱",
+      "labels": {},
+      "ms": 180.1,
+      "ok": true,
+      "noul": {
+        "require_light": 0.5854,
+        "avoid_spicy": 0.1665,
+        "rush": 0.2748,
+        "use_fridge": 0.3664,
+        "avoid_meat": 0.1546,
+        "want_soup": 0.1029
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.8515
+    },
+    {
+      "utterance": "我不赶时间",
+      "group": "陷阱",
+      "labels": {},
+      "ms": 179.5,
+      "ok": true,
+      "noul": {
+        "require_light": 0.3841,
+        "avoid_spicy": 0.1284,
+        "rush": 0.1703,
+        "use_fridge": 0.0134,
+        "avoid_meat": 0.0625,
+        "want_soup": 0.0412
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.5753
+    },
+    {
+      "utterance": "冰箱空了, 得买菜",
+      "group": "陷阱",
+      "labels": {},
+      "ms": 176.6,
+      "ok": true,
+      "noul": {
+        "require_light": 0.3618,
+        "avoid_spicy": 0.4141,
+        "rush": 0.2695,
+        "use_fridge": 0.3873,
+        "avoid_meat": 0.0973,
+        "want_soup": 0.1569
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.6855
+    },
+    {
+      "utterance": "我其实挺想吃辣的, 别给我清淡的",
+      "group": "陷阱",
+      "labels": {},
+      "ms": 195.4,
+      "ok": true,
+      "noul": {
+        "require_light": 0.5003,
+        "avoid_spicy": 0.1531,
+        "rush": 0.2768,
+        "use_fridge": 0.2449,
+        "avoid_meat": 0.0962,
+        "want_soup": 0.8971
+      },
+      "cuisine": "川湘",
+      "cuisine_conf": 0.5417
+    },
+    {
+      "utterance": "别给我汤",
+      "group": "陷阱",
+      "labels": {},
+      "ms": 178.1,
+      "ok": true,
+      "noul": {
+        "require_light": 0.2074,
+        "avoid_spicy": 0.9009,
+        "rush": 0.1258,
+        "use_fridge": 0.4677,
+        "avoid_meat": 0.0401,
+        "want_soup": 0.3893
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.3353
+    },
+    {
+      "utterance": "清淡点儿",
+      "group": "极短句",
+      "labels": {
+        "require_light": true
+      },
+      "ms": 179.6,
+      "ok": true,
+      "noul": {
+        "require_light": 0.8056,
+        "avoid_spicy": 0.7743,
+        "rush": 0.1954,
+        "use_fridge": 0.2659,
+        "avoid_meat": 0.236,
+        "want_soup": 0.5301
+      },
+      "cuisine": "粤菜",
+      "cuisine_conf": 0.9638
+    },
+    {
+      "utterance": "辣一点点就行",
+      "group": "极短句",
+      "labels": {
+        "avoid_spicy": true
+      },
+      "ms": 178.9,
+      "ok": true,
+      "noul": {
+        "require_light": 0.4252,
+        "avoid_spicy": 0.6386,
+        "rush": 0.1148,
+        "use_fridge": 0.3141,
+        "avoid_meat": 0.0246,
+        "want_soup": 0.2386
+      },
+      "cuisine": "江浙",
+      "cuisine_conf": 0.5049
+    },
+    {
+      "utterance": "有啥吃啥",
+      "group": "极短句",
+      "labels": {},
+      "ms": 178.8,
+      "ok": true,
+      "noul": {
+        "require_light": 0.0928,
+        "avoid_spicy": 0.2196,
+        "rush": 0.0597,
+        "use_fridge": 0.0276,
+        "avoid_meat": 0.0321,
+        "want_soup": 0.064
+      },
+      "cuisine": "西北",
+      "cuisine_conf": 0.1033
+    },
+    {
+      "utterance": "饿死了快点的",
+      "group": "极短句",
+      "labels": {
+        "rush": true
+      },
+      "ms": 177.0,
+      "ok": true,
+      "noul": {
+        "require_light": 0.6467,
+        "avoid_spicy": 0.5599,
+        "rush": 0.8846,
+        "use_fridge": 0.4771,
+        "avoid_meat": 0.2947,
+        "want_soup": 0.1627
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.74
+    },
+    {
+      "utterance": "素",
+      "group": "极短句",
+      "labels": {
+        "avoid_meat": true
+      },
+      "ms": 176.3,
+      "ok": true,
+      "noul": {
+        "require_light": 0.791,
+        "avoid_spicy": 0.7761,
+        "rush": 0.0616,
+        "use_fridge": 0.0616,
+        "avoid_meat": 0.8721,
+        "want_soup": 0.01
+      },
+      "cuisine": "家常",
+      "cuisine_conf": 0.5337
+    },
+    {
+      "utterance": "汤",
+      "group": "极短句",
+      "labels": {
+        "want_soup": true
+      },
+      "ms": 177.9,
+      "ok": true,
+      "noul": {
+        "require_light": 0.1004,
+        "avoid_spicy": 0.3406,
+        "rush": 0.0127,
+        "use_fridge": 0.0178,
+        "avoid_meat": 0.0069,
+        "want_soup": 0.826
+      },
+      "cuisine": "粤菜",
+      "cuisine_conf": 0.3336
+    }
+  ]
+}

@@ -27,8 +27,15 @@ jobs:
         options: >-
           --health-cmd="mysqladmin ping -u root -proot" --health-interval=10s
           --health-timeout=5s --health-retries=10
+    # 这里是一组**一次性**的容器凭据: mysql:8.0 服务容器随 job 销毁,
+    # 与服务本身的凭据无关, 所以明文写在 workflow 里 (不是生产密钥)。
+    # 生产凭据永远走 APP__DATABASE__URL 环境变量 / .env, 不进版本库。
     env:
-      APP__DATABASE__URL: mysql+aiomysql://meal:meal@127.0.0.1:3306/meal_planner_test
+      CI_DB_USER: meal
+      CI_DB_PASSWORD: meal
+      CI_DB_NAME: meal_planner_test
+      CI_DB_PORT: "3306"
+      APP__DATABASE__URL: mysql+aiomysql://meal:meal@127.0.0.1:3306/meal_planner_test?charset=utf8mb4
       APP__AUTH__JWT_SECRET: ci-test-secret-not-for-production-use
       APP__APP__DEBUG: "true"
       APP__APP__CORS_ORIGINS: "[]"
@@ -51,6 +58,15 @@ jobs:
         run: |
           pip install ruff
           ruff check app tests || true
+      - name: Alembic migrations on MySQL 8.0
+        # 迁移链最容易坏在"本地 SQLite 能过、MySQL 上过不去"。
+        # 这里升到 head 再一路 downgrade 回 base 再升回来, 同时验证可升级与可回滚。
+        working-directory: backend
+        run: |
+          python -m pip install -q alembic
+          python -m alembic upgrade head
+          python -m alembic downgrade base
+          python -m alembic upgrade head
       - name: Run pytest
         working-directory: backend
         run: |

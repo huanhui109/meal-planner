@@ -98,8 +98,7 @@ async def run_daily_scrape() -> dict:
     summary = {"platforms": [], "products": 0, "prices": 0, "errors": 0}
     for scraper in ScraperRegistry.all():
         try:
-            platform_count = 0
-            # 真实场景下从 ingredient 表拉待搜列表
+            # 真实场景下从 ingredient 表拉待搜列表, 累加到 platform_count
             # Stub 实现下直接跳过
             summary["platforms"].append({
                 "name": scraper.name,

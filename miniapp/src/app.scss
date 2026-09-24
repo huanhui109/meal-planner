@@ -17,6 +17,19 @@ page {
   -webkit-font-smoothing: antialiased;
 }
 
+/**
+ * 主题宿主包裹类
+ *
+ * 为什么需要它: 小程序的 page 节点由框架生成, JS 里拿不到也写不了它的 class,
+ * 所以 `page.theme-dark {}` 这类选择器永远命不中 —— CSS 变量只能落到 .theme-root 上。
+ * 每个页面的根 <View> 都要挂 theme-root + theme-<applied>, 由 lib/theme.ts 的 useThemeClass() 提供。
+ */
+.theme-root {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+
 view,
 text,
 input,
@@ -218,7 +231,7 @@ scroll-view {
 
 .pill--ink {
   background: var(--color-ink);
-  color: var(--color-on)-ink;
+  color: var(--color-on-ink);
 }
 
 .pill--gray {
@@ -263,23 +276,23 @@ scroll-view {
 }
 
 .chip--accent {
-  background: var(--color-accent)-soft;
-  color: var(--color-accent)-ink;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-ink);
 }
 
 .chip--warn {
-  background: var(--color-warn)-soft;
-  color: var(--color-warn)-ink;
+  background: var(--color-warn-soft);
+  color: var(--color-warn-ink);
 }
 
 .chip--danger {
-  background: var(--color-danger)-soft;
+  background: var(--color-danger-soft);
   color: var(--color-danger);
 }
 
 .chip--ink {
   background: var(--color-ink);
-  color: var(--color-on)-ink;
+  color: var(--color-on-ink);
 }
 
 /* ---------- 提示横幅 ---------- */
@@ -297,17 +310,17 @@ scroll-view {
 }
 
 .banner--accent {
-  background: var(--color-accent)-soft;
-  color: var(--color-accent)-ink;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-ink);
 }
 
 .banner--warn {
-  background: var(--color-warn)-soft;
-  color: var(--color-warn)-ink;
+  background: var(--color-warn-soft);
+  color: var(--color-warn-ink);
 }
 
 .banner--danger {
-  background: var(--color-danger)-soft;
+  background: var(--color-danger-soft);
   color: var(--color-danger);
 }
 
@@ -315,7 +328,7 @@ scroll-view {
 
 .next-step {
   background: var(--color-ink);
-  color: var(--color-on)-ink;
+  color: var(--color-on-ink);
   border-radius: $radius-xl;
   padding: 20px;
   box-shadow: $shadow-lift;
@@ -332,12 +345,13 @@ scroll-view {
   margin-top: 8px;
   font-size: $font-label;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.72);
+  /* 下一步卡是 ink 背景, 文字随主题翻色 */
+  color: var(--color-on-ink);
 }
 
 .next-step__cta {
   margin-top: 16px;
-  background: var(--color-on)-ink;
+  background: var(--color-on-ink);
   color: var(--color-ink);
 }
 
@@ -365,7 +379,7 @@ scroll-view {
 
 .day-pill--active {
   background: var(--color-ink);
-  color: var(--color-on)-ink;
+  color: var(--color-on-ink);
 }
 
 .day-pill__week {
@@ -374,7 +388,8 @@ scroll-view {
 }
 
 .day-pill--active .day-pill__week {
-  color: rgba(255, 255, 255, 0.7);
+  /* 选中日用 ink 背景, 文字随主题翻色 */
+  color: var(--color-on-ink);
 }
 
 .day-pill__date {
@@ -386,13 +401,13 @@ scroll-view {
 
 /* 一键回到今天: 不在今天时出现在星期条最前的快捷药丸 */
 .day-pill--jump {
-  background: var(--color-accent)-soft;
-  color: var(--color-accent)-ink;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-ink);
   box-shadow: none;
 }
 
 .day-pill--jump .day-pill__week {
-  color: var(--color-accent)-ink;
+  color: var(--color-accent-ink);
   font-weight: 700;
 }
 
@@ -403,7 +418,7 @@ scroll-view {
   padding: 0 4px;
   border-radius: $radius-pill;
   background: var(--color-accent);
-  color: var(--color-on)-ink;
+  color: var(--color-on-ink);
   font-size: 9px;
   line-height: 14px;
   font-weight: 700;
@@ -710,7 +725,7 @@ scroll-view {
 
 .chip-option--on {
   background: var(--color-ink);
-  color: var(--color-on)-ink;
+  color: var(--color-on-ink);
 }
 
 .inline-add {
@@ -781,14 +796,15 @@ scroll-view {
   max-width: $layout-page-max;
   /* 悬浮胶囊 TabBar: 底部 14px 之外再抬高 home 指示条高度, 避免图标被手势条盖住 */
   bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-  height: $layout-tabbar-height;
-  border-radius: $radius-pill;
+  /* iOS dock 式大圆角卡片 (取代全胶囊), 更克制、更稳重 */
+  height: calc(#{$layout-tabbar-height} + 8px);
+  border-radius: $radius-xl;
   background: var(--color-glass);
   box-shadow: $shadow-float;
   display: flex;
   align-items: center;
   justify-content: space-around;
-  padding: 0 6px;
+  padding: 0 10px;
   z-index: 100;
 }
 
@@ -804,6 +820,14 @@ scroll-view {
   justify-content: center;
   gap: 3px;
   height: $layout-tabbar-height;
+  /* 选中态的胶囊高亮形状 (苹果式 rounded-rect 选区) */
+  border-radius: $radius-md;
+  transition: background $motion-base $motion-ease;
+}
+
+/* 选中态: 中性灰底 + 绿点缀 (少量色彩), 克制不喧宾夺主 */
+.tabbar__item--on {
+  background: var(--color-fill);
 }
 
 .tabbar__icon {
@@ -820,7 +844,8 @@ scroll-view {
 }
 
 .tabbar__label--on {
-  color: var(--color-ink);
+  /* 少量色彩: 选中标签用品牌 accent 绿 */
+  color: var(--color-accent);
   font-weight: 700;
 }
 
@@ -900,7 +925,8 @@ scroll-view {
 }
 
 .versus__side--lead .versus__label {
-  color: rgba(255, 255, 255, 0.7);
+  /* 领先方卡片是 ink 背景, 文字随主题翻色 */
+  color: var(--color-on-ink);
 }
 
 .versus__value {
@@ -911,7 +937,7 @@ scroll-view {
 }
 
 .versus__side--lead .versus__value {
-  color: var(--color-on)-ink;
+  color: var(--color-on-ink);
 }
 
 .versus__unit {
@@ -921,7 +947,8 @@ scroll-view {
 }
 
 .versus__side--lead .versus__unit {
-  color: rgba(255, 255, 255, 0.7);
+  /* 领先方卡片是 ink 背景, 文字随主题翻色 */
+  color: var(--color-on-ink);
 }
 
 .versus__vs {
@@ -1025,8 +1052,8 @@ scroll-view {
 
 .sheet__notice {
   font-size: $font-label;
-  color: var(--color-warn)-ink;
-  background: var(--color-warn)-soft;
+  color: var(--color-warn-ink);
+  background: var(--color-warn-soft);
   border-radius: $radius-sm;
   padding: 10px 12px;
   margin: 8px 0;
@@ -1444,4 +1471,762 @@ scroll-view {
   font-size: 14px;
   line-height: 1.6;
   color: var(--color-ink);
+}
+
+/* ==========================================================================
+   饭决 FAN·DECIDE (v1.0.0)
+   ========================================================================== */
+
+/* --- 品牌启动页 (需求 2) --- */
+.splash {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  animation: splash-in 0.16s var(--motion-ease) both;
+}
+.splash.is-leaving {
+  animation: splash-out 0.3s var(--motion-ease) both;
+}
+.splash__stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.splash__logo {
+  animation: splash-logo 0.66s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+}
+.splash__wordmark {
+  margin-top: 14px;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  color: var(--color-ink);
+  animation: splash-text 0.48s var(--motion-ease) 0.7s both;
+}
+.splash__slogan {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--color-ink2);
+  /* 字距从宽收到常值 —— Apple 开机动画里最有标识性的那一笔 */
+  animation: splash-slogan 0.48s var(--motion-ease) 0.7s both;
+}
+@keyframes splash-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes splash-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes splash-logo {
+  from { opacity: 0; transform: scale(0.86); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes splash-text {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes splash-slogan {
+  from { opacity: 0; letter-spacing: 12px; }
+  to { opacity: 1; letter-spacing: 2px; }
+}
+
+/* --- 首页唯一主按钮 (需求 4) --- */
+.decide {
+  margin-bottom: 16px;
+}
+.decide__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 20px 32px;
+  background: var(--color-card);
+  border-radius: 28px;
+  box-shadow: var(--shadow-card);
+}
+.decide__hero-logo {
+  margin-bottom: 4px;
+}
+.decide__hero-title {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  color: var(--color-ink);
+}
+.decide__hero-sub {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--color-ink2);
+}
+.decide__button {
+  margin-top: 16px;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  background: var(--color-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-float);
+  animation: decide-breathe 3.6s ease-in-out infinite;
+}
+.decide__button.is-loading {
+  animation: none;
+  opacity: 0.6;
+}
+.decide__button-label {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 8px;
+  color: var(--color-on-ink);
+}
+
+/* 结果态主按钮: 缩小为单手友好的整宽胶囊 */
+.decide__button--compact {
+  margin-top: 0;
+  width: 100%;
+  height: auto;
+  min-height: 52px;
+  padding: 0 24px;
+  border-radius: $radius-pill;
+  animation: none;
+}
+.decide__button--compact .decide__button-label {
+  font-size: $font-body;
+  letter-spacing: 2px;
+}
+
+/* 结果卡内联简要步骤: 直接展示, 无需点击「看做法」再展开 */
+.decide__steps-inline {
+  margin-top: 16px;
+}
+.decide__step-inline {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 8px;
+}
+.decide__step-inline-idx {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-right: 10px;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 50%;
+  background: var(--color-fill);
+  color: var(--color-ink2);
+  font-size: 11px;
+}
+.decide__step-inline-text {
+  flex: 1;
+  font-size: $font-label;
+  color: var(--color-ink2);
+  line-height: 1.45;
+}
+@keyframes decide-breathe {
+  0%, 100% { box-shadow: var(--shadow-float); }
+  50% { box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.28); }
+}
+
+/* --- 结果卡 (需求 6) --- */
+.decide__result {
+  padding: 24px 20px 20px;
+  background: var(--color-card);
+  border-radius: 28px;
+  box-shadow: var(--shadow-card);
+  animation: decide-card-in 0.28s var(--motion-ease) both;
+}
+.decide__result.is-offline {
+  border: 1px dashed var(--color-line);
+}
+@keyframes decide-card-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.decide__head {
+  display: flex;
+  align-items: center;
+}
+.decide__slot {
+  font-size: 12px;
+  color: var(--color-ink2);
+}
+.decide__badge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-fill);
+  color: var(--color-ink2);
+  font-size: 11px;
+}
+.decide__dish {
+  margin-top: 12px;
+  display: block;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--color-ink);
+  line-height: 1.25;
+}
+.decide__reason {
+  margin-top: 8px;
+  display: block;
+  font-size: 15px;
+  color: var(--color-warn-ink);
+}
+.decide__meta {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.decide__chip {
+  margin-right: 8px;
+  margin-bottom: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--color-fill);
+  color: var(--color-ink2);
+  font-size: 12px;
+}
+.decide__advice {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--color-warn-soft);
+}
+.decide__advice-text {
+  font-size: 13px;
+  color: var(--color-warn-ink);
+}
+.decide__secondary {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+.decide__link {
+  margin: 0 14px;
+  padding: 6px 2px;
+  font-size: 13px;
+  color: var(--color-ink2);
+}
+.decide__link.is-weak {
+  color: var(--color-ink3);
+}
+.decide__locked {
+  margin-top: 10px;
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-ink2);
+}
+
+/* --- 极简做法卡 (需求 10): 一屏看完 --- */
+.decide__sheet,
+.decide__modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.42);
+}
+.decide__sheet-card {
+  width: 100%;
+  max-height: 88vh;
+  padding: 22px 20px 18px;
+  border-radius: 28px;
+  background: var(--color-card);
+  box-shadow: var(--shadow-lift);
+  display: flex;
+  flex-direction: column;
+}
+.decide__sheet-head {
+  margin-bottom: 14px;
+}
+.decide__sheet-title {
+  display: block;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+.decide__sheet-sub {
+  margin-top: 4px;
+  display: block;
+  font-size: 12px;
+  color: var(--color-ink2);
+}
+.decide__steps {
+  overflow-y: auto;
+}
+.decide__step {
+  display: flex;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-line);
+}
+.decide__step-index {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  text-align: center;
+  border-radius: 50%;
+  background: var(--color-fill);
+  color: var(--color-ink2);
+  font-size: 11px;
+}
+.decide__step-text {
+  margin-left: 12px;
+  flex: 1;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--color-ink);
+}
+.decide__ingredients {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.decide__sheet-close {
+  margin-top: 14px;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+}
+
+/* --- 倔强提示 (需求 4) --- */
+.decide__modal-card {
+  width: 100%;
+  max-width: 320px;
+  padding: 26px 22px 20px;
+  border-radius: 22px;
+  background: var(--color-card);
+  box-shadow: var(--shadow-lift);
+}
+.decide__modal-text {
+  display: block;
+  text-align: center;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--color-ink);
+}
+.decide__modal-ok {
+  margin-top: 18px;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+}
+
+/* --- 引导结果屏 --- */
+.onboard__result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 20px;
+  background: var(--color-card);
+  border-radius: 28px;
+  box-shadow: var(--shadow-card);
+}
+.onboard__result-greet {
+  display: block;
+  font-size: 15px;
+  color: var(--color-ink2);
+}
+.onboard__result-dish {
+  margin-top: 14px;
+  display: block;
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--color-ink);
+  text-align: center;
+}
+.onboard__result-reason {
+  margin-top: 10px;
+  display: block;
+  font-size: 15px;
+  color: var(--color-warn-ink);
+  text-align: center;
+}
+.onboard__result-meta {
+  margin-top: 12px;
+  display: block;
+  font-size: 12px;
+  color: var(--color-ink2);
+}
+.onboard__foot {
+  display: flex;
+  align-items: center;
+  margin-top: 18px;
+}
+
+/* ===== 引导升级 (V1.1: 苹果式开场 + 分段进度 + 进出场动效) ===== */
+
+/* 开场初始化: logo 缩放淡入 + 7 点依次点亮 (呼应品牌「一周 7 天」) */
+.onboard__intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  min-height: 100vh;
+  padding: 24px;
+  text-align: center;
+  animation: obo-fade 0.4s $motion-ease both;
+}
+.obo-logo {
+  animation: obo-logo-in 0.7s $motion-ease both;
+}
+.obo-dots {
+  display: flex;
+  gap: 10px;
+}
+.obo-dots__item {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-ink3);
+  animation: obo-dot 1.4s $motion-ease infinite;
+}
+.obo-dots__item:nth-child(odd) {
+  animation-name: obo-dot-a;
+}
+@keyframes obo-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes obo-logo-in {
+  from { opacity: 0; transform: scale(0.7) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes obo-dot {
+  0%, 100% { background: var(--color-ink3); transform: scale(1); }
+  50% { background: var(--color-accent); transform: scale(1.35); }
+}
+@keyframes obo-dot-a {
+  0%, 100% { background: var(--color-accent); transform: scale(1.35); }
+  50% { background: var(--color-ink3); transform: scale(1); }
+}
+.obo-intro-title {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: var(--color-ink);
+  animation: obo-fade 0.6s 0.2s $motion-ease both;
+}
+.obo-intro-sub {
+  font-size: $font-body;
+  color: var(--color-ink2);
+  animation: obo-fade 0.6s 0.32s $motion-ease both;
+}
+.obo-intro-hint {
+  margin-top: 4px;
+  font-size: $font-caption;
+  color: var(--color-ink3);
+  animation: obo-fade 0.6s 0.5s $motion-ease both;
+}
+
+/* 分段进度条 (取代纯文字 1/3) */
+.onboard__progress-bar {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  margin: 0 4px;
+}
+.onboard__progress-seg {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-line);
+  transition: background $motion-base $motion-ease;
+}
+.onboard__progress-seg--on {
+  background: var(--color-ink);
+}
+
+/* 每题进出场过渡 */
+.onboard__qwrap {
+  animation: obo-q-in 0.32s $motion-ease both;
+}
+@keyframes obo-q-in {
+  from { opacity: 0; transform: translateX(14px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* 选项选中态强化: 描边 + 底色 + 对勾 */
+.onboard__choice {
+  position: relative;
+}
+.onboard__choice--active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+.onboard__choice-check {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 20px;
+  height: 20px;
+  line-height: 20px;
+  text-align: center;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: #ffffff;
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboard__intro,
+  .obo-logo,
+  .obo-dots__item,
+  .obo-intro-title,
+  .obo-intro-sub,
+  .obo-intro-hint,
+  .onboard__qwrap {
+    animation: none;
+  }
+}
+
+/* ---------- 首页三段式 (V1.2.0) ---------- */
+
+/* ① 状态行: 一行三件事, 替代原来的两行问候语 */
+.home-status {
+  padding: 2px 4px 12px;
+}
+.home-status__text {
+  font-size: $font-label;
+  color: var(--color-ink2);
+  letter-spacing: 0.02em;
+}
+
+/* ③ 模式出口: 浅色文字链, 不是按钮 */
+.home-takeout {
+  padding: 4px 4px 16px;
+  text-align: center;
+}
+.home-takeout__text {
+  font-size: $font-label;
+  color: var(--color-ink2);
+}
+
+/* ④ 「家里有啥」快选 */
+.fridge-quick {
+  padding: 12px 14px 14px;
+}
+.fridge-quick__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.fridge-quick__title {
+  font-size: $font-label;
+  color: var(--color-ink);
+}
+.fridge-quick__link {
+  font-size: $font-caption;
+  color: var(--color-ink2);
+}
+.fridge-quick__chips {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.fridge-chip {
+  margin-right: 8px;
+  margin-bottom: 8px;
+  padding: 7px 14px;
+  border-radius: $radius-pill;
+  background: var(--color-fill);
+  color: var(--color-ink2);
+  font-size: $font-caption;
+}
+.fridge-chip.is-add {
+  color: var(--color-ink);
+}
+.fridge-chip.is-expiring {
+  background: var(--color-warn-soft);
+  color: var(--color-warn-ink);
+}
+.fridge-quick__undo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding: 8px 12px;
+  border-radius: $radius-sm;
+  background: var(--color-fill);
+}
+.fridge-quick__undo-text {
+  font-size: $font-caption;
+  color: var(--color-ink2);
+}
+.fridge-quick__undo-btn {
+  padding: 4px 8px;
+  font-size: $font-caption;
+  color: var(--color-ink);
+}
+.fridge-quick__note {
+  display: block;
+  margin-top: 8px;
+  font-size: $font-caption;
+  color: var(--color-ink2);
+}
+
+/* 结果卡的步数 / 档位 / 热量一行 —— ⚠ 这里永远不出现分钟数 */
+.decide__effort {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.decide__effort-steps,
+.decide__effort-label {
+  font-size: $font-label;
+  color: var(--color-ink);
+}
+.decide__effort-dot {
+  margin: 0 6px;
+  color: var(--color-ink3);
+}
+.decide__effort-kcal {
+  margin-left: 10px;
+  font-size: $font-caption;
+  color: var(--color-ink2);
+}
+/* ⚠ 这里原本有 .decide__tools / .decide__tools-chip 两条规则, 已随"厨具不上卡"删除:
+   覆盖率 18.2% < 30% 门槛 + 离线池无此字段(联网显示断网不显示 = 双端不一致)。 */
+.decide__note {
+  margin-top: 12px;
+  display: block;
+  font-size: $font-caption;
+  /* 极浅灰: 它是系统侧事实, 不该抢结果卡的注意力 */
+  color: var(--color-ink3);
+}
+.decide__picked {
+  margin-top: 6px;
+  display: block;
+  font-size: $font-caption;
+  color: var(--color-ink2);
+}
+.decide__error {
+  margin-top: 10px;
+  display: block;
+  font-size: $font-caption;
+  color: var(--color-danger);
+  text-align: center;
+}
+
+/* utterance: 无结果时在主按钮下方, 有结果时挪到动作行旁边 */
+.utterance {
+  margin-top: 12px;
+}
+.utterance--hero {
+  text-align: center;
+}
+.utterance__guide {
+  display: inline-block;
+  padding: 6px 10px;
+  font-size: $font-caption;
+  color: var(--color-ink2);
+}
+.utterance__box {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: $radius-pill;
+  background: var(--color-fill);
+}
+.utterance__input {
+  flex: 1;
+  height: 32px;
+  font-size: $font-label;
+  color: var(--color-ink);
+}
+.utterance__send,
+.utterance__close {
+  flex: none;
+  padding: 0 8px;
+  font-size: $font-caption;
+  color: var(--color-ink2);
+}
+.utterance__chips {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.utterance__chip {
+  margin-right: 8px;
+  margin-bottom: 6px;
+  padding: 5px 12px;
+  border-radius: $radius-pill;
+  background: var(--color-fill);
+  color: var(--color-ink2);
+  font-size: $font-caption;
+}
+.utterance__echo {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+}
+.utterance__echo-text {
+  font-size: $font-caption;
+  color: var(--color-ink);
+}
+.utterance__echo-x {
+  margin-left: 8px;
+  font-size: $font-caption;
+  color: var(--color-ink2);
+}
+
+/* 今晚这一餐的元信息行 (深夜不出现) */
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.meta-row__item {
+  margin-right: 14px;
+  font-size: $font-caption;
+  color: var(--color-ink2);
+}
+
+/* 〔折叠〕今日预算条 */
+.collapse-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+.collapse-head__text {
+  font-size: $font-label;
+  color: var(--color-ink);
+}
+.collapse-head__arrow {
+  font-size: $font-caption;
+  color: var(--color-ink2);
+}
+.collapse-body {
+  margin-top: 10px;
+}
+
+/* 页脚文字链 */
+.page-footnote {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+.page-footnote__link {
+  margin: 0 10px;
+  font-size: $font-caption;
+  color: var(--color-ink2);
 }

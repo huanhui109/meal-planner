@@ -5,7 +5,7 @@ else
   PYTHON := $(CURDIR)/.venv/bin/python
 endif
 
-.PHONY: help ops up down restart status logs dev dev-backend dev-frontend install-backend install-frontend install-miniapp test test-cov test-frontend lint lint-frontend gen-tokens gen-logo ci build-frontend build-miniapp migrate migration seed db-doc fetch-recipes build-recipes-sql import-recipes backfill-nutrition backup tunnel playwright-install setup setup-local db-start db-stop db-status db-logs db-shell db-destroy
+.PHONY: help ops up down restart status logs dev dev-backend dev-frontend install-backend install-frontend install-miniapp test test-cov test-frontend lint lint-frontend gen-tokens gen-logo ci build-frontend build-miniapp migrate migration seed db-doc fetch-recipes build-recipes-sql import-recipes backfill-nutrition backfill-decide-fields backfill-dish-scene backfill-is-dish backup tunnel playwright-install setup setup-local db-start db-stop db-status db-logs db-shell db-destroy
 
 help:
 	@echo "make setup-local      - 一键装好本地环境 (MySQL/Python/依赖/迁移/种子/测试)"
@@ -17,6 +17,8 @@ help:
 	@echo "make build-recipes-sql - 生成可直接执行的 data/sql/recipes_seed.sql"
 	@echo "make import-recipes   - 将菜谱幂等落库 (等价于执行生成的 SQL)"
 	@echo "make backfill-nutrition - 用 LLM 为缺营养的菜谱批量补全热量与三大营养素"
+	@echo "make backfill-decide-fields - 回填决策字段(品类/主料/标签/极简做法), 纯规则; ARGS=\"--dry-run\" 可预览"
+	@echo "make backfill-dish-scene   - 回填场景字段(耗时/餐次/荤型/厨具/时令), 纯规则; ARGS=\"--dry-run\" 可预览"
 	@echo "make ops              - 打开交互式运维台 (启动/停止/重启/日志/自检)"
 	@echo "make up               - 后台启动 数据库 + 后端 + 前端"
 	@echo "make down             - 停止 后端 + 前端"
@@ -118,6 +120,19 @@ import-recipes:
 backfill-nutrition:
 	$(PYTHON) scripts/backfill_recipe_nutrition.py
 
+# 回填决策字段 (品类/主料/标签/辣度/轻食/角标/极简做法), 纯规则不调 LLM
+# 先 dry-run 看效果: make backfill-decide-fields ARGS="--dry-run --preview 30"
+backfill-decide-fields:
+	$(PYTHON) scripts/backfill_recipe_decision_fields.py $(ARGS)
+
+backfill-dish-scene:
+	$(PYTHON) scripts/backfill_dish_scene_fields.py $(ARGS)
+
+# 把调味品/饮品/甜品/半成品加工标成 is_dish=0 (迁移 0017 的列), 先 dry-run 看清单
+# make backfill-is-dish ARGS="--dry-run"
+backfill-is-dish:
+	$(PYTHON) scripts/backfill_recipe_is_dish.py $(ARGS)
+
 test:
 	cd backend && $(PYTHON) -m pytest tests/ -v --tb=short
 
@@ -163,6 +178,10 @@ gen-tokens:
 gen-logo:
 	node scripts/gen_logo.mjs
 
+# 由 data/local_dish_pool.json 生成三端候选池 (离线兜底的唯一真源)
+gen-pool:
+	node scripts/gen_local_pool.mjs
+
 test-frontend:
 	cd frontend && npm run test
 
@@ -173,6 +192,16 @@ check-tokens:
 check-logo:
 	node scripts/gen_logo.mjs --check
 
+check-pool:
+	node scripts/gen_local_pool.mjs --check
+
+# R-11 门禁: 改过 config/default.yaml 的 random_band / score_* 权重、
+# decision_service 的二元加减分、或菜名归一化公式之后, 这条必须 EXIT=0。
+# 它查的是"抽签带有没有被压塌" —— 症状在线上是"连点十次都是同一类菜", 很难往权重上想。
+# 脚本在 backend/scripts/ 下, 因为要用 backend 的 app 包且不依赖 cwd。
+check-band:
+	cd backend && $(PYTHON) scripts/band_regression.py
+
 # 小程序只做类型检查 + 构建 (不引真机自动化)
 check-miniapp:
 	@if [ ! -d miniapp/node_modules ]; then \
@@ -181,7 +210,7 @@ check-miniapp:
 	fi
 	cd miniapp && npm run typecheck && npm run build:weapp
 
-ci: lint test check-tokens check-logo test-frontend build-frontend check-miniapp
+ci: lint test check-tokens check-logo check-pool check-band test-frontend build-frontend check-miniapp
 
 backup:
 	$(PYTHON) scripts/backup_db.py

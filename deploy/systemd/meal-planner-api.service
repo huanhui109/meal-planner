@@ -1,6 +1,6 @@
 # /etc/systemd/system/meal-planner-api.service
 [Unit]
-Description=AI 每周营养菜谱工具 - FastAPI 后端
+Description=饭决 FAN·DECIDE - FastAPI 后端
 After=network-online.target mysql.service
 Wants=network-online.target
 Requires=mysql.service

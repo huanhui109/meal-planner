@@ -10,7 +10,10 @@ import {
   LoadingStack,
   PageHead,
   PillButton,
+  SectionTitle,
+  StatTile,
 } from '../../components/ui'
+import { listInventory } from '../../api/inventory'
 import {
   confirmMenu,
   currentWeekStart,
@@ -72,6 +75,8 @@ const WeeklyView: React.FC = () => {
   const [confirming, setConfirming] = useState(false)
   /** 周生成时间文案来自调度配置, 拉不到就用默认说法, 不影响页面 */
   const [weeklyGeneration, setWeeklyGeneration] = useState('每周日 20:00')
+  /** 冰箱临期数 —— 「本周概览」里那格要看它, 拉不到就显示 — */
+  const [expiringCount, setExpiringCount] = useState<number | null>(null)
   const menuId = menu?.id
 
   const load = useCallback(async () => {
@@ -104,6 +109,12 @@ const WeeklyView: React.FC = () => {
         }
       })
       .catch(() => undefined)
+  }, [])
+
+  useEffect(() => {
+    listInventory()
+      .then((view) => setExpiringCount(view.expiring_count))
+      .catch(() => setExpiringCount(null))
   }, [])
 
   const generation = useMenuGeneration(() => {
@@ -188,6 +199,35 @@ const WeeklyView: React.FC = () => {
     }
   }
 
+  /**
+   * 关掉「换一道」弹窗
+   *
+   * ⚠ 之前 onCancel 只是 setReplaceTarget(null): 替换在**打开弹窗那一刻就已经写库**
+   *   (openReplace 里直接 replaceMenuItem), 用户按 X / 遮罩 / ESC 关掉后, 新菜已经生效,
+   *   而「换回上一道」和撤销 Toast 都只在「就它了」路径上给 —— 上一道菜就这么没了,
+   *   还不知道怎么找回来。
+   *
+   * 现在关闭 = 放弃这次替换, 自动换回上一道 (与 Modal 的取消语义一致)。
+   * 想保留新菜就点「就它了」。
+   */
+  const closeReplace = () => {
+    const target = replaceTarget
+    const previous = target?.recipe
+    const current = replaceResult?.recipe
+    setReplaceTarget(null)
+    setReplaceResult(null)
+    setReplaceSource(null)
+    if (!menuId || !target || !previous || !current) return
+    if (current.id === previous.id) return
+    setReplacing(true)
+    replaceMenuItem(menuId, target.id, { recipe_id: previous.id })
+      .then((updated) => setMenu(updated))
+      .catch((err: unknown) => {
+        if (err instanceof Error) message.error(err.message)
+      })
+      .finally(() => setReplacing(false))
+  }
+
   /** 就它了: 关掉弹框, 保留原来 5 秒可撤销的 Toast */
   const acceptReplace = () => {
     const target = replaceTarget
@@ -204,25 +244,6 @@ const WeeklyView: React.FC = () => {
         setMenu(await replaceMenuItem(menuId, target.id, { recipe_id: previous.id }))
       },
     })
-  }
-
-  /** 让 AI 再换一道: 跳过本地打分直接走模型 (仅当当前是本地换来的才给入口) */
-  const replaceWithAi = async () => {
-    const target = replaceTarget
-    if (!menuId || !target) return
-    setReplacing(true)
-    try {
-      const updated = await replaceMenuItem(menuId, target.id, { force_ai: true })
-      setMenu(updated)
-      setReplaceSource(updated.replacement?.source ?? null)
-      setReplaceResult(
-        updated.days.flatMap((day) => day.meals).find((row) => row.id === target.id) ?? null,
-      )
-    } catch (err) {
-      if (err instanceof Error) message.error(err.message)
-    } finally {
-      setReplacing(false)
-    }
   }
 
   /** 换回上一道: 直接切回原菜谱, 不走 AI */
@@ -323,6 +344,68 @@ const WeeklyView: React.FC = () => {
         regenerating={generation.submitting}
       />
 
+      {/*
+        本周概览 —— V1.2.0 从首页移过来的。
+        它在首页的作用是负的: 每次出现都在提醒用户"你还有一整周要规划",
+        与"立刻定这一顿"正面冲突。只有真的在管一周饭的人会看, 而那个人会自己来这页。
+        数据全部来自当前菜单, 不额外拉 /api/today。
+      */}
+      <SectionTitle>本周概览</SectionTitle>
+      <div className="bento">
+        <StatTile
+          span={2}
+          lg={3}
+          label="本周预算"
+          value={formatMoney(menu.budget.total_estimated)}
+          unit={
+            menu.budget.budget_limit > 0
+              ? `/ ${formatMoney(menu.budget.budget_limit)}`
+              : '未设上限'
+          }
+          hint={
+            menu.budget.passed
+              ? `还剩 ${formatMoney(Math.max(0, menu.budget.budget_limit - menu.budget.total_estimated))}`
+              : `超出 ${formatMoney(menu.budget.over_amount)}`
+          }
+          hintTone={menu.budget.passed ? 'muted' : 'danger'}
+        >
+          <Bar
+            percent={
+              menu.budget.budget_limit > 0
+                ? (menu.budget.total_estimated / menu.budget.budget_limit) * 100
+                : 0
+            }
+            tone={menu.budget.passed ? 'ink' : 'over'}
+          />
+        </StatTile>
+
+        <StatTile
+          label="营养达标"
+          value={menu.nutrition.passed ? '达标' : '有偏离'}
+          hint={`本周日均 ${Math.round(menu.nutrition.weekly_avg_calories)} kcal`}
+          hintTone={menu.nutrition.passed ? 'muted' : 'warn'}
+          lg={3}
+        />
+
+        <StatTile
+          label="冰箱临期"
+          value={expiringCount ?? '—'}
+          unit={expiringCount ? '样临期' : ''}
+          hint={expiringCount ? '去冰箱看看怎么安排' : '暂无临期食材'}
+          hintTone={expiringCount ? 'warn' : 'muted'}
+          lg={3}
+        />
+
+        <StatTile
+          span={2}
+          lg={3}
+          label="本周进度"
+          value={formatProgress(menu.totals.cooked_count, menu.totals.meal_count)}
+          hint={`${menu.totals.day_count} 天菜单`}
+          hintTone={menu.totals.cooked_count > 0 ? 'accent' : 'muted'}
+        />
+      </div>
+
       <DayStrip
         days={menu.days.map((day) => ({
           date: day.date,
@@ -403,18 +486,11 @@ const WeeklyView: React.FC = () => {
       <Modal
         title="换一道"
         open={Boolean(replaceTarget)}
-        onCancel={() => setReplaceTarget(null)}
+        onCancel={closeReplace}
         footer={
           replacing
             ? null
             : [
-                ...(replaceResult && replaceSource === 'local'
-                  ? [
-                      <Button key="ai" onClick={replaceWithAi}>
-                        让 AI 再换一道
-                      </Button>,
-                    ]
-                  : []),
                 ...(replaceResult && replaceTarget?.recipe
                   ? [
                       <Button key="revert" onClick={revertReplace}>

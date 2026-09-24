@@ -7,10 +7,9 @@ GET /api/build-info 返回最新版本与最低版本要求
 """
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import Depends
 
 from app.dependencies import get_db
 from app.models.build_info import BuildInfo
@@ -21,7 +20,7 @@ router = APIRouter(prefix="/build-info", tags=["构建"])
 
 # 兜底默认: 兜住 build_info 表还没数据 / 后端未配置的情况
 DEFAULT = BuildInfoOut(
-    latest_version="0.5.0",
+    latest_version="1.1.2",
     min_version="0.5.0",
     force_update=False,
     update_url=None,

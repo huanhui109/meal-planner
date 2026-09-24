@@ -17,6 +17,7 @@ import { Banner, Card, LoadingStack, PageHead, PillButton, SectionTitle } from '
 import { getCurrentMenu, getOrderSuggestion, getShoppingList, searchProducts } from '../../lib/api'
 import { openPurchaseLink, missingText } from '../../lib/deeplink'
 import { ensureLogin, goTo, syncTabBar, toast } from '../../lib/nav'
+import { useThemeClass } from '../../lib/theme'
 
 interface Group {
   category: string
@@ -24,6 +25,7 @@ interface Group {
 }
 
 export default function ShoppingPage() {
+  const themeClass = useThemeClass()
   const [menu, setMenu] = useState<MenuDetail | null>(null)
   const [list, setList] = useState<ShoppingList | null>(null)
   const [checked, setChecked] = useState<Record<number, boolean>>({})
@@ -126,7 +128,7 @@ export default function ShoppingPage() {
 
   if (loading) {
     return (
-      <View className="page">
+      <View className={`page ${themeClass}`}>
         <PageHead title="采购清单" subtitle="正在对比菜谱和冰箱…" />
         <LoadingStack rows={4} />
       </View>
@@ -135,7 +137,7 @@ export default function ShoppingPage() {
 
   if (!menu || !list) {
     return (
-      <View className="page">
+      <View className={`page ${themeClass}`}>
         <PageHead title="采购清单" subtitle="有菜单之后才有清单" />
         {error ? <Banner tone="danger">{error}</Banner> : null}
         <Card>
@@ -153,7 +155,7 @@ export default function ShoppingPage() {
   const have = list.summary.have_count
 
   return (
-    <View className="page">
+    <View className={`page ${themeClass}`}>
       <PageHead
         title="采购清单"
         subtitle={`${formatMonthDay(list.week_start_date)} 那周 · 共 ${total} 样, 冰箱已有 ${have} 样`}

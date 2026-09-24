@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # ============================================================================
-#  项目专用 MySQL 实例管理器 (macOS / Homebrew)
+#  项目专用 MySQL 实例管理器 (macOS / Homebrew) —— 仅作兜底, 正常情况不要用
 #
-#  为什么需要它:
-#    如果 /opt/homebrew/var/mysql 是更高版本 MySQL (例如 9.x) 建的, 8.0 打不开它
-#    (MySQL 不支持降级)。这种情况下 brew services start mysql@8.0 会无限崩溃重启,
-#    所以本项目单独跑一个实例: 自己的数据目录、自己的端口、自己的 socket,
-#    完全不动那台机器上原有的数据。
+#  ⚠ 默认使用的是 **3306 上的系统 MySQL 8.0 实例**, 不是这里管的实例。
+#    本脚本只在系统实例真的起不来时才用, 例如:
+#      /opt/homebrew/var/mysql 被更高版本 MySQL (9.x) 建过, 8.0 拒绝降级打开
+#      (MySQL 不支持降级), brew services start mysql@8.0 会无限崩溃重启。
+#    那种情况下才单独跑一个实例: 自己的数据目录、自己的端口、自己的 socket,
+#    完全不动机器上原有的数据。
+#
+#    跑起来之后记得把 .env 里的 APP__DATABASE__URL 指到本实例的端口,
+#    否则应用仍然连 3306, 会连到一个"看起来正常但表里没数据"的库。
+#    一键修正: bash scripts/setup_local.sh
 #
 #  用法:
 #    bash scripts/mysql_local.sh start     # 启动 (首次会自动初始化数据目录)
@@ -19,7 +24,10 @@
 #
 #  可用环境变量覆盖:
 #    MP_MYSQL_DATADIR  数据目录   默认 $(brew --prefix)/var/mysql80
-#    MP_MYSQL_PORT     端口       默认 3307  (避开系统 MySQL 的 3306)
+#    MP_MYSQL_PORT     端口       默认 3307
+#                                 刻意避开 3306: 本实例存在的意义就是"不与系统实例
+#                                 抢端口", 两台 mysqld 才能同时跑、互不干扰。
+#                                 改回 3306 要先停掉系统实例, 否则会启动失败。
 #    MP_MYSQL_SOCKET   socket     默认 /tmp/meal-planner-mysql.sock
 #    MP_MYSQL_FORMULA  公式名     默认自动探测 mysql@8.0 / mysql@8.4 / mysql
 # ============================================================================

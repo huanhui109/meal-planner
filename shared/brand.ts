@@ -7,15 +7,20 @@
  */
 export const brand = {
   /** 短名: TabBar、导航、面包屑等窄空间用 */
-  name: '每周鲜',
+  name: '饭决',
   /** 全名: 登录页、文档、小程序 navigationBarTitleText */
-  fullName: '每周鲜 · AI 营养菜谱',
+  fullName: '饭决 FAN·DECIDE',
   /** 副标: 跟在短名后面的一行小字 */
-  subtitle: 'AI 营养菜谱',
-  /** 一句话价值主张, 登录页与空状态用 */
-  slogan: '一周的饭, 一次安排好',
-  description:
-    '按你的偏好生成一周营养菜谱, 算好营养与预算; 缺什么直接补单, 做完自动扣库存。',
+  subtitle: '今天吃啥，交给饭决',
+  /** 一句话价值主张, 登录页与空状态、启动页 Slogan 用 */
+  slogan: '今天吃啥，交给饭决',
+  description: '纠结吃什么的每一秒都在浪费人生。饭决替你决定这一餐。',
+  /** 用户反复换菜时的品牌语气提示 (需求 4) */
+  stubbornLine: '别纠结了，我替你倔一回。',
+  /** 首页唯一主按钮文案 (需求 4) */
+  decideAction: '饭决',
+  /** 离线兜底结果卡的角标文案 (需求 7) */
+  offlineBadge: '本地答案',
   /** 我的页脚注 */
   localDataNote: '数据仅存储在本地 · 不向云端发送个人身份信息',
 } as const

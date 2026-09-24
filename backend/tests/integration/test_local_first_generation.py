@@ -4,7 +4,7 @@
   * auto/local: 本地菜谱库拼得够满 -> 不调模型, source=local
   * 本地库不足 -> 把候选短名单交给模型, source=mixed
   * mode=ai   -> 完全跳过本地编排, source=ai
-再覆盖「换一道」的 force_ai 直连 AI 与 menu.source 的序列化输出。
+再覆盖「换一道」本地优先, 以及 menu.source 的序列化输出。
 """
 from __future__ import annotations
 
@@ -182,39 +182,6 @@ async def test_replacement_prefers_local_when_available(db_session):
     assert result.recipe.name == "清炒时蔬"
 
 
-async def test_force_ai_replacement_bypasses_local(monkeypatch, db_session):
-    user = await make_user(db_session, open_id="ou_replace_ai")
-    await make_preferences(db_session, user.id)
-    ingredient = await make_ingredient(db_session, "南瓜")
-    current = await make_recipe(db_session, "蒸南瓜", ingredient, 200, calories=200)
-    await make_recipe(db_session, "南瓜浓汤", ingredient, 150, calories=250)
-    menu = await make_menu(db_session, user.id, {0: [(current, "dinner")]}, week_start=WEEK_START)
-    await db_session.commit()
-
-    picked = {"n": 0}
-
-    async def spy_pick_local(self, ctx):
-        picked["n"] += 1
-        return None
-
-    async def fake_generate(self, ctx):
-        # _auto 走 AI 前会 rollback, 之前的 ORM 对象已过期, 这里用全新对象避免懒加载
-        fresh = await make_ingredient(self.db, "AI 专用食材")
-        return await make_recipe(self.db, "AI 现做菜", fresh, 100, calories=280)
-
-    monkeypatch.setattr(ReplacementService, "_pick_local", spy_pick_local)
-    monkeypatch.setattr(ReplacementService, "_generate_with_ai", fake_generate)
-
-    menu = await _reload_menu(db_session, menu.id)
-    service = ReplacementService(db_session)
-    result = await service.replace(
-        menu, menu.menu_items[0], user.id, MenuItemReplaceRequest(force_ai=True)
-    )
-
-    assert result.source == "ai"
-    assert picked["n"] == 0  # force_ai 直接跳过本地打分
-
-
 async def test_menu_source_is_serialized(db_session):
     user = await make_user(db_session, open_id="ou_serialize_source")
     await make_preferences(db_session, user.id)
@@ -229,3 +196,42 @@ async def test_menu_source_is_serialized(db_session):
 
     assert detail["source"] == "local"
     assert detail["week_start_date"] == str(WEEK_START)
+
+
+async def test_replacement_never_repeats_a_recently_seen_dish(db_session):
+    """连续「换一道」不能在两三道菜之间来回跳
+
+    修复前 exclude_names 只来自「当前菜单里现存的菜」, A 换成 B 之后 A 就出集合了,
+    下一次打分它又是高分候选 —— 表现就是点一次换回去、再点一次又换回来。
+    """
+    user = await make_user(db_session, open_id="ou_replace_no_loop")
+    await make_preferences(db_session, user.id)
+    ingredient = await make_ingredient(db_session, "鸡蛋")
+    dishes = [
+        await make_recipe(db_session, f"循环候选{i}", ingredient, 100, calories=300)
+        for i in range(1, 5)
+    ]
+    # commit 之后 ORM 对象会过期, 先把要用的菜名留成纯字符串
+    first_name = dishes[0].name
+    menu = await make_menu(
+        db_session, user.id, {0: [(dishes[0], "dinner")]}, week_start=WEEK_START
+    )
+    await db_session.commit()
+
+    # 访问关系前先 reload, 否则会以同步方式触发 IO
+    menu = await _reload_menu(db_session, menu.id)
+    item_id = menu.menu_items[0].id
+    served = [first_name]
+    for _ in range(3):
+        menu = await _reload_menu(db_session, menu.id)
+        item = next(row for row in menu.menu_items if row.id == item_id)
+        result = await ReplacementService(db_session).replace(
+            menu, item, user.id, MenuItemReplaceRequest()
+        )
+        assert result.source == "local", "库里还有没上过的菜, 不该掉进 AI 降级"
+        assert result.recipe.name not in served, f"又把「{result.recipe.name}」端回来了"
+        served.append(result.recipe.name)
+        await db_session.commit()
+
+    # 4 道菜轮流上过一遍, 没有任何一道重复登台
+    assert len(set(served)) == 4

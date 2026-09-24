@@ -51,25 +51,12 @@ export function isLoggedIn(): boolean {
   return Boolean(getAccessToken())
 }
 
+/**
+ * 退出登录只清凭据, **不动用户设置** (`mp_user_settings:v1`)。
+ * 引导开关这类本地偏好属于这台设备, 换账号/重新登录都应该保留。
+ */
 export function clearSession(): void {
   Taro.removeStorageSync(ACCESS_KEY)
   Taro.removeStorageSync(REFRESH_KEY)
   Taro.removeStorageSync(USER_KEY)
-}
-
-// ---------- 引导状态 (audit T2.1) ----------
-
-const ONBOARDED_KEY = 'mp_onboarded'
-
-/** 是否已经走过 onboarding 引导 (3 步选人数 / 选菜系 / 生成第一份菜单) */
-export function isOnboarded(): boolean {
-  return Boolean(Taro.getStorageSync(ONBOARDED_KEY))
-}
-
-export function setOnboarded(value = true): void {
-  Taro.setStorageSync(ONBOARDED_KEY, value)
-}
-
-export function clearOnboarded(): void {
-  Taro.removeStorageSync(ONBOARDED_KEY)
 }

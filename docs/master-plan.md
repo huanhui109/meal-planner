@@ -1,4 +1,4 @@
-# 每周鲜 · AI 营养菜谱 —— 全项目总案（Master Plan）
+# 饭决 FAN·DECIDE —— 全项目总案（Master Plan）
 
 > 本文是项目的**唯一总案**：模块结构与规划、已开发需求 × 版本台账、实现与规划的差异对齐、
 > 路线图，以及 TAPD 项目管理落地映射。结构与依赖的取证细节见姊妹文档
@@ -16,7 +16,12 @@
 
 ## 一、项目定位与现状
 
-**每周鲜 · AI 营养菜谱** —— 把一周吃饭这件事交给 AI 排好：
+**饭决 FAN·DECIDE** —— 今天吃啥，交给饭决：
+
+> 品牌沿革：本项目早期名为「每周鲜 · AI 营养菜谱」（周菜单规划），
+> V1.0 起更名为「饭决 FAN·DECIDE」，产品内核从「排一周」转为「定这一顿」。
+> 下文 V0.x / R-1 ~ R-40 条目保留当时的品牌名，属历史记录，不做回填改写。
+
 偏好即约束 → 生成周菜单 → 校验营养预算 → 补单 → 做饭扣库存，形成闭环。
 
 一套后端，三个交付面：**H5**、**微信小程序**、**飞书机器人**（自动化触达）。
@@ -357,3 +362,79 @@ TAPD 原生看板按需求状态列呈现：`规划中 → 开发中 → 待测�
 | 文档同步 | 架构 / 设计 / 产品三类文档随对应需求同期更新 |
 | 发布 | 迁移先行 → 后端 → 前端 → 小程序审核；上线手册见 `deploy/README.md` |
 | 项目追踪 | TAPD workspace `43478791`，需求关联迭代，缺陷关联需求 |
+
+---
+
+## 八、V1.0 饭决 FAN·DECIDE（当前版本）
+
+### 8.1 品牌变更
+
+| 项 | 旧 | 新 |
+|---|---|---|
+| 品牌名 | 每周鲜 · AI 营养菜谱 | **饭决 FAN·DECIDE** |
+| Slogan | 一周的饭，一次安排好 | **今天吃啥，交给饭决** |
+| 产品内核 | 规划：排满一周菜单 | **决策：立刻定这一顿** |
+| 版本号 | 0.5.0 | **1.0.0**（三端 + shared + FastAPI 对齐） |
+
+品牌名取「饭 + 决定」谐音，天然好记且易注册商标。全链路文案唯一真源 `shared/brand.ts`，
+含 `stubbornLine = 别纠结了，我替你倔一回。`
+
+### 8.2 需求台账 R-41 ~ R-50
+
+| ID | 需求 | 模块 | 关键交付 |
+|---|---|---|---|
+| R-41 | Onboarding ≤60 秒，3 问 3 屏，完成即出结果 | 双端 | `shared/onboarding.ts`、H5 `pages/Onboarding`、小程序 `pages/onboarding` |
+| R-42 | 品牌启动页 Apple 开机动画风格 | 双端 | `components/SplashScreen.tsx`、`components/splash.tsx`（覆盖层实现，不动 entryPagePath） |
+| R-43 | 品牌改名全链路 + Logo 重生成 | 全栈 | `shared/brand.ts`、`scripts/gen_logo.mjs`、`make gen-logo` |
+| R-44 | 首页唯一主按钮「饭决」+ 结果卡 + 倔强提示 | 双端 | `components/DecideBoard.tsx`、`components/decide-board.tsx` |
+| R-45 | 决策硬规则：近 7 天不重复 / 同品类打散 / 连续两餐不重样 | 后端 | `services/decision_service.py` |
+| R-46 | 一句话理由 ≤20 字（纯规则，不调 LLM） | 后端 | `services/reason_service.py` |
+| R-47 | 离线兜底，永远有答案 | shared | `shared/decide.ts`、`data/local_dish_pool.json`、`scripts/gen_local_pool.mjs` |
+| R-48 | 口味与约束档案一次设置长期生效 | 后端 + 双端 | `diet_preference.scene_tags`、`GET /api/decide/profile` |
+| R-49 | 天气 / 时段感知（provider 可插拔，默认禁用） | 后端 | `services/weather_service.py`、`config/default.yaml` weather 段 |
+| R-50 | 极简做法卡 3-5 步一屏看完 | 双端 | `recipe.quick_steps`、做法卡弹层 |
+
+### 8.3 迁移与接口
+
+- 迁移 `0014_fan_decide`（严格追加，down_revision = `0013_product_price`）
+  - `recipe` 加列：`tags` / `flavor_tags` / `spice_level` / `is_light` / `cover_text` / `quick_steps` / `main_ingredient`
+  - `diet_preference` 加列：`scene_tags`
+  - 新表 `decision_log`（含 `payload` 快照）、`decision_feedback`
+- 新增端点（全部走 `SuccessResponse` 信封）：
+  `POST /api/decide`、`GET /api/decide/last`、`GET /api/decide/profile`、
+  `POST /api/decide/{id}/feedback`、`GET /api/decide/recent`
+
+### 8.4 决策引擎要点
+
+三条硬规则先过滤再挑，宁可放宽候选也不出重复菜：
+
+1. **近 7 天不重复** —— 菜名归一化 + 别名表（`番茄炒蛋` ≡ `西红柿炒鸡蛋`）后硬剔除
+2. **同品类打散** —— 近 3 餐品类计数惩罚，同一菜系连续再罚
+3. **连续两餐不重样** —— 上一餐主料重合重罚，菜名相同直接剔除
+
+两个实现细节（踩过坑，勿回退）：
+
+- **「上一餐」必须靠秒级序号判定**。只按 `decision_date` 排序时，同一天连点几次的记录日期相同，
+  而 `sort(reverse=True)` 是**稳定**排序，并列项保持插入顺序 —— 「上一餐」会永远停在当天最早那条，
+  连续两餐不重样直接失效。修法：序号 = `created_at` + `id/1000` 微扰。
+- **软随机不能先取 top N 再在 N 个里抽**。那样用户连点几次会在固定 3 道菜之间来回横跳。
+  正确做法：分差带（默认 5 分）内全部参与抽签，带太窄时按分数补齐到 `random_min_choices`。
+
+理由生成纯规则、按优先级返回第一条命中，并对高频规则（深夜 / 换菜系）准备同义说法池，
+按**菜名取模**选一种 —— 同一道菜永远同一句（可复现），不同菜换说法（不重样）。
+Python 与 TS 两端文案逐字一致，由 `frontend/tests/shared.decide.test.ts` 的 fixture 钉死。
+
+### 8.5 验收结果（2026-09-17）
+
+| 项 | 结果 |
+|---|---|
+| 后端 pytest | 289 passed / 122 skipped（跳过的是需 MySQL 的集成用例） |
+| 前端 vitest | 99 passed（含 20 条跨端理由逐字一致断言） |
+| 决策演练 12 连击 | 近 7 天零重复、同品类无连出 3 次、相邻两餐零重样 |
+| 深夜时段 | 全部 light 且 ≤20 分钟，品类轮转（汤羹 → 素菜 → 荤菜） |
+| 理由长度 | 全部 ≤20 字 |
+| HTTP 冒烟 | 五件套全通，未登录 401 正确 |
+
+> 注：本机 MySQL 数据目录曾由 9.x 写过，当前 mysql@8.0 拒绝降级打开
+> （`Invalid MySQL server downgrade`），端到端冒烟改用 SQLite 临时库执行。
+> 方言差异不影响路由 / 依赖注入 / 信封 / 落库 / 回放的结论，但上线前仍需在真实 MySQL 上复跑一次。

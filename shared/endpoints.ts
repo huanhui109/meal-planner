@@ -20,6 +20,8 @@ export const ENDPOINTS = {
   budget: '/preferences/budget',
 
   generateMenu: '/menus/generate',
+  /** 按冰箱现有食材重排本周 (同步完成, 不调 LLM) */
+  fridgeRebuild: '/menus/fridge-rebuild',
   currentMenu: '/menus/current',
   menuHistory: '/menus/history',
   generationTask: (taskId: number) => `/menus/generation-tasks/${taskId}`,
@@ -51,6 +53,13 @@ export const ENDPOINTS = {
 
   inviteCode: '/invite/code',
   inviteRedeem: '/invite/redeem',
+
+  // 饭决决策 (v1.0.0)
+  decide: '/decide',
+  decideLast: '/decide/last',
+  decideProfile: '/decide/profile',
+  decideRecent: '/decide/recent',
+  decideFeedback: (decisionId: number) => `/decide/${decisionId}/feedback`,
 
   today: '/today',
   takeoutPrice: '/today/takeout-price',

@@ -13,8 +13,8 @@ import { track } from './events'
 import { toast } from './nav'
 
 /**
- * 换一道: 后端先从本地菜谱库挑, 挑不到再让 AI 生成一道, 前端只负责结果确认。
- * 结果确认用 action sheet: 就它了 / (本地换来的话) 让 AI 再换一道 / 换回上一道。
+ * 换一道: 后端先按用户口味与预算从本地菜谱库挑一道, 挑不到再生成一道, 前端只负责结果确认。
+ * 结果确认用 action sheet: 就它了 / 换回上一道。
  * 返回换好后的整份菜单, 页面据此做乐观更新, 不再整页 reload。
  */
 export async function askReplaceRecipe(menu: MenuDetail, meal: MealDetail): Promise<MenuDetail | null> {
@@ -25,10 +25,8 @@ export async function askReplaceRecipe(menu: MenuDetail, meal: MealDetail): Prom
   const name = info?.recipe_name || '新的一道菜'
   const fromLocal = info?.source === 'local'
 
-  type Choice = 'keep' | 'ai' | 'restore'
+  type Choice = 'keep' | 'restore'
   const options: Array<{ label: string; choice: Choice }> = [{ label: '就它了', choice: 'keep' }]
-  // 只有「本地菜谱库换来的」才给 AI 再换的入口; 已经是 AI 换的就没必要再来一次
-  if (fromLocal) options.push({ label: '让 AI 再换一道', choice: 'ai' })
   if (previous?.id) options.push({ label: '换回上一道', choice: 'restore' })
 
   let tapIndex = 0
@@ -43,12 +41,6 @@ export async function askReplaceRecipe(menu: MenuDetail, meal: MealDetail): Prom
   }
 
   const picked = options[tapIndex]?.choice ?? 'keep'
-
-  if (picked === 'ai') {
-    const next = await runReplace('让 AI 再换一道…', menu.id, meal.id, { force_ai: true })
-    toast('已让 AI 换一道', 'success')
-    return next
-  }
 
   if (picked === 'restore' && previous?.id) {
     const restored = await runReplace('正在换回…', menu.id, meal.id, { recipe_id: previous.id })
