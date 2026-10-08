@@ -4,6 +4,12 @@ export default defineAppConfig({
   //   改成 today 打头: 新用户由 today 的 useDidShow 按「我的 → 用户信息」里的
   //   引导开关决定是否 reLaunch 到 onboarding, 老用户直接进首页。
   entryPagePath: 'pages/today/index',
+  // 组件按需注入: 只把当前页面真正用到的自定义组件注入渲染层, 未用到的组件不加载。
+  // 直接收益 = 缩短冷启动 + 减小运行时代价; 也是开发者工具「代码质量 → 组件按需注入」
+  // 这条规则的要求 (不配则该项一直「未通过」)。
+  // ⚠ 前提是所有组件都在 WXML 里被静态引用; 本项目无 wx.createSelectorQuery 之类
+  //   运行期动态取组件的写法, 因此安全。
+  lazyCodeLoading: 'requiredComponents',
   pages: [
     'pages/today/index',
     'pages/onboarding/index',
