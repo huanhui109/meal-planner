@@ -15,6 +15,7 @@
  */
 import { create } from 'zustand'
 import {
+  cookDecision,
   decide,
   getDecideProfile,
   getLastDecision,
@@ -38,6 +39,33 @@ const PROFILE_KEY = 'meal-planner:decide-profile:v1'
 
 /** 点主按钮时这次算什么: 换掉当前 / 周末再加一道 / 首次或改条件后重来 */
 export type RollIntent = 'reroll' | 'another_dish' | 'fresh'
+
+/** `/decide/{id}/cook` 返回里一行被消耗/没扣到的食材 */
+export type CookConsumeLine = {
+  ingredient_name: string
+  quantity: number
+  unit: string
+}
+
+/**
+ * 「做完了」的结果。**必须逐档区分**, UI 不能一律显示"已扣减"。
+ *
+ * 扣不到的几种情况都是真实且用户能察觉的(离线菜谱 / 重复点击 / 缺料 / 服务端失败),
+ * 统一说成成功就是在骗人。2.7.0 之前正因为后端没有这条接口, 才只能打个点了事 ——
+ * 现在有真结果了, 就必须把结果如实交出去, 由 UI 决定怎么措辞。
+ */
+export type CookDoneAck =
+  /** 压根没有结果, 不该发生 */
+  | { kind: 'none' }
+  /** 离线兜底出的结果 (id=0): 服务端没有这条决策记录, 没有东西可扣 */
+  | { kind: 'skipped' }
+  /** 后端没有这道菜的 recipe_id (离线/本地菜): 只置了标记, 没扣减 */
+  | { kind: 'no_recipe' }
+  /** 幂等命中: 这顿之前已经做完并扣过 */
+  | { kind: 'already' }
+  | { kind: 'done'; consumed: CookConsumeLine[]; missing: CookConsumeLine[] }
+  /** 请求失败: "做完了"这个事实成立, 但扣库存这一步没成功 */
+  | { kind: 'failed' }
 
 /** `/decide/understand` 的解析结果中, 前端真正用到的几个字段 */
 export type UnderstoodIntent = {
@@ -148,7 +176,7 @@ type State = {
   accept: () => void
   viewSteps: () => void
   cookStart: () => void
-  cookDone: () => void
+  cookDone: () => Promise<CookDoneAck>
   noteStubbornShown: (date?: Date) => void
   reset: () => void
 }
@@ -380,15 +408,37 @@ export const useDecideStore = create<State>((set, get) => ({
   },
 
   /**
-   * 「做完了」。本期只打点 + 记一次 accepted:
-   * 后端还没有"按决策写 consumption_record"的接口 (R-05 后端部分),
-   * 造一个假的"已扣库存"提示是在骗用户, 所以扣库存仍然走次屏「今晚这一餐」。
+   * 「做完了」: 按这次决策的结果菜谱扣减冰箱库存 (2.7.0 的 POST /decide/{id}/cook)
+   *
+   * 以前这里只打点 —— 当时的后端确实没有"按决策写 consumption_record"的接口,
+   * 而做一个假的"已扣库存"提示是在骗用户, 所以扣库存只能走次屏「今晚这一餐」
+   * (那是周菜单 MenuItem 维度, 和今日决策不是一回事)。现在接口已上线且幂等,
+   * 这才是今日线该走的唯一入口。
+   *
+   * 失败一律不抛: "这顿做完了"是用户的事实, 扣库存只是它附带的动作 ——
+   * 扣不到要如实降级(kind: 'failed'), 不能把主流程挡住。
    */
-  cookDone: () => {
+  cookDone: async () => {
     const { result } = get()
-    if (!result) return
+    if (!result) return { kind: 'none' }
     track('decide_cook_done', { decision_id: result.id || null, dish: result.dish.name })
     void get().feedback(true)
+
+    // 离线兜底出的结果在服务端没有 decision_log, 拿不到 id 就没有可扣的对象
+    if (!result.id) return { kind: 'skipped' }
+
+    try {
+      const ack = await cookDecision(result.id)
+      if (ack.no_recipe) return { kind: 'no_recipe' }
+      if (ack.already_cooked) return { kind: 'already' }
+      return {
+        kind: 'done',
+        consumed: ack.consumed ?? [],
+        missing: ack.missing ?? [],
+      }
+    } catch {
+      return { kind: 'failed' }
+    }
   },
 
   /** 倔强提示弹出: 一次会话只弹一次, 所以这里顺手把 shown 置上 */

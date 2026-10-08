@@ -22,6 +22,7 @@
  * 保住的三件品牌资产: 唯一黑色主按钮、做法直接展开不折叠、到点收手的倔强提示。
  */
 import React, { useEffect, useMemo, useState } from 'react'
+import { message } from 'antd'
 import { brand } from '@shared/brand'
 import { MEAL_SLOT_LABELS } from '@shared/decide'
 import { LogoMark } from './ui/logo'
@@ -32,6 +33,7 @@ import {
   markCurrentExcluded,
   shouldShowStubborn,
   useDecideStore,
+  type CookDoneAck,
 } from '../stores/useDecideStore'
 import type { DecisionResult } from '../types'
 
@@ -55,6 +57,31 @@ const SLOW_DECIDE_MS = 1200
 export type DecideBoardProps = {
   /** 注入的时刻: 线上不传(取当前时间), 测试传固定值以覆盖深夜/周末 */
   now?: Date
+}
+
+/**
+ * 「做完了」的措辞 —— 后端每档返回都对应一句实话。
+ *
+ * 不允许统一说成"已扣减": 离线菜谱、重复点击、缺料、服务端失败这四种都是用户
+ * 立刻能在冰箱里对照出来的事实, 替后端说好话等于让用户发现系统在撒谎。
+ */
+function cookDoneText(ack: CookDoneAck): string {
+  switch (ack.kind) {
+    case 'skipped':
+      return '已记下，但这次是离线结果，没有扣库存'
+    case 'no_recipe':
+      return '已记下，但这道是离线菜谱，没法精确扣库存'
+    case 'already':
+      return '这顿已经做完并扣过库存了'
+    case 'done':
+      return ack.missing.length > 0
+        ? `已扣库存，${ack.missing.length} 样没扣到`
+        : '已扣减冰箱库存'
+    case 'failed':
+      return '库存扣减失败，稍后可在冰箱里手动调整'
+    default:
+      return ''
+  }
 }
 
 const DecideBoard: React.FC<DecideBoardProps> = ({ now }) => {
@@ -126,6 +153,19 @@ const DecideBoard: React.FC<DecideBoardProps> = ({ now }) => {
     await roll({ intent: 'another_dish' })
   }
 
+  /**
+   * 「做完了」: 真去扣库存 (POST /decide/{id}/cook), 再进 done 态
+   *
+   * ⚠ 顺序必须是先 await 结果、后切 done。反过来会先把"完成"演完再告诉你其实
+   * 没扣成 —— 那是一次信任事故, 比不做这件事还糟。措辞由后端返回决定。
+   */
+  const handleCookDone = async () => {
+    const ack = await cookDone()
+    setStage('done')
+    const text = cookDoneText(ack)
+    if (text) message.info(text)
+  }
+
   const card = useMemo(
     () => buildResultCard({ result, now, excludedCount: excluded.length, pickedCount: picked.length }),
     [result, now, excluded.length, picked.length],
@@ -161,8 +201,7 @@ const DecideBoard: React.FC<DecideBoardProps> = ({ now }) => {
           ? {
               label: '做完了',
               onClick: () => {
-                cookDone()
-                setStage('done')
+                void handleCookDone()
               },
             }
           : { label: actionLabel, onClick: () => void handleReroll() }
@@ -280,8 +319,7 @@ const DecideBoard: React.FC<DecideBoardProps> = ({ now }) => {
                     type="button"
                     className="decide-link"
                     onClick={() => {
-                      cookDone()
-                      setStage('done')
+                      void handleCookDone()
                     }}
                   >
                     做完了

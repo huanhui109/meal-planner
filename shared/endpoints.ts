@@ -36,6 +36,8 @@ export const ENDPOINTS = {
 
   inventory: '/inventory',
   inventoryItem: (itemId: number) => `/inventory/${itemId}`,
+  /** 批量入库 (快速补常备食材, 2.7.0) */
+  inventoryBulk: '/inventory/bulk',
   inventoryRecognize: '/inventory/recognize',
 
   feedback: '/feedback',
@@ -60,6 +62,8 @@ export const ENDPOINTS = {
   decideProfile: '/decide/profile',
   decideRecent: '/decide/recent',
   decideFeedback: (decisionId: number) => `/decide/${decisionId}/feedback`,
+  /** 今日饭决「做完了」: 按结果菜谱扣减冰箱库存 (2.7.0) */
+  decideCook: (decisionId: number) => `/decide/${decisionId}/cook`,
 
   today: '/today',
   takeoutPrice: '/today/takeout-price',

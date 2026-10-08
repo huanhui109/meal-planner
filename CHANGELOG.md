@@ -1,6 +1,6 @@
 # CHANGELOG
 
-本仓库采用 **语义化版本（SemVer）** 作为唯一权威版本号，当前版本 **2.7.0**。
+本仓库采用 **语义化版本（SemVer）** 作为唯一权威版本号，当前版本 **2.8.0**。
 版本号在以下 4 处保持一致，修改时须同步更新：
 
 - `pyproject.toml`（`[project].version`）
@@ -11,6 +11,29 @@
 > `requirements-v2.3.md`、`requirements-v2.5-dark-mode.md`、`v3.0-scraper-spec.md`、
 > `product-v2.md`）使用 `Vx.x` 作为**产品规划里程碑**编号，不代表已发布的 SemVer 版本。
 > 自 2.6.0 起，代码版本号与规划里程碑不再强绑定——里程碑的落地以本文件的 SemVer 为准。
+
+## [2.8.0] - 2026-10-08
+
+把 2.7.0 里新增、但当时没有任何消费方的「孤儿端点」接到两个真实交付面（H5 + 小程序），
+让「今日做完了」真正按后端返回扣库存。
+
+- **今日「做完了」改成真扣库存**（本次核心）
+  2.7.0 之前 `cookDone()` 只打点 —— 那时后端确实没有"按决策扣库存"的接口，前端做一个
+  假的"已扣库存"提示是在骗用户。现在 `POST /decide/{id}/cook` 已上线且幂等，H5
+  （`stores/useDecideStore.ts`）与小程序（`components/decide-board.tsx`）都改调它，
+  并把结果逐档如实告知，不再一律说"已扣减"：
+  - `no_recipe`（离线/本地菜）→「没法精确扣库存」
+  - `already_cooked`（幂等命中）→「这顿已经做完并扣过」
+  - `missing > 0` →「已扣库存，N 样没扣到」
+  - 离线兜底结果（`id === 0`）→ 服务端没有决策记录，明确说没扣，不假装有结果
+  - 请求失败 → 不阻断主流程，提示可到冰箱手动调整
+  ⚠ 顺序约定：**先 await 后端结果、后切 done 态**。反过来会先把"完成"演完再告诉用户没扣成。
+- **补齐共享接口契约**：`shared/endpoints.ts` 新增 `decideCook` / `inventoryBulk`；
+  两端 API 客户端新增 `cookDecision` / `searchInventory` / `bulkAddInventory` /
+  `updateInventoryItem`（对应 2.7.0 的 `/decide/{id}/cook`、`GET /inventory?q=`、
+  `POST /inventory/bulk`、`PUT /inventory/{id}`）
+- **仓库卫生**：清理仓库内 ~146 个 macOS `「 2」` 重复垃圾文件
+  （原文件移至 `/tmp/mealplanner-trash/` 可恢复；它们会让 `tsc` 直接报错）
 
 ## [2.7.0] - 2026-10-08
 

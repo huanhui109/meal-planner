@@ -94,3 +94,13 @@ export const sendDecideFeedback = (decisionId: number, liked: boolean) =>
   unwrap<{ accepted: boolean }>(
     apiClient.post(`/decide/${decisionId}/feedback`, { liked } as DecideFeedbackRequest),
   )
+
+/** 今日饭决「做完了」: 按结果菜谱扣减冰箱库存 (2.7.0) */
+export const cookDecision = (decisionId: number) =>
+  unwrap<{
+    decision_id: number
+    already_cooked: boolean
+    no_recipe?: boolean
+    consumed: Array<{ ingredient_name: string; quantity: number; unit: string }>
+    missing: Array<{ ingredient_name: string; quantity: number; unit: string }>
+  }>(apiClient.post(`/decide/${decisionId}/cook`))

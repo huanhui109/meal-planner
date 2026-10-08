@@ -125,6 +125,16 @@ export const unlockMenuItem = (menuId: number, itemId: number) =>
 export const markItemCooked = (menuId: number, itemId: number) =>
   http.put<ConsumeResult>(ENDPOINTS.cookedMenuItem(menuId, itemId))
 
+/** 今日饭决「做完了」: 按结果菜谱扣减冰箱库存 (2.7.0) */
+export const cookDecision = (decisionId: number) =>
+  http.post<{
+    decision_id: number
+    already_cooked: boolean
+    no_recipe?: boolean
+    consumed: Array<{ ingredient_name: string; quantity: number; unit: string }>
+    missing: Array<{ ingredient_name: string; quantity: number; unit: string }>
+  }>(ENDPOINTS.decideCook(decisionId))
+
 /** 撤销「标记已做」: 库存还原 + 删除消耗流水 */
 export const undoMarkItemCooked = (menuId: number, itemId: number) =>
   http.del<{ item_id: number; restored: unknown[] }>(ENDPOINTS.undoCookedMenuItem(menuId, itemId))
@@ -190,6 +200,23 @@ export const addInventory = (data: Record<string, unknown>) =>
 
 export const deleteInventory = (itemId: number) =>
   http.del<null>(ENDPOINTS.inventoryItem(itemId))
+
+/** 按食材名模糊搜索库存 (GET /inventory?q=, 2.7.0) */
+export const searchInventory = (q: string) =>
+  http.get<{ total: number; expiring_count: number; items: InventoryItem[] }>(
+    `${ENDPOINTS.inventory}?q=${encodeURIComponent(q)}`,
+  )
+
+/** 批量入库 (快速补常备食材, 2.7.0) */
+export const bulkAddInventory = (
+  items: Array<{ ingredient_name: string; quantity: number; unit: string }>,
+) => http.post<{ added: InventoryItem[] }>(ENDPOINTS.inventoryBulk, { items })
+
+/** 改库存项的数量 / 保质期 (PUT /inventory/{id}, 2.7.0) */
+export const updateInventoryItem = (
+  itemId: number,
+  body: { quantity?: number; expiry_date?: string | null },
+) => http.put<InventoryItem>(ENDPOINTS.inventoryItem(itemId), body)
 
 // ---------- 反馈 ----------
 

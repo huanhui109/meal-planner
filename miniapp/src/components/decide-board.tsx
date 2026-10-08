@@ -31,6 +31,8 @@ import { LogoMark } from './logo'
 import UtteranceInput, { type UtteranceEcho } from './utterance-input'
 import { buildResultCard } from '../lib/result-card'
 import { track } from '../lib/track'
+import { cookDecision } from '../lib/api'
+import { toast } from '../lib/nav'
 import {
   getRound,
   loadLastDecision,
@@ -66,6 +68,45 @@ type RollIntent = 'fresh' | 'reroll' | 'another_dish'
  * 仪式感要放在结果揭晓上, 不是等待过程上。
  */
 const SLOW_DECIDE_MS = 1200
+
+/** `/decide/{id}/cook` 返回里一行被消耗/没扣到的食材 */
+type CookConsumeLine = { ingredient_name: string; quantity: number; unit: string }
+
+type CookDoneAck =
+  /** 离线兜底出的结果 (id=0): 服务端没有这条决策记录, 没有东西可扣 */
+  { kind: 'skipped' }
+  /** 后端没有这道菜的 recipe_id (离线/本地菜): 只置了标记, 没扣减 */
+  | { kind: 'no_recipe' }
+  /** 幂等命中: 这顿之前已经做完并扣过 */
+  | { kind: 'already' }
+  | { kind: 'done'; consumed: CookConsumeLine[]; missing: CookConsumeLine[] }
+  /** 请求失败: "做完了"这个事实成立, 但扣库存这一步没成功 */
+  | { kind: 'failed' }
+
+/**
+ * 「做完了」的措辞 —— 后端每档返回都对应一句实话, 与 H5 的 DecideBoard 一致。
+ *
+ * 不允许统一说成"已扣减": 离线菜谱 / 重复点击 / 缺料 / 服务端失败这四种都是用户
+ * 立刻能在冰箱里对照出来的事实, 替后端说好话等于让用户发现系统在撒谎。
+ */
+function cookDoneText(ack: CookDoneAck): string {
+  switch (ack.kind) {
+    case 'skipped':
+      return '已记下，但这次是离线结果，没有扣库存'
+    case 'no_recipe':
+      return '已记下，但这道是离线菜谱，没法精确扣库存'
+    case 'already':
+      return '这顿已经做完并扣过库存了'
+    case 'done':
+      return ack.missing.length > 0
+        ? `已扣库存，${ack.missing.length} 样没扣到`
+        : '已扣减冰箱库存'
+    case 'failed':
+      return '库存扣减失败，稍后可在冰箱里手动调整'
+    default:
+      return ''
+  }
+}
 
 export type DecideBoardProps = {
   /** 注入的时刻: 线上不传(取当前时间), 测试传固定值以覆盖深夜/周末 */
@@ -210,6 +251,34 @@ export function DecideBoard({ now }: DecideBoardProps) {
   const actionLabel = understood ? '按你说的来' : brand.decideAction
   const busy = loading && slowDecide
 
+  /**
+   * 「做完了」: 真去扣库存 (POST /decide/{id}/cook), 再进 done 态
+   *
+   * ⚠ 顺序必须是先 await 结果、后切 done。反过来会先把"完成"演完再告诉你其实
+   * 没扣成 —— 那是一次信任事故, 比不做这件事还糟。措辞由后端返回决定。
+   */
+  const handleCookDone = async () => {
+    if (!result) return
+    track('decide_cook_done', { decision_id: result.id || null, dish: result.dish.name })
+    void sendDecideFeedback(result.id, true)
+
+    // 离线兜底出的结果在服务端没有决策记录, 没东西可扣 —— 不假装有结果
+    let ack: CookDoneAck = { kind: 'skipped' }
+    if (result.id) {
+      try {
+        const res = await cookDecision(result.id)
+        if (res.no_recipe) ack = { kind: 'no_recipe' }
+        else if (res.already_cooked) ack = { kind: 'already' }
+        else ack = { kind: 'done', consumed: res.consumed ?? [], missing: res.missing ?? [] }
+      } catch {
+        ack = { kind: 'failed' }
+      }
+    }
+    setStage('done')
+    const text = cookDoneText(ack)
+    if (text) toast(text)
+  }
+
   /** 黑色主按钮: 全页唯一一个, 文案随阶段推进 */
   const primary: { label: string; onClick: () => void } =
     stage === 'result'
@@ -241,10 +310,7 @@ export function DecideBoard({ now }: DecideBoardProps) {
           ? {
               label: '做完了',
               onClick: () => {
-                if (!result) return
-                track('decide_cook_done', { decision_id: result.id || null, dish: result.dish.name })
-                void sendDecideFeedback(result.id, true)
-                setStage('done')
+                void handleCookDone()
               },
             }
           : { label: actionLabel, onClick: () => void handleRoll('fresh') }
@@ -352,9 +418,7 @@ export function DecideBoard({ now }: DecideBoardProps) {
               <Text
                 className="decide__link"
                 onClick={() => {
-                  if (!result) return
-                  track('decide_cook_done', { decision_id: result.id || null, dish: result.dish.name })
-                  setStage('done')
+                  void handleCookDone()
                 }}
               >
                 做完了

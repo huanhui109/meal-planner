@@ -1,6 +1,6 @@
 [project]
 name = "ai-meal-planner"
-version = "2.7.0"
+version = "2.8.0"
 description = "饭决 FAN·DECIDE - 今天吃啥，交给饭决。基于口味档案的即时决策引擎与轻量菜谱"
 requires-python = ">=3.11"
 dependencies = [
