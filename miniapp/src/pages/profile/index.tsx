@@ -396,24 +396,6 @@ export default function ProfilePage() {
         <Banner tone="warn">先填「家庭与厨房」和「预算」这两项, 就能生成一份靠谱的菜单了。</Banner>
       ) : null}
 
-      {/* 需求 8: 口味与约束档案一次设置长期生效, 之后随时能重设。
-          这 3 题是决策引擎真正读的字段, 单独一组放在最上面 ——
-          用户改口味不该先去翻五张长表单。 */}
-      <View style={{ marginTop: 14 }}>
-        <SetGroup title="饭决偏好">
-          <SetRow
-            label="口味 / 忌口 / 做饭时间"
-            state={summary?.diet_preference || summary?.allergy_restriction ? 'ok' : 'warn'}
-            value={
-              summary?.diet_preference || summary?.allergy_restriction
-                ? '已设置 · 点这重答 3 题'
-                : '未设置 · 3 题 30 秒'
-            }
-            onClick={() => Taro.navigateTo({ url: '/pages/onboarding/index?from=profile' })}
-          />
-        </SetGroup>
-      </View>
-
       <View style={{ marginTop: 14 }}>
         <SetGroup title="冰箱">
           <SetRow
@@ -424,20 +406,24 @@ export default function ProfilePage() {
         </SetGroup>
       </View>
 
-      <View style={{ marginTop: 14 }}>
-        <SetGroup title="家庭与厨房">
-          <SetRow
-            label="家庭人数 / 每日餐次"
-            state={summary?.household ? 'ok' : 'warn'}
-            value={
-              summary?.household
-                ? `${summary.household.member_count} 人 · ${summary.household.meals_per_day} 餐`
-                : undefined
-            }
-            onClick={() => toggle('household')}
-          />
-          {open === 'household' ? (
-            <View style={{ padding: '0 18px 18px' }}>
+      {/* Demo 偏好卡: 4 个 setting-row, 点开就地编辑 (表单逻辑不变) */}
+      <View className="d-card" style={{ marginTop: 14 }}>
+        <View className="d-setting-row tap" onClick={() => toggle('household')}>
+          <View className="d-setting-icon">
+            <Text>{summary?.household?.member_count ?? '家'}</Text>
+          </View>
+          <View className="d-setting-copy">
+            <Text className="d-setting-copy__title">家庭与厨房</Text>
+            <View className="d-setting-copy__sub">
+              {summary?.household
+                ? `${summary.household.member_count} 人 · ${summary.household.kitchen_equipments?.slice(0, 3).join(' / ') || '设备未填'}`
+                : '还没设置'}
+            </View>
+          </View>
+          <Text className="d-setting-value">{summary?.household ? '已设置 ›' : '去设置 ›'}</Text>
+        </View>
+        {open === 'household' ? (
+          <View style={{ padding: '10px 0 4px' }}>
               <View style={{ display: 'flex', gap: px(10) }}>
                 <NumberField
                   label="家庭人数"
@@ -489,21 +475,29 @@ export default function ProfilePage() {
               </View>
             </View>
           ) : null}
-        </SetGroup>
 
-        <SetGroup title="口味与安全">
-          <SetRow
-            label="菜系 / 辣度"
-            state={summary?.diet_preference ? 'ok' : 'warn'}
-            value={
-              summary?.diet_preference
-                ? `${summary.diet_preference.cuisines?.slice(0, 2).join('、') || '不限'} · ${SPICE[summary.diet_preference.spice_level] ?? ''}`
-                : undefined
-            }
-            onClick={() => toggle('diet')}
-          />
-          {open === 'diet' ? (
-            <View style={{ padding: '0 18px 18px' }}>
+        <View className="d-setting-row tap" onClick={() => toggle('diet')}>
+          <View className="d-setting-icon">
+            <Text>味</Text>
+          </View>
+          <View className="d-setting-copy">
+            <Text className="d-setting-copy__title">口味与忌口</Text>
+            <View className="d-setting-copy__sub">
+              {summary?.diet_preference
+                ? `${summary.diet_preference.flavor_preference || '不限'} · ${SPICE[summary.diet_preference.spice_level] ?? ''}${
+                    summary?.allergy_restriction?.allergens?.length
+                      ? ` · 忌口 ${summary.allergy_restriction.allergens.slice(0, 2).join('、')}`
+                      : ''
+                  }`
+                : '还没设置'}
+            </View>
+          </View>
+          <Text className="d-setting-value">
+            {summary?.diet_preference || summary?.allergy_restriction ? '已设置 ›' : '去设置 ›'}
+          </Text>
+        </View>
+        {open === 'diet' ? (
+          <View style={{ padding: '10px 0 4px' }}>
               <ChipGroup
                 label="偏好菜系"
                 hint="可多选, 不选则由 AI 自由搭配"
@@ -539,23 +533,8 @@ export default function ProfilePage() {
                   {saving ? '保存中…' : '保存口味'}
                 </PillButton>
               </View>
-            </View>
-          ) : null}
-        </SetGroup>
 
-        <View className="set-group set-group--cont">
-          <SetRow
-            label="过敏源 / 忌口"
-            state={summary?.allergy_restriction ? 'ok' : 'warn'}
-            value={
-              summary?.allergy_restriction
-                ? summary.allergy_restriction.allergens?.join('、') || '没填过敏源'
-                : undefined
-            }
-            onClick={() => toggle('allergy')}
-          />
-          {open === 'allergy' ? (
-            <View style={{ padding: '0 18px 18px' }}>
+              <View style={{ height: 18 }} />
               <TextField
                 label="过敏源 (用顿号或逗号分隔)"
                 hint="绝对禁止出现, 例如: 花生、芒果、虾"
@@ -599,21 +578,27 @@ export default function ProfilePage() {
               </View>
             </View>
           ) : null}
-        </View>
 
-        <SetGroup title="目标与预算">
-          <SetRow
-            label="目标 / 每日热量"
-            state={summary?.health_goal ? 'ok' : 'warn'}
-            value={
-              summary?.health_goal
-                ? `${summary.health_goal.goal_type} · ${Math.round(summary.health_goal.daily_calories)} kcal`
-                : undefined
-            }
-            onClick={() => toggle('health')}
-          />
-          {open === 'health' ? (
-            <View style={{ padding: '0 18px 18px' }}>
+        <View className="d-setting-row tap" onClick={() => toggle('health')}>
+          <View className="d-setting-icon">
+            <Text>衡</Text>
+          </View>
+          <View className="d-setting-copy">
+            <Text className="d-setting-copy__title">目标与预算</Text>
+            <View className="d-setting-copy__sub">
+              {summary?.health_goal || summary?.budget
+                ? `${summary?.health_goal?.goal_type || '维持'} · 工作日 ${formatMoney(
+                    summary?.budget?.weekday_daily_budget ?? 0,
+                  )} / 天`
+                : '还没设置'}
+            </View>
+          </View>
+          <Text className="d-setting-value">
+            {summary?.health_goal || summary?.budget ? '已设置 ›' : '去设置 ›'}
+          </Text>
+        </View>
+        {open === 'health' ? (
+          <View style={{ padding: '10px 0 4px' }}>
               <ChipGroup
                 label="目标类型"
                 options={GOALS}
@@ -654,19 +639,8 @@ export default function ProfilePage() {
                   {saving ? '保存中…' : '保存健康目标'}
                 </PillButton>
               </View>
-            </View>
-          ) : null}
-        </SetGroup>
 
-        <View className="set-group set-group--cont">
-          <SetRow
-            label="每周预算上限"
-            state={summary?.budget ? 'ok' : 'warn'}
-            value={summary?.budget ? formatMoney(summary.budget.weekly_cap) : undefined}
-            onClick={() => toggle('budget')}
-          />
-          {open === 'budget' ? (
-            <View style={{ padding: '0 18px 18px' }}>
+              <View style={{ height: 18 }} />
               <View style={{ display: 'flex', gap: px(10) }}>
                 <NumberField
                   label="工作日每日 (元)"
@@ -711,6 +685,20 @@ export default function ProfilePage() {
               </View>
             </View>
           ) : null}
+
+        {/* 推荐顺序由决策引擎固定, 这里只解释 + 入口到 3 题偏好重答 */}
+        <View
+          className="d-setting-row tap"
+          onClick={() => Taro.navigateTo({ url: '/pages/onboarding/index?from=profile' })}
+        >
+          <View className="d-setting-icon">
+            <Text>序</Text>
+          </View>
+          <View className="d-setting-copy">
+            <Text className="d-setting-copy__title">推荐顺序</Text>
+            <View className="d-setting-copy__sub">临期优先 → 库存命中 → 最近少吃</View>
+          </View>
+          <Text className="d-setting-value">调整 ›</Text>
         </View>
       </View>
 
@@ -752,37 +740,29 @@ export default function ProfilePage() {
         </SetGroup>
       </View>
 
-      <View className="set-group" style={{ marginTop: 14 }}>
-        <View className="set-group__title">外观</View>
-        <View style={{ display: 'flex', gap: px(8), padding: '0 18px 18px' }}>
-          <PillButton
-            variant={theme === 'cool' ? 'ink' : 'gray'}
-            size="sm"
-            onClick={() => setTheme('cool')}
-          >
-            冷色
-          </PillButton>
-          <PillButton
-            variant={theme === 'cream' ? 'ink' : 'gray'}
-            size="sm"
-            onClick={() => setTheme('cream')}
-          >
-            明亮
-          </PillButton>
-          <PillButton
-            variant={theme === 'dark' ? 'ink' : 'gray'}
-            size="sm"
-            onClick={() => setTheme('dark')}
-          >
-            深色
-          </PillButton>
-          <PillButton
-            variant={theme === 'auto' ? 'ink' : 'gray'}
-            size="sm"
+      <View className="d-section-label">外观</View>
+      <View className="d-card">
+        <View className="d-card-title">跟随你的使用环境</View>
+        <View className="d-card-sub">自动会跟随系统的明暗模式</View>
+        <View className="d-theme-row">
+          <View
+            className={`d-theme-choice tap${theme === 'auto' ? ' d-theme-choice--active' : ''}`}
             onClick={() => setTheme('auto')}
           >
-            自动
-          </PillButton>
+            <Text>自动</Text>
+          </View>
+          <View
+            className={`d-theme-choice tap${theme === 'cream' ? ' d-theme-choice--active' : ''}`}
+            onClick={() => setTheme('cream')}
+          >
+            <Text>明亮</Text>
+          </View>
+          <View
+            className={`d-theme-choice tap${theme === 'dark' ? ' d-theme-choice--active' : ''}`}
+            onClick={() => setTheme('dark')}
+          >
+            <Text>深色</Text>
+          </View>
         </View>
       </View>
 

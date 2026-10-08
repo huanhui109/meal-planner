@@ -23,11 +23,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, Text, View } from '@tarojs/components'
 
 import { brand } from '@shared/brand'
-import { MEAL_SLOT_LABELS } from '@shared/decide'
+import { MEAL_SLOT_LABELS, resolveMealSlot } from '@shared/decide'
 import { contextBucket, stubbornAfter } from '@shared/decide-context'
 import type { DecisionResult } from '@shared/types'
 
-import { LogoMark } from './logo'
 import UtteranceInput, { type UtteranceEcho } from './utterance-input'
 import { buildResultCard } from '../lib/result-card'
 import { track } from '../lib/track'
@@ -58,6 +57,14 @@ const STUBBORN_LINE: Record<string, string> = {
 
 /** 结果卡的阶段: 决定了 → 开始做 → 做完了 → (回到饭决, 下一顿) */
 type Stage = 'result' | 'accepted' | 'cooking' | 'done'
+
+/** 空态引导的时间词 (Demo 的 mealContext().lead) */
+const MEAL_LEAD: Record<string, string> = {
+  breakfast: '早上',
+  lunch: '中午',
+  dinner: '今晚',
+  late_night: '夜里',
+}
 
 /** 换一个 / 再来一个 / 全新一次 */
 type RollIntent = 'fresh' | 'reroll' | 'another_dish'
@@ -315,134 +322,182 @@ export function DecideBoard({ now }: DecideBoardProps) {
             }
           : { label: actionLabel, onClick: () => void handleRoll('fresh') }
 
+  /**
+   * Demo 布局: .d-decision = main + aside (小程序竖屏下 aside 在 main 下方)。
+   * 以下只改结构与 className, 状态机 (result→accepted→cooking→done) 与 cook 接线不变。
+   */
+  const slotLabel = result ? MEAL_SLOT_LABELS[result.meal_slot] ?? '' : ''
+  const lead = MEAL_LEAD[resolveMealSlot(now)] ?? '这顿'
+  const orbText = busy ? '正在替你决定' : actionLabel
+
   return (
-    <View className="decide">
-      {!result ? (
-        <View className="decide__hero">
-          <View className="decide__hero-logo">
-            <LogoMark size={52} />
-          </View>
-          <Text className="decide__hero-title">{brand.name}</Text>
-          <Text className="decide__hero-sub">{brand.slogan}</Text>
-          <View
-            className={`decide__button ${busy ? 'is-loading' : ''}`}
-            onClick={() => void handleRoll('fresh')}
-          >
-            {/* 加载中文案刻意不提 AI: 那会把 2 秒承诺变成不确定等待 */}
-            <Text className="decide__button-label">
-              {busy ? '正在替你决定' : actionLabel}
-            </Text>
-          </View>
-          {/* 无结果时在主按钮**下方**收起成一行引导: 空输入框摆在主按钮上方
-              会让用户以为"得先填点什么" */}
-          <UtteranceInput variant="hero" utterance={utterance} echo={echo} onChange={(text, next) => { setUtterance(text); setEcho(next) }} />
-          {error ? <Text className="decide__error">{error}</Text> : null}
-        </View>
-      ) : (
-        <View className={`decide__result ${offline ? 'is-offline' : ''}`}>
-          <View className="decide__head">
-            <Text className="decide__slot">{MEAL_SLOT_LABELS[result.meal_slot] ?? ''}</Text>
-            {offline ? <Text className="decide__badge">{brand.offlineBadge}</Text> : null}
-          </View>
-
-          <Text className="decide__dish">{result.dish.name}</Text>
-          <Text className="decide__reason">{result.reason}</Text>
-
-          {/* 步数 + 档位词。⚠ 这一行永远不出现分钟数 */}
-          <View className="decide__effort">
-            <Text className="decide__effort-steps">{`${card.stepCount} 步`}</Text>
-            <Text className="decide__effort-dot">·</Text>
-            <Text className="decide__effort-label">{card.effortLabel}</Text>
-            {/* 深夜不出现热量: 说教类信息在深夜是添堵 */}
-            {card.showKcal && card.kcalText ? (
-              <Text className="decide__effort-kcal">{card.kcalText}</Text>
-            ) : null}
-            {weatherHint ? <Text className="decide__effort-kcal">{weatherHint}</Text> : null}
-          </View>
-
-          {/* 简要步骤直接展示在按钮上方, 无需点「看做法」才能看到第一步 */}
-          <View className="decide__steps-inline">
-            {card.steps.map((step, index) => (
-              <View className="decide__step-inline" key={step}>
-                <Text className="decide__step-inline-idx">{index + 1}</Text>
-                <Text className="decide__step-inline-text">{step}</Text>
-              </View>
-            ))}
-          </View>
-
-          {card.showAdvice && result.advice ? (
-            <View className="decide__advice">
-              <Text className="decide__advice-text">{result.advice}</Text>
+    <View className="d-decision">
+      <View className={`d-decision-main${!result ? ' d-decision-main--empty' : ''}`}>
+        {!result ? (
+          <>
+            <Text className="d-decision-empty-title">{lead}，别纠结</Text>
+            <Text className="d-decision-empty-slogan">{brand.slogan}</Text>
+            <View className="d-orb tap" onClick={() => void handleRoll('fresh')}>
+              {/* 加载中文案刻意不提 AI: 那会把 2 秒承诺变成不确定等待 */}
+              <Text className={`d-orb__label${orbText.length > 3 ? ' d-orb__label--long' : ''}`}>
+                {orbText}
+              </Text>
             </View>
-          ) : null}
-
-          <View
-            className={`decide__button decide__button--compact ${busy ? 'is-loading' : ''}`}
-            onClick={primary.onClick}
-          >
-            <Text className="decide__button-label">
-              {busy && stage === 'done' ? '正在替你决定' : primary.label}
+            {/* 无结果时在主按钮**下方**收起成一行引导: 空输入框摆在主按钮上方
+                会让用户以为"得先填点什么" */}
+            <UtteranceInput variant="hero" utterance={utterance} echo={echo} onChange={(text, next) => { setUtterance(text); setEcho(next) }} />
+            {error ? <Text className="d-decision-error">{error}</Text> : null}
+          </>
+        ) : (
+          <>
+            <Text className="d-dish-kicker">
+              {slotLabel} · {understood ? '按你说的' : '库存优先'}
+              {offline ? ` · ${brand.offlineBadge}` : ''}
             </Text>
-          </View>
+            <Text className="d-dish-name">{result.dish.name}</Text>
+            <Text className="d-dish-reason">{result.reason}</Text>
 
-          <View className="decide__secondary">
-            <Text
-              className={`decide__link ${locked ? 'is-weak' : ''}`}
-              onClick={() => void handleRoll('reroll')}
-            >
-              {busy ? '正在替你决定' : '换一个'}
-            </Text>
-            {/* 只在周末(含周五晚)10:00-20:00 出现: 她的「换一个」是"再来一个配菜" */}
-            {card.showAnotherDish ? (
-              <Text className="decide__link" onClick={() => void handleRoll('another_dish')}>
-                再来一个
-              </Text>
+            {/* 步数 + 档位词。⚠ 这一行永远不出现分钟数 */}
+            <View className="d-dish-facts">
+              <Text className="d-dish-fact">{`${card.stepCount} 步`}</Text>
+              <Text className="d-dish-fact">{card.effortLabel}</Text>
+              {/* 深夜不出现热量: 说教类信息在深夜是添堵 */}
+              {card.showKcal && card.kcalText ? (
+                <Text className="d-dish-fact">{card.kcalText}</Text>
+              ) : null}
+              {weatherHint ? <Text className="d-dish-fact">{weatherHint}</Text> : null}
+            </View>
+
+            {/* 简要步骤直接展示在按钮上方, 无需点「看做法」才能看到第一步 */}
+            <View className="d-steps">
+              {card.steps.map((step, index) => (
+                <View className="d-step" key={step}>
+                  <Text className="d-step__idx">{index + 1}</Text>
+                  <Text className="d-step__text">{step}</Text>
+                </View>
+              ))}
+            </View>
+
+            {card.showAdvice && result.advice ? (
+              <View className="d-success-line">{result.advice}</View>
             ) : null}
-            {stage === 'result' ? (
-              <Text
-                className="decide__link"
-                onClick={() => {
-                  if (!result) return
-                  track('decide_view_steps', {
-                    decision_id: result.id || null,
-                    dish: result.dish.name,
-                    steps: result.dish.steps.length,
-                  })
-                  setStepsOpen(true)
-                }}
+
+            {stage === 'done' ? (
+              <View className="d-success-line">这顿已完成，库存扣减结果见刚才的提示。</View>
+            ) : null}
+
+            <View className="d-decision-actions">
+              <View
+                className={`d-btn d-btn--primary tap${busy ? ' d-btn--disabled' : ''}`}
+                onClick={primary.onClick}
               >
-                看做法
-              </Text>
-            ) : null}
-            {stage === 'accepted' ? (
+                <Text>{busy && stage === 'done' ? '正在替你决定' : primary.label}</Text>
+              </View>
               <Text
-                className="decide__link"
-                onClick={() => {
-                  void handleCookDone()
-                }}
+                className="d-text-btn"
+                onClick={() => void handleRoll('reroll')}
               >
-                做完了
+                {busy ? '正在替你决定' : '换一个'}
+              </Text>
+              {/* 只在周末(含周五晚)10:00-20:00 出现: 她的「换一个」是"再来一个配菜" */}
+              {card.showAnotherDish ? (
+                <Text className="d-text-btn" onClick={() => void handleRoll('another_dish')}>
+                  再来一个
+                </Text>
+              ) : null}
+              {stage === 'result' ? (
+                <Text
+                  className="d-text-btn"
+                  onClick={() => {
+                    if (!result) return
+                    track('decide_view_steps', {
+                      decision_id: result.id || null,
+                      dish: result.dish.name,
+                      steps: result.dish.steps.length,
+                    })
+                    setStepsOpen(true)
+                  }}
+                >
+                  看做法
+                </Text>
+              ) : null}
+              {stage === 'accepted' ? (
+                <Text
+                  className="d-text-btn"
+                  onClick={() => {
+                    void handleCookDone()
+                  }}
+                >
+                  做完了
+                </Text>
+              ) : null}
+            </View>
+
+            {/* 有结果后才挪到动作行旁边: 真实诉求大多在看到候选之后才产生 */}
+            <UtteranceInput variant="inline" utterance={utterance} echo={echo} onChange={(text, next) => { setUtterance(text); setEcho(next) }} />
+
+            {/* 卡下方只留一条"系统侧事实/负面信息", 放宽优先 */}
+            {card.footnote ? (
+              <Text className="d-decision-note">{card.footnoteText}</Text>
+            ) : null}
+            {/* 周末配菜是正向事实(在配一桌菜), 不算负面信息, 可与上面并存 */}
+            {card.pickedText ? (
+              <Text className="d-decision-note">
+                {card.pickedText}：{picked.join(' + ')}
               </Text>
             ) : null}
-          </View>
 
-          {/* 有结果后才挪到动作行旁边: 真实诉求大多在看到候选之后才产生 */}
-          <UtteranceInput variant="inline" utterance={utterance} echo={echo} onChange={(text, next) => { setUtterance(text); setEcho(next) }} />
+            {locked ? <Text className="d-decision-note">饭决已经替你定了，去做吧。</Text> : null}
+            {error ? <Text className="d-decision-error">{error}</Text> : null}
+          </>
+        )}
+      </View>
 
-          {/* 卡下方只留一条"系统侧事实/负面信息", 放宽优先 */}
-          {card.footnote ? (
-            <Text className="decide__note">{card.footnoteText}</Text>
-          ) : null}
-          {/* 周末配菜是正向事实(在配一桌菜), 不算负面信息, 可与上面并存 */}
-          {card.pickedText ? (
-            <Text className="decide__picked">
-              {card.pickedText}：{picked.join(' + ')}
+      <View className="d-decision-aside">
+        {!result ? (
+          <>
+            <View>
+              <Text className="d-aside-title">这一顿怎么决定</Text>
+              <View className="d-aside-list">
+                <View className="d-aside-row">
+                  <Text>临期食材</Text>
+                  <Text className="d-aside-row__value">优先消耗</Text>
+                </View>
+                <View className="d-aside-row">
+                  <Text>已记录偏好</Text>
+                  <Text className="d-aside-row__value">自动生效</Text>
+                </View>
+                <View className="d-aside-row">
+                  <Text>最近吃过</Text>
+                  <Text className="d-aside-row__value">自动避开</Text>
+                </View>
+              </View>
+            </View>
+            <Text className="d-aside-note">
+              不需要先填完整资料。没有命中库存时，也会给出一份能落地的家常菜。
             </Text>
-          ) : null}
-
-          {locked ? <Text className="decide__locked">饭决已经替你定了，去做吧。</Text> : null}
-        </View>
-      )}
+          </>
+        ) : (
+          <>
+            <View>
+              <Text className="d-tag d-tag--good">{offline ? '离线兜底' : '按库存与偏好'}</Text>
+              <View className="d-aside-dish">{result.dish.name}</View>
+              {result.dish.ingredients.length ? (
+                <View className="d-ing-mini">
+                  {result.dish.ingredients.slice(0, 6).map((item) => (
+                    <View className="d-ing-mini-row" key={item}>
+                      <Text>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+            <Text className="d-aside-note">
+              主按钮会依次推进“定下 → 开始做 → 做完了”，减少来回选择。
+            </Text>
+          </>
+        )}
+      </View>
 
       {stepsOpen && result ? (
         <View className="decide__sheet" onClick={() => setStepsOpen(false)}>

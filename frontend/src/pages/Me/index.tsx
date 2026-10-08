@@ -7,7 +7,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { message } from 'antd'
 import {
-  ArrowRightOutlined,
   BellOutlined,
   FireOutlined,
   HomeOutlined,
@@ -17,7 +16,6 @@ import {
   WalletOutlined,
 } from '@ant-design/icons'
 import { Banner, Card, Chip, LoadingStack, PillButton } from '../../components/ui'
-import { LogoLockup } from '../../components/ui/logo'
 import { getAutomationStatus } from '../../api/automation'
 import { currentWeekStart, rebuildMenuFromFridge } from '../../api/menu'
 import { getToday } from '../../api/today'
@@ -27,7 +25,7 @@ import { usePreferenceStore } from '../../stores/usePreferenceStore'
 import { useThemeStore } from '../../stores/useThemeStore'
 import { brand } from '@shared/brand'
 import { formatMoney } from '@shared/format'
-import { timelineTone } from '@shared/index'
+import { timelineTone, type ThemeName } from '@shared/index'
 import type {
   AutomationStatus,
   CurrentUser,
@@ -174,40 +172,40 @@ const MePanel: React.FC<MePanelProps> = ({ user, onNavigate }) => {
 
   return (
     <div className="me-panel">
-      <div className="me-head">
-        <LogoLockup subtitle="" />
-        <div className="me-user">
-          <b>{user.name}</b>
-          <span>{user.open_id.startsWith('ou_') ? '飞书账号' : '本地账号'}</span>
+      <div className="drawer-head">
+        <div>
+          <h2>我的</h2>
+          <div className="card-sub">
+            {user.name} · {user.open_id.startsWith('ou_') ? '飞书账号' : '本地账号'} ·
+            饭决会按这些偏好做决定
+          </div>
         </div>
       </div>
 
-      <Card tight>
-        <div className="set-group">
+      <div className="card">
+        <div className="settings">
           {groups.map((group) => (
             <button
               key={group.key}
               type="button"
-              className="set-row set-row--btn"
+              className="setting-row"
               onClick={() => {
                 if (group.action) return group.action()
                 return group.to ? onNavigate(group.to) : setShowAutomation((prev) => !prev)
               }}
             >
-              <div className="set-icon">{group.icon}</div>
-              <div className="set-text">
+              <span className="setting-icon">{group.icon}</span>
+              <span className="setting-copy">
                 <b>{group.title}</b>
                 <span>{group.hint}</span>
-              </div>
-              <div className="set-value">
-                <b>{group.value}</b>
-                <span className={`state-dot ${group.done ? '' : 'is-off'}`} />
-              </div>
-              <ArrowRightOutlined className="set-arrow" />
+              </span>
+              <span className="setting-value">
+                {group.done ? `${group.value} ›` : `未设置 ›`}
+              </span>
             </button>
           ))}
         </div>
-      </Card>
+      </div>
 
       {(showAutomation || automationError) && (
         <>
@@ -329,45 +327,36 @@ function timelineTarget(entry: TimelineEntry): string {
   return '/menus'
 }
 
+const THEME_CHOICES: Array<{ key: ThemeName; label: string }> = [
+  { key: 'auto', label: '自动' },
+  { key: 'cream', label: '明亮' },
+  { key: 'cool', label: '冷色' },
+  { key: 'dark', label: '深色' },
+]
+
 const AppearanceCard: React.FC = () => {
   const theme = useThemeStore((s) => s.theme)
   const setTheme = useThemeStore((s) => s.setTheme)
   return (
-    <Card tight>
-      <div className="card-head">
-        <div className="card-title">外观</div>
+    <>
+      <div className="section-label">外观</div>
+      <div className="card">
+        <div className="card-title">跟随你的使用环境</div>
+        <div className="card-sub">自动 = 跟随系统亮色/暗色</div>
+        <div className="theme-row">
+          {THEME_CHOICES.map((choice) => (
+            <button
+              key={choice.key}
+              type="button"
+              className={`theme-choice ${theme === choice.key ? 'active' : ''}`}
+              onClick={() => setTheme(choice.key)}
+            >
+              {choice.label}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="theme-switch theme-switch--4">
-        <PillButton
-          variant={theme === 'cool' ? 'ink' : 'gray'}
-          size="sm"
-          onClick={() => setTheme('cool')}
-        >
-          冷色
-        </PillButton>
-        <PillButton
-          variant={theme === 'cream' ? 'ink' : 'gray'}
-          size="sm"
-          onClick={() => setTheme('cream')}
-        >
-          明亮
-        </PillButton>
-        <PillButton
-          variant={theme === 'dark' ? 'ink' : 'gray'}
-          size="sm"
-          onClick={() => setTheme('dark')}
-        >
-          深色
-        </PillButton>
-        <PillButton
-          variant={theme === 'auto' ? 'ink' : 'gray'}
-          size="sm"
-          onClick={() => setTheme('auto')}
-        >
-          自动
-        </PillButton>
-      </div>
-    </Card>
+    </>
   )
 }
 

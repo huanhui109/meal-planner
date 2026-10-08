@@ -12,4 +12,4 @@
  *   常量的代价是可能与 package.json 漂移 —— 由 tests/app-version.test.ts 钉住,
  *   版本升级时忘了同步会在测试里红出来。
  */
-export const APP_VERSION = '1.2.0'
+export const APP_VERSION = '2.8.0'

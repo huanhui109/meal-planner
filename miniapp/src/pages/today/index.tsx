@@ -33,8 +33,8 @@ import { formatAmount, formatKcal, formatMoney, formatPercent } from '@shared/fo
 import { mealLabel } from '@shared/labels'
 import type { InventoryItem, RecognitionItem, TodayOverview } from '@shared/types'
 
-import { Bar, Banner, Card, EmptyState, LoadingStack, PageHead, PillButton, SectionTitle } from '../../components/ui'
-import { addInventory, getToday, listInventory, rememberTakeoutPrice } from '../../lib/api'
+import { Bar, Banner, Card, EmptyState, LoadingStack, PageHead, PillButton } from '../../components/ui'
+import { addInventory, getPreferenceSummary, getToday, listInventory, rememberTakeoutPrice } from '../../lib/api'
 import { ensureLogin, syncTabBar, toast } from '../../lib/nav'
 import { openPurchaseLink } from '../../lib/deeplink'
 import { getCachedUser } from '../../lib/session'
@@ -62,6 +62,9 @@ type EditableModalOption = Taro.showModal.Option & {
 }
 type EditableModalResult = Taro.showModal.SuccessCallbackResult & { content?: string }
 
+/** 辣度文案, 与偏好页保持一致 */
+const SPICE = ['不吃辣', '微辣', '中辣', '重辣', '变态辣']
+
 export default function TodayPage() {
   const themeClass = useThemeClass()
   const [data, setData] = useState<TodayOverview | null>(null)
@@ -71,6 +74,8 @@ export default function TodayPage() {
   const [fridge, setFridge] = useState<InventoryItem[] | null>(null)
   const [budgetOpen, setBudgetOpen] = useState(false)
   const [recognizeOpen, setRecognizeOpen] = useState(false)
+  /** status-line 的口味标签 (Demo: 「清淡 · 微辣」), 没填偏好就不显示 */
+  const [tasteLabel, setTasteLabel] = useState<string | null>(null)
 
   /** 页面卸载后丢弃 setState, 避免 "setState on unmounted" 警告 */
   const aliveRef = useRef(true)
@@ -81,6 +86,16 @@ export default function TodayPage() {
   const load = useCallback(async () => {
     if (!ensureLogin()) return
     setError('')
+    // 口味标签是状态行的点缀, 拿不到不影响决策
+    void getPreferenceSummary()
+      .then((summary) => {
+        if (!aliveRef.current) return
+        const diet = summary.diet_preference
+        setTasteLabel(
+          diet ? [diet.flavor_preference, SPICE[diet.spice_level]].filter(Boolean).join(' · ') : null,
+        )
+      })
+      .catch(() => undefined)
     try {
       const next = await getToday()
       // 卸载/再次进入页面后丢弃旧请求结果
@@ -109,8 +124,7 @@ export default function TodayPage() {
   }, [])
 
   useDidShow(() => {
-    syncTabBar(0)
-    // 引导不再写死成"没走过就必须看": 由用户在「我的 → 用户信息」里配置的开关和展示时机决定
+    syncTabBar(0)    // 引导不再写死成"没走过就必须看": 由用户在「我的 → 用户信息」里配置的开关和展示时机决定
     // (shared/user-settings.ts 的 shouldAutoShowGuide)。默认 once —— 走完一次就不再打扰。
     //
     // ⚠ 必须用 shouldAutoShowGuideNow 而不是 shouldAutoShowGuide:
@@ -277,32 +291,31 @@ export default function TodayPage() {
       {/* 品牌启动页: 覆盖层实现, 不动 entryPagePath (老用户冷启动不会重走引导) */}
       <Splash />
 
-      {/* ① 状态行: 一行三件事(时间 · 餐次 · 家里有啥), 替代原来的两行问候语 */}
-      <HomeStatusBar fridgeCount={fridge?.length ?? null} />
+      {/* ① 状态行: 一行四件事(时间 · 餐次 · 家里有啥 · 口味标签), 替代原来的两行问候语 */}
+      <HomeStatusBar fridgeCount={fridge?.length ?? null} tasteLabel={tasteLabel} />
 
       {!!error && <Banner tone="warn">{error}</Banner>}
 
+      {/* ② 模式出口: 浅色文字链, 不是按钮 (Demo 里它在决策卡上方右侧)。
+          这个判断用户 1 秒就做完了, 做成带 VS 布局的对比卡是在逼他重做一遍。 */}
+      {data?.takeout ? (
+        <View className="d-takeout" onClick={handleTakeout}>
+          <Text className="d-text-btn">不想做饭？看看省事方案 →</Text>
+        </View>
+      ) : null}
+
       {/*
-        ② 饭决主决策区: 首页唯一主按钮。
+        ③ 饭决主决策区: 首页唯一主按钮。
         放在最上面是因为用户打开小程序的第一个诉求就是"今天吃什么",
         其余都是"已经决定之后"才关心的事, 全部下沉。
       */}
       <DecideBoard />
 
-      {/* ③ 模式出口: 浅色文字链, 不是按钮。
-          这个判断用户 1 秒就做完了, 做成带 VS 布局的对比卡是在逼他重做一遍。
-          保留出口(它是真实需求), 砍掉对比。 */}
-      {data?.takeout ? (
-        <View className="home-takeout" onClick={handleTakeout}>
-          <Text className="home-takeout__text">不想做饭？点外卖 →</Text>
-        </View>
-      ) : null}
-
       {/* ④ 「家里有啥」: 次屏第一个, 因为它是"做"这个模式的合法性证明 */}
-      <SectionTitle text="家里有啥" />
-      <Card tight>
+      <View className="d-section-label">家里有啥</View>
+      <View className="d-card d-card--tight">
         <FridgeQuickAdd items={fridge ?? []} onChanged={loadFridge} />
-      </Card>
+      </View>
 
       {/* ⑤ 今晚这一餐: 决策后的"做完了扣库存"落点 */}
       {tonight ? (

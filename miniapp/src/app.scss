@@ -7,6 +7,8 @@
  *   * 数字一律 tabular-nums, 金额/进度对齐后才"亲近"
  */
 @use './styles/tokens' as *;
+/* 饭决 UI Demo 移植 (5 个模块的新视觉); @use 必须在文件顶部 */
+@use './styles/demo';
 
 page {
   background: var(--color-bg);
@@ -2126,67 +2128,7 @@ scroll-view {
   text-align: center;
 }
 
-/* utterance: 无结果时在主按钮下方, 有结果时挪到动作行旁边 */
-.utterance {
-  margin-top: 12px;
-}
-.utterance--hero {
-  text-align: center;
-}
-.utterance__guide {
-  display: inline-block;
-  padding: 6px 10px;
-  font-size: $font-caption;
-  color: var(--color-ink2);
-}
-.utterance__box {
-  display: flex;
-  align-items: center;
-  padding: 6px 10px;
-  border-radius: $radius-pill;
-  background: var(--color-fill);
-}
-.utterance__input {
-  flex: 1;
-  height: 32px;
-  font-size: $font-label;
-  color: var(--color-ink);
-}
-.utterance__send,
-.utterance__close {
-  flex: none;
-  padding: 0 8px;
-  font-size: $font-caption;
-  color: var(--color-ink2);
-}
-.utterance__chips {
-  display: flex;
-  flex-wrap: wrap;
-  margin-top: 8px;
-}
-.utterance__chip {
-  margin-right: 8px;
-  margin-bottom: 6px;
-  padding: 5px 12px;
-  border-radius: $radius-pill;
-  background: var(--color-fill);
-  color: var(--color-ink2);
-  font-size: $font-caption;
-}
-.utterance__echo {
-  display: flex;
-  align-items: center;
-  margin-top: 8px;
-}
-.utterance__echo-text {
-  font-size: $font-caption;
-  color: var(--color-ink);
-}
-.utterance__echo-x {
-  margin-left: 8px;
-  font-size: $font-caption;
-  color: var(--color-ink2);
-}
+/* utterance 的样式已迁移到 styles/_demo.scss (Demo 视觉) */
 
 /* 今晚这一餐的元信息行 (深夜不出现) */
 .meta-row {

@@ -11,7 +11,7 @@
  * 接口成功即定稿; 只有"生成菜单 / 确认菜单"这种整周级动作才重新拉取。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ScrollView, Text, View } from '@tarojs/components'
+import { Text, View } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh, useShareAppMessage } from '@tarojs/taro'
 
 import {
@@ -19,16 +19,14 @@ import {
   formatDateRange,
   formatMoney,
   formatMonthDay,
-  formatProgress,
   todayIso,
   weekEnd,
 } from '@shared/format'
 import { MEAL_ORDER, mealLabel, weekdayLabel } from '@shared/labels'
-import type { MealDetail, MenuDay, MenuDetail, MenuSource } from '@shared/types'
+import type { MealDetail, MenuDay, MenuDetail } from '@shared/types'
 import { brand } from '@shared/brand'
 
 import {
-  Bar,
   Banner,
   Card,
   LoadingStack,
@@ -36,25 +34,13 @@ import {
   PillButton,
 } from '../../components/ui'
 import { SearchBar } from '../../components/search-bar'
-import { confirmMenu, getCurrentMenu } from '../../lib/api'
+import { confirmMenu, getCurrentMenu, listInventory } from '../../lib/api'
 import { ensureLogin, goTo, syncTabBar, toast } from '../../lib/nav'
 import { px } from '../../lib/px'
 import { askReplaceRecipe, markCooked, toggleLock, undoCook, UNDO_WINDOW_MS } from '../../lib/meal-actions'
 import { track } from '../../lib/events'
 import { startGeneration, waitForGeneration } from '../../lib/menu'
 import { useThemeClass } from '../../lib/theme'
-
-/** 生成来源 -> 展示文案与标签色 (本地多 = 好, 所以本地给 accent) */
-const SOURCE_LABEL: Record<MenuSource, string> = {
-  local: '本地菜谱库',
-  mixed: '本地 + AI',
-  ai: 'AI 生成',
-}
-const SOURCE_TONE: Record<MenuSource, string> = {
-  local: 'chip--accent',
-  mixed: 'chip--warn',
-  ai: 'chip--ink',
-}
 
 export default function MenuPage() {
   const themeClass = useThemeClass()
@@ -65,6 +51,9 @@ export default function MenuPage() {
   const [selected, setSelected] = useState(todayIso())
   /** 搜索关键字 (audit T3.4) */
   const [keyword, setKeyword] = useState('')
+
+  /** 冰箱临期数: 「冰箱优先」stat 用, 拿不到就显示 0 */
+  const [expiringCount, setExpiringCount] = useState(0)
 
   /** 刚"做完了"的餐次 id: 在 UNDO_WINDOW_MS 内显示"撤销", 形成可逆闭环 */
   const [undoItemId, setUndoItemId] = useState<number | null>(null)
@@ -77,6 +66,12 @@ export default function MenuPage() {
   const load = useCallback(async () => {
     if (!ensureLogin()) return
     setError('')
+    // 「冰箱优先」stat 的点缀数据, 失败不影响菜单
+    void listInventory()
+      .then((view) => {
+        if (aliveRef.current) setExpiringCount(view.expiring_count ?? 0)
+      })
+      .catch(() => undefined)
     try {
       const data = await getCurrentMenu()
       if (!aliveRef.current) return
@@ -322,14 +317,58 @@ export default function MenuPage() {
     )
   }
 
+  const budgetPct =
+    menu.budget.budget_limit > 0
+      ? Math.round((menu.budget.total_estimated / menu.budget.budget_limit) * 100)
+      : 0
+
   return (
     <View className={`page ${themeClass}`}>
       <PageHead
-        title="周菜单"
-        subtitle={`${formatDateRange(menu.week_start_date, weekEnd(menu.week_start_date))} · ${formatProgress(menu.totals.cooked_count, menu.totals.meal_count)} 已做`}
+        title="本周菜单"
+        subtitle={`${formatDateRange(menu.week_start_date, weekEnd(menu.week_start_date))} · 先看每天，再改具体一餐`}
+        action={
+          <View className={`d-btn d-btn--sm tap${busy ? ' d-btn--disabled' : ''}`} onClick={() => !busy && handleGenerate(true)}>
+            <Text>重新排一周</Text>
+          </View>
+        }
       />
 
       {error ? <Banner tone="danger">{error}</Banner> : null}
+
+      {/* Demo week-summary: 本周预算(带 bar) + 冰箱优先 + 本周进度 */}
+      <View className="d-week-summary">
+        <View className="d-stat d-stat--wide">
+          <View className="d-stat-label">本周预算</View>
+          <View className="d-stat-value">
+            {formatMoney(menu.budget.total_estimated)}{' '}
+            <Text className="d-stat-value__unit">/ {formatMoney(menu.budget.budget_limit)}</Text>
+          </View>
+          <View className="d-bar">
+            <View
+              className={`d-bar__fill${menu.budget.passed ? '' : ' d-bar__fill--warn'}`}
+              style={{ width: `${Math.min(100, budgetPct)}%` }}
+            />
+          </View>
+          <View className="d-stat-small">
+            {menu.budget.passed
+              ? `还剩 ${formatMoney(Math.max(0, menu.budget.budget_limit - menu.budget.total_estimated))}，可以放心加一道`
+              : `超出 ${formatMoney(menu.budget.over_amount)}，换掉一两道贵的菜就能压回来`}
+          </View>
+        </View>
+        <View className="d-stat">
+          <View className="d-stat-label">冰箱优先</View>
+          <View className="d-stat-value">{expiringCount} 样</View>
+          <View className="d-stat-small">临期食材会优先排进餐单</View>
+        </View>
+        <View className="d-stat">
+          <View className="d-stat-label">本周进度</View>
+          <View className="d-stat-value">
+            {menu.totals.cooked_count} / {menu.totals.meal_count}
+          </View>
+          <View className="d-stat-small">做完后自动扣库存</View>
+        </View>
+      </View>
 
       {/* 搜索 (audit T3.4): 命中菜名或食材名即过滤当天菜品 */}
       <View style={{ marginBottom: 12 }}>
@@ -345,47 +384,6 @@ export default function MenuPage() {
           {shownMeals.length === 0 ? ' · 换个关键词试试' : ''}
         </View>
       ) : null}
-
-      <Card>
-        <View className="card__head">
-          <Text className="card__label">这周总览</Text>
-          <View className="chip-row">
-            <Text className={`chip ${menu.source ? SOURCE_TONE[menu.source] : 'chip--ink'}`}>
-              {menu.source ? SOURCE_LABEL[menu.source] : 'AI 生成'}
-            </Text>
-            <Text className="chip">{menu.status === 'draft' ? '待确认' : '已确认'}</Text>
-          </View>
-        </View>
-        <View className="card__hint">
-          {menu.source === 'local' ? '全部来自本地菜谱库' : '由 AI 生成'}
-          {menu.created_at ? ` · ${menu.created_at.replace('T', ' ').slice(5, 16)}` : ''}
-          {' · '}预估 {formatMoney(menu.totals.estimated_cost)}
-        </View>
-        {menu.source === 'mixed' ? (
-          <View className="card__hint">
-            本地菜谱库没凑齐这一周, 缺口交给 AI 补齐了; 补齐本地库后会更省。
-          </View>
-        ) : null}
-        <View style={{ marginTop: 10 }}>
-          <Bar
-            value={
-              menu.budget.budget_limit > 0
-                ? (menu.budget.total_estimated / menu.budget.budget_limit) * 100
-                : 0
-            }
-            tone={menu.budget.passed ? 'accent' : 'warn'}
-          />
-        </View>
-        <View className="card__hint">
-          {menu.budget.passed
-            ? `预算内, 还剩 ${formatMoney(Math.max(0, menu.budget.budget_limit - menu.budget.total_estimated))}`
-            : `超出 ${formatMoney(menu.budget.over_amount)}, 换掉一两道贵的菜就能压回来`}
-          {' · '}
-          {menu.nutrition.passed
-            ? `周均 ${Math.round(menu.nutrition.weekly_avg_calories)} kcal 达标`
-            : menu.nutrition.issues[0] || '营养有偏离'}
-        </View>
-      </Card>
 
       {menu.status === 'draft' ? (
         <Card>
@@ -405,128 +403,92 @@ export default function MenuPage() {
         </Card>
       ) : null}
 
-      <ScrollView scrollX className="day-strip">
-        <View className="day-strip__inner">
-          {!onToday ? (
+      {/* Demo days strip: 7 天按钮, 今天带绿点 */}
+      <View className="d-days">
+        {menu.days.map((item, index) => {
+          const isToday = item.date === today
+          return (
             <View
-              className="day-pill tap day-pill--jump"
-              onClick={() => setSelected(today)}
+              key={item.date}
+              className={`d-day tap${item.date === selected ? ' d-day--active' : ''}`}
+              onClick={() => setSelected(item.date)}
             >
-              <View className="day-pill__week">今天</View>
+              <Text className="d-day__week">{weekdayLabel(index)}</Text>
+              <Text className="d-day__date">{Number(item.date.slice(8, 10))}</Text>
+              {isToday ? <View className="d-day__dot" /> : null}
             </View>
-          ) : null}
-          {menu.days.map((item, index) => {
-            const isToday = item.date === today
+          )
+        })}
+      </View>
+
+      {/* Demo selected-day 卡片: 头部 + meal-rows */}
+      <View className="d-card">
+        <View className="d-card-head">
+          <View>
+            <View className="d-card-title">
+              {day ? `${weekdayLabel(menu.days.indexOf(day))} · ${formatMonthDay(selected)}` : formatMonthDay(selected)}
+            </View>
+            <View className="d-card-sub">
+              {day?.day_type === 'weekend' ? '周末' : '工作日'} · {day?.meals.length ?? 0} 餐 · 预计 {formatMoney(day?.estimated_cost ?? 0)}
+            </View>
+          </View>
+          <Text className={`d-tag${onToday ? ' d-tag--good' : ''}`}>{onToday ? '今天' : '已安排'}</Text>
+        </View>
+
+        <View>
+          {MEAL_ORDER.map((mealType) => {
+            const meal = shownMeals.find((item) => item.meal_type === mealType)
+            if (!meal) return null
+            const canUndo = undoItemId === meal.id
             return (
-              <View
-                key={item.date}
-                className={`day-pill tap${item.date === selected ? ' day-pill--active' : ''}`}
-                onClick={() => setSelected(item.date)}
-              >
-                <View className="day-pill__week">
-                  {weekdayLabel(index)}
-                  {isToday ? <Text className="day-pill__today">今</Text> : null}
+              <View key={meal.id} className={`d-meal-row${meal.is_cooked ? ' d-meal-row--done' : ''}`}>
+                <View className="d-meal-slot">{mealLabel(meal.meal_type).slice(0, 1)}</View>
+                <View className="d-meal-info">
+                  <View className="d-meal-name" onClick={() => openRecipeDetail(meal, menu.id)}>
+                    {meal.recipe?.name ?? '待定'}
+                  </View>
+                  <View className="d-meal-meta">
+                    {[
+                      meal.recipe?.calories ? `${Math.round(meal.recipe.calories)} kcal` : null,
+                      meal.estimated_cost != null ? formatMoney(meal.estimated_cost) : null,
+                      meal.is_locked ? '已锁定' : null,
+                    ]
+                      .filter(Boolean)
+                      .map((part) => (
+                        <Text key={part as string}>{part}</Text>
+                      ))}
+                  </View>
                 </View>
-                <View className="day-pill__date">{formatMonthDay(item.date).replace(/\d+月/, '')}</View>
+                <View className="d-meal-actions">
+                  <View className="d-btn d-btn--sm tap" onClick={() => handleReplace(meal)}>
+                    <Text>换一道</Text>
+                  </View>
+                  <View className="d-btn d-btn--sm tap" onClick={() => handleLock(meal.id, meal.is_locked)}>
+                    <Text>{meal.is_locked ? '解锁' : '锁定'}</Text>
+                  </View>
+                  {!meal.is_cooked ? (
+                    <View className="d-btn d-btn--sm d-btn--primary tap" onClick={() => handleCook(meal.id)}>
+                      <Text>做完了</Text>
+                    </View>
+                  ) : canUndo ? (
+                    <View className="d-btn d-btn--sm d-btn--ghost tap" onClick={() => handleUndo(meal.id)}>
+                      <Text>撤销</Text>
+                    </View>
+                  ) : (
+                    <View className="d-btn d-btn--sm d-btn--disabled">
+                      <Text>已做</Text>
+                    </View>
+                  )}
+                </View>
               </View>
             )
           })}
         </View>
-      </ScrollView>
+      </View>
 
-      <Card>
-        <View className="card__head">
-          <Text className="card__label">{formatMonthDay(selected)}</Text>
-          <Text className="chip">{day?.day_type === 'weekend' ? '周末' : '工作日'}</Text>
-        </View>
-
-        {MEAL_ORDER.map((mealType) => {
-          const meal = shownMeals.find((item) => item.meal_type === mealType)
-          if (!meal) return null
-          const canUndo = undoItemId === meal.id
-          return (
-            <View key={meal.id} className={`meal${meal.is_cooked ? ' meal--cooked' : ''}`} style={{ marginTop: 12 }}>
-              <View className="meal__head">
-                <Text className="meal__type">{mealLabel(meal.meal_type)}</Text>
-                <View style={{ display: 'flex', gap: px(6) }}>
-                  {meal.is_locked ? <Text className="chip">已锁定</Text> : null}
-                  {meal.is_cooked ? <Text className="chip chip--accent">已做</Text> : null}
-                </View>
-              </View>
-              <View className="meal__name" onClick={() => openRecipeDetail(meal, menu.id)}>
-                {meal.recipe?.name ?? '待定'}
-              </View>
-              <View className="meal__meta">
-                {[
-                  meal.recipe?.calories ? `${Math.round(meal.recipe.calories)} kcal` : null,
-                  meal.recipe?.cook_minutes ? `${Math.round(meal.recipe.cook_minutes)} 分钟` : null,
-                  meal.estimated_cost != null ? formatMoney(meal.estimated_cost) : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </View>
-              {meal.recipe?.ingredients?.length ? (
-                <View className="meal__ings">
-                  {meal.recipe.ingredients
-                    .map((ing) =>
-                      ing.quantity == null ? ing.name : `${ing.name} ${ing.quantity}${ing.unit}`,
-                    )
-                    .join(' · ')}
-                </View>
-              ) : null}
-              {meal.recipe?.steps ? (
-                <View className="meal__ings">做法: {meal.recipe.steps.slice(0, 60)}</View>
-              ) : null}
-              <View className="meal__actions">
-                <PillButton size="sm" variant="ghost" onClick={() => handleReplace(meal)}>
-                  换一道
-                </PillButton>
-                <PillButton size="sm" variant="ghost" onClick={() => handleLock(meal.id, meal.is_locked)}>
-                  {meal.is_locked ? '解锁' : '锁定'}
-                </PillButton>
-                {!meal.is_cooked ? (
-                  <PillButton size="sm" onClick={() => handleCook(meal.id)}>
-                    做完了
-                  </PillButton>
-                ) : canUndo ? (
-                  <PillButton size="sm" variant="ghost" onClick={() => handleUndo(meal.id)}>
-                    撤销
-                  </PillButton>
-                ) : null}
-              </View>
-            </View>
-          )
-        })}
-      </Card>
-
-      <Card>
-        <View className="card__head">
-          <Text className="card__label">本周预算</Text>
-          <Text className="card__hint" style={{ marginTop: 0 }}>
-            {formatMoney(menu.budget.total_estimated)} / {formatMoney(menu.budget.budget_limit)}
-          </Text>
-        </View>
-        <View style={{ marginTop: 10 }}>
-          <Bar
-            value={
-              menu.budget.budget_limit
-                ? (menu.budget.total_estimated / menu.budget.budget_limit) * 100
-                : 0
-            }
-            tone={menu.budget.passed ? 'ink' : 'warn'}
-          />
-        </View>
-        {menu.budget.suggestions?.length ? (
-          <View className="card__hint">{menu.budget.suggestions[0]}</View>
-        ) : null}
-      </Card>
-
-      <View style={{ marginTop: px(14), display: 'flex', gap: px(10) }}>
+      <View style={{ marginTop: px(14) }}>
         <PillButton variant="gray" block disabled={busy} onClick={() => goTo('/shopping')}>
           看采购清单
-        </PillButton>
-        <PillButton variant="ghost" block disabled={busy} onClick={() => handleGenerate(true)}>
-          重新生成
         </PillButton>
       </View>
 

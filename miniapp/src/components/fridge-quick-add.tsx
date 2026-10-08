@@ -96,7 +96,9 @@ export function FridgeQuickAdd({
   const startedAtRef = useRef(Date.now())
 
   const owned = new Set(items.map((item) => item.ingredient_name))
-  const expiringCount = items.filter((item) => item.expiring_soon).length
+  const ownedByName = new Map(items.map((item) => [item.ingredient_name, item]))
+  /** 手动入库、不在高频池里的食材也显示成 owned chip, 点一下可移除 */
+  const extraOwned = items.filter((item) => !QUICK_CHIPS.some((chip) => chip.name === item.ingredient_name))
 
   const add = async (name: string, days: number) => {
     if (pending || owned.has(name)) return
@@ -146,59 +148,63 @@ export function FridgeQuickAdd({
   }
 
   return (
-    <View className="fridge-quick">
-      <View className="fridge-quick__head">
-        <Text className="fridge-quick__title">
+    <View>
+      <View className="d-quick-title">
+        <Text>
           {items.length > 0
-            ? `家里有 ${items.length} 样${expiringCount > 0 ? ` · ${expiringCount} 样临期` : ''}`
+            ? `已记 ${items.length} 样 · 点一下可增减`
             : '家里有啥？点一下，30 秒告诉我'}
         </Text>
-        {items.length > 0 ? (
-          <Text className="fridge-quick__link" onClick={() => Taro.switchTab({ url: '/pages/fridge/index' })}>
-            改一下 →
-          </Text>
-        ) : null}
+        <Text className="d-text-btn" onClick={() => Taro.switchTab({ url: '/pages/fridge/index' })}>
+          管理冰箱 →
+        </Text>
       </View>
 
-      {items.length > 0 ? (
-        <View className="fridge-quick__chips">
-          {items.slice(0, 12).map((item) => (
-            <Text
-              key={item.id}
-              className={`fridge-chip${item.expiring_soon ? ' is-expiring' : ''}`}
-              onClick={() => void remove(item)}
-            >
-              {item.ingredient_name} ×
-            </Text>
-          ))}
-        </View>
-      ) : null}
-
-      {/* 空态常驻: 无论有没有数据, 高频 chip 都在, 因为"再补一样"是高频动作 */}
-      <View className="fridge-quick__chips">
-        {QUICK_CHIPS.filter((chip) => !owned.has(chip.name)).map((chip) => (
+      {/* Demo 交互: 同一个 chip 池, 有 = 实心(✓), 没有 = 浅色(＋); 点一下切换增/删 */}
+      <View className="d-quick-chips">
+        {extraOwned.map((item) => (
           <Text
-            key={chip.name}
-            className="fridge-chip is-add"
-            onClick={() => void add(chip.name, chip.days)}
+            key={`extra-${item.id}`}
+            className="d-chip d-chip--owned"
+            onClick={() => void remove(item)}
           >
-            {chip.name}
+            ✓ {item.ingredient_name}
           </Text>
         ))}
+        {QUICK_CHIPS.map((chip) => {
+          const item = ownedByName.get(chip.name)
+          return item ? (
+            <Text
+              key={chip.name}
+              className="d-chip d-chip--owned"
+              onClick={() => void remove(item)}
+            >
+              ✓ {chip.name}
+            </Text>
+          ) : (
+            <Text
+              key={chip.name}
+              className="d-chip"
+              onClick={() => void add(chip.name, chip.days)}
+            >
+              ＋ {chip.name}
+            </Text>
+          )
+        })}
       </View>
 
       {undo ? (
-        <View className="fridge-quick__undo">
-          <Text className="fridge-quick__undo-text">{undo.name} 已入冰箱</Text>
-          <Text className="fridge-quick__undo-btn" onClick={() => void undoAdd()}>
+        <View className="d-quick-undo">
+          <Text className="d-quick-undo__text">{undo.name} 已入冰箱</Text>
+          <Text className="d-quick-undo__btn" onClick={() => void undoAdd()}>
             撤销
           </Text>
         </View>
       ) : null}
 
-      {items.length === 0 ? (
-        <Text className="fridge-quick__note">一个都不点也能直接按饭决，不影响出菜。</Text>
-      ) : null}
+      <Text className="d-quick-note">
+        点一下可增减；一个都不点也能直接按饭决，不影响出菜。
+      </Text>
     </View>
   )
 }

@@ -8,12 +8,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Text, View } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 
-import { formatAmount, formatDateRange, formatMoney, formatMonthDay, weekEnd } from '@shared/format'
+import { formatAmount, formatDateRange, formatMoney, weekEnd } from '@shared/format'
 import { categoryRank } from '@shared/labels'
 import { orderStatusText, orderSummaryText } from '@shared/today'
 import type { MenuDetail, OrderSuggestion, ShoppingItem, ShoppingList } from '@shared/types'
 
-import { Banner, Card, LoadingStack, PageHead, PillButton, SectionTitle } from '../../components/ui'
+import { Banner, Card, LoadingStack, PageHead, PillButton } from '../../components/ui'
 import { getCurrentMenu, getOrderSuggestion, getShoppingList, searchProducts } from '../../lib/api'
 import { openPurchaseLink, missingText } from '../../lib/deeplink'
 import { ensureLogin, goTo, syncTabBar, toast } from '../../lib/nav'
@@ -151,14 +151,41 @@ export default function ShoppingPage() {
     )
   }
 
-  const total = list.summary.total_count
   const have = list.summary.have_count
+
+  /** 还没打勾的待买数 */
+  const leftCount = toBuy.filter((item) => !checked[item.ingredient_id]).length
+  /** 预估合计: 只累加有参考价且可量化的行, 没有就显示 — (不编数字) */
+  const estimated = toBuy.reduce((sum, item) => {
+    if (!item.quantitative || item.deficit == null || item.reference_price == null) return sum
+    return sum + item.deficit * item.reference_price
+  }, 0)
+
+  const markAllBought = () => {
+    if (toBuy.length === 0) {
+      toast('没有要买的东西')
+      return
+    }
+    const next: Record<number, boolean> = {}
+    for (const item of toBuy) next[item.ingredient_id] = true
+    setChecked(next)
+    toast('本次采购已标记齐全', 'success')
+  }
 
   return (
     <View className={`page ${themeClass}`}>
       <PageHead
         title="采购清单"
-        subtitle={`${formatMonthDay(list.week_start_date)} 那周 · 共 ${total} 样, 冰箱已有 ${have} 样`}
+        subtitle={
+          leftCount > 0
+            ? `这周还要买 ${leftCount} 样，按区域收拢更快`
+            : '这周需要的食材已经齐了'
+        }
+        action={
+          <View className={`d-btn d-btn--sm d-btn--primary tap${groups.length === 0 ? ' d-btn--disabled' : ''}`} onClick={() => void copyList()}>
+            <Text>复制清单</Text>
+          </View>
+        }
       />
 
       {error ? <Banner tone="danger">{error}</Banner> : null}
@@ -196,76 +223,97 @@ export default function ShoppingPage() {
         </Banner>
       ) : null}
 
-      <Card>
-        <View className="card__head">
-          <Text className="card__label">需要买</Text>
-          <Text className="chip chip--ink">{toBuy.length} 样</Text>
-        </View>
-        <View className="card__hint">
-          {toBuy.length === 0 ? '冰箱里的量已经够了, 不用买。' : '点名字可以划掉买到的。'}
-        </View>
-        <View style={{ marginTop: 12 }}>
-          <PillButton block onClick={copyList} disabled={toBuy.length === 0}>
-            一键复制清单
-          </PillButton>
-        </View>
-      </Card>
-
+      {/* Demo shopping-layout: 分组卡片 + 汇总卡 */}
       {groups.map((group) => (
-        <View key={group.category} className="shop-group">
-          <View className="shop-group__title">{group.category}</View>
-          <Card tight>
+        <View key={group.category} className="d-card" style={{ marginBottom: 12 }}>
+          <View className="d-card-head">
+            <View className="d-card-title">{group.category}</View>
+            <Text className="d-tag">
+              {group.items.filter((item) => !checked[item.ingredient_id]).length} 样待买
+            </Text>
+          </View>
+          <View>
             {group.items.map((item) => {
               const on = checked[item.ingredient_id]
               return (
                 <View
                   key={item.ingredient_id}
-                  className={`shop-row tap${on ? ' shop-row--done' : ''}`}
+                  className={`d-shop-row tap${on ? ' d-shop-row--done' : ''}`}
                   onClick={() =>
                     setChecked((prev) => ({ ...prev, [item.ingredient_id]: !prev[item.ingredient_id] }))
                   }
                 >
-                  <View className={`shop-check${on ? ' shop-check--on' : ''}`} />
-                  <View style={{ flex: 1 }}>
-                    <Text className="shop-row__name">{item.name}</Text>
+                  <View className="d-shop-mark">✓</View>
+                  <View className="d-shop-name">
+                    <Text className="d-shop-name__name">{item.name}</Text>
+                    <View className="d-shop-name__sub">
+                      {item.in_stock_quantity > 0
+                        ? `冰箱有 ${formatAmount(item.in_stock_quantity, item.unit)}，还差这些`
+                        : '冰箱没有'}
+                      {' · '}
+                      <Text
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void checkRealPrice(item.name)
+                        }}
+                      >
+                        查实价
+                      </Text>
+                    </View>
                   </View>
-                  <Text className="shop-row__qty">
+                  <Text className="d-shop-qty">
                     {item.quantitative ? formatAmount(item.deficit, item.unit) : '按需'}
-                  </Text>
-                  <Text
-                    className="shop-row__price"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      void checkRealPrice(item.name)
-                    }}
-                  >
-                    查实价
                   </Text>
                 </View>
               )
             })}
-          </Card>
+          </View>
         </View>
       ))}
 
+      {/* Demo 汇总卡: 待买 / 预估 / 能覆盖 + 标记本次已买齐 */}
+      <View className="d-card">
+        <View className="d-card-title">本次补齐</View>
+        <View className="d-card-sub">只计算菜单需要、冰箱没有的部分</View>
+        <View className="d-summary-list">
+          <View className="d-summary-row">
+            <Text>待买</Text>
+            <Text className="d-summary-row__value">{leftCount} 样</Text>
+          </View>
+          <View className="d-summary-row">
+            <Text>预估</Text>
+            <Text className="d-summary-row__value">
+              {estimated > 0 ? formatMoney(estimated) : '—'}
+            </Text>
+          </View>
+          <View className="d-summary-row">
+            <Text>能覆盖</Text>
+            <Text className="d-summary-row__value">{menu?.totals.meal_count ?? 0} 餐</Text>
+          </View>
+        </View>
+        <View className={`d-btn d-btn--primary tap${toBuy.length === 0 ? ' d-btn--disabled' : ''}`} style={{ width: '100%' }} onClick={markAllBought}>
+          <Text>标记本次已买齐</Text>
+        </View>
+      </View>
+
       {toBuy.length > 0 ? null : (
         <>
-          <SectionTitle text="冰箱已有" hint={`${have} 样`} />
-          <Card tight>
+          <View className="d-section-label">冰箱已有 · {have} 样</View>
+          <View className="d-card d-card--tight">
             {list.items
               .filter((item) => item.have_enough)
               .map((item) => (
-                <View key={item.ingredient_id} className="shop-row">
-                  <View className="shop-check shop-check--on" />
-                  <View style={{ flex: 1 }}>
-                    <Text className="shop-row__name">{item.name}</Text>
+                <View key={item.ingredient_id} className="d-shop-row d-shop-row--done">
+                  <View className="d-shop-mark">✓</View>
+                  <View className="d-shop-name">
+                    <Text className="d-shop-name__name">{item.name}</Text>
                   </View>
-                  <Text className="shop-row__qty">
+                  <Text className="d-shop-qty">
                     {formatAmount(item.in_stock_quantity, item.unit)}
                   </Text>
                 </View>
               ))}
-          </Card>
+          </View>
         </>
       )}
 

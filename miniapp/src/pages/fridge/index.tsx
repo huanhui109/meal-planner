@@ -1,51 +1,87 @@
 /**
- * 冰箱库存 - 列表 + 入库 + 临期高亮
+ * 冰箱库存 - Demo 结构: 页头(手动入库) + 工具行(搜索/补充常备) + 库存卡(fresh dot 行)
  *
  * 库存是"闭环"的入口: 采购清单算的是菜谱需求减库存, 标记已做又反过来扣库存,
  * 所以这里的数据质量直接决定那两处准不准。
+ *
+ * 接线 (2.7.0 新端点):
+ *   - 搜索框 onInput → searchInventory(q) (GET /inventory?q=), 清空回退 listInventory
+ *   - 补充常备食材 → bulkAddInventory (POST /inventory/bulk)
+ *   - 点数量 → updateInventoryItem(itemId, { quantity }) (PUT /inventory/{id})
+ *   - 点 × → deleteInventory(itemId)
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Input, Picker, ScrollView, Text, View } from '@tarojs/components'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Input, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 
-import { formatExpiry, formatQuantity, todayIso } from '@shared/format'
+import { formatQuantity } from '@shared/format'
 import type { InventoryItem, RecognitionItem } from '@shared/types'
 
+import { LoadingStack, PageHead } from '../../components/ui'
 import {
-  Banner,
-  Card,
-  LoadingStack,
-  PageHead,
-  PillButton,
-  SectionTitle,
-} from '../../components/ui'
-import { addInventory, getToday, listInventory } from '../../lib/api'
+  addInventory,
+  bulkAddInventory,
+  deleteInventory,
+  listInventory,
+  searchInventory,
+  updateInventoryItem,
+} from '../../lib/api'
 import { RecognizeSheet } from '../../components/recognize-sheet'
 import { ensureLogin, syncTabBar, toast } from '../../lib/nav'
-import { px } from '../../lib/px'
 import { useThemeClass } from '../../lib/theme'
 
-const UNITS = ['g', 'kg', 'ml', 'L', '个', '根', '颗', '把', '袋', '盒']
+/** 补充常备食材的固定三样 (Demo 同款) */
+const STAPLES: Array<{ ingredient_name: string; quantity: number; unit: string }> = [
+  { ingredient_name: '胡萝卜', quantity: 1, unit: '个' },
+  { ingredient_name: '牛奶', quantity: 1, unit: '盒' },
+  { ingredient_name: '黄瓜', quantity: 1, unit: '根' },
+]
+
+const SEARCH_DEBOUNCE_MS = 300
+
+/** fresh dot: 没记保质期 = good; ≤1 天 danger; ≤2 天 warn; 其余 good */
+function freshState(item: InventoryItem): 'good' | 'warn' | 'danger' {
+  if (item.days_left == null) return 'good'
+  if (item.days_left <= 1) return 'danger'
+  if (item.days_left <= 2) return 'warn'
+  return 'good'
+}
+
+function freshHint(item: InventoryItem): string {
+  if (item.days_left == null) return '没记保质期'
+  if (item.days_left <= 2) return `建议 ${Math.max(0, item.days_left)} 天内吃`
+  return `还可放约 ${item.days_left} 天`
+}
+
+type EditableModalOption = Taro.showModal.Option & {
+  editable?: boolean
+  placeholderText?: string
+}
+type EditableModalResult = Taro.showModal.SuccessCallbackResult & { content?: string }
 
 export default function FridgePage() {
   const themeClass = useThemeClass()
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [active, setActive] = useState<'all' | 'expiring'>('all')
+  const [query, setQuery] = useState('')
   const [recognizeOpen, setRecognizeOpen] = useState(false)
-  /** 今晚菜单用到的食材名 - 临期 banner 靠它判断"已排入今晚" */
-  const [tonightNames, setTonightNames] = useState<string[]>([])
 
+  /** 入库 modal */
+  const [modalOpen, setModalOpen] = useState(false)
   const [name, setName] = useState('')
-  const [quantity, setQuantity] = useState('')
-  const [unitIndex, setUnitIndex] = useState(0)
-  const [expiry, setExpiry] = useState('')
+  const [quantity, setQuantity] = useState('1')
+  const [unit, setUnit] = useState('个')
   const [saving, setSaving] = useState(false)
+  const [filling, setFilling] = useState(false)
 
   /** 页面卸载后丢弃 setState, 避免 "setState on unmounted" 警告 */
   const aliveRef = useRef(true)
   useEffect(() => () => { aliveRef.current = false }, [])
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+  }, [])
 
   const load = useCallback(async () => {
     if (!ensureLogin()) return
@@ -63,13 +99,6 @@ export default function FridgePage() {
         Taro.stopPullDownRefresh()
       }
     }
-    try {
-      const today = await getToday()
-      if (!aliveRef.current) return
-      setTonightNames((today.tonight?.ingredients ?? []).map((ing) => ing.name))
-    } catch {
-      if (aliveRef.current) setTonightNames([])
-    }
   }, [])
 
   useDidShow(() => {
@@ -78,17 +107,49 @@ export default function FridgePage() {
   })
 
   usePullDownRefresh(() => {
+    setQuery('')
     void load()
   })
 
-  const expiring = useMemo(() => items.filter((item) => item.expiring_soon), [items])
-  const usedTonight = expiring.filter((item) => tonightNames.includes(item.ingredient_name))
-  const shown = active === 'expiring' ? expiring : items
+  /** 搜索: 防抖后打 GET /inventory?q=; 清空时回退全量列表 */
+  const handleSearchInput = (value: string) => {
+    setQuery(value)
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    const q = value.trim()
+    searchTimer.current = setTimeout(async () => {
+      if (!q) {
+        void load()
+        return
+      }
+      try {
+        const result = await searchInventory(q)
+        if (!aliveRef.current) return
+        setItems(result.items || [])
+      } catch (err) {
+        if (aliveRef.current) toast((err as Error).message)
+      }
+    }, SEARCH_DEBOUNCE_MS)
+  }
+
+  const handleBulkFill = async () => {
+    if (filling) return
+    setFilling(true)
+    try {
+      const res = await bulkAddInventory(STAPLES)
+      toast(`已补充 ${res.added?.length ?? STAPLES.length} 样常备食材`, 'success')
+      setQuery('')
+      await load()
+    } catch (err) {
+      toast((err as Error).message)
+    } finally {
+      setFilling(false)
+    }
+  }
 
   const handleAdd = async () => {
     const trimmed = name.trim()
     if (!trimmed) {
-      toast('先写食材名字')
+      toast('先写食材名称')
       return
     }
     const amount = Number(quantity)
@@ -101,19 +162,58 @@ export default function FridgePage() {
       await addInventory({
         ingredient_name: trimmed,
         quantity: amount,
-        unit: UNITS[unitIndex],
-        expiry_date: expiry || undefined,
+        unit: unit.trim() || '个',
         source: 'manual',
       })
-      toast('已入库', 'success')
+      toast(`${trimmed} 已加入冰箱`, 'success')
       setName('')
-      setQuantity('')
-      setExpiry('')
+      setQuantity('1')
+      setUnit('个')
+      setModalOpen(false)
+      setQuery('')
       await load()
     } catch (err) {
       toast((err as Error).message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  /** 点数量改数量 (PUT /inventory/{id}) */
+  const handleEditQuantity = async (item: InventoryItem) => {
+    const modal = (await Taro.showModal({
+      title: `修改「${item.ingredient_name}」数量`,
+      editable: true,
+      placeholderText: `现在 ${formatQuantity(item.quantity)} ${item.unit}`,
+      confirmText: '保存',
+      cancelText: '取消',
+    } as EditableModalOption)) as EditableModalResult
+    if (!modal.confirm) return
+    const next = Number((modal.content || '').trim())
+    if (!Number.isFinite(next) || next <= 0) {
+      toast('数量要填个大于 0 的数字')
+      return
+    }
+    try {
+      await updateInventoryItem(item.id, { quantity: next })
+      toast('已更新数量', 'success')
+      if (query.trim()) {
+        handleSearchInput(query)
+      } else {
+        await load()
+      }
+    } catch (err) {
+      toast((err as Error).message)
+    }
+  }
+
+  const handleRemove = async (item: InventoryItem) => {
+    try {
+      await deleteInventory(item.id)
+      setItems((prev) => prev.filter((x) => x.id !== item.id))
+      toast(`已移除 ${item.ingredient_name}`)
+    } catch (err) {
+      toast((err as Error).message)
     }
   }
 
@@ -138,8 +238,11 @@ export default function FridgePage() {
     }
     toast(`已入库 ${saved} 样食材`, 'success')
     setRecognizeOpen(false)
+    setQuery('')
     await load()
   }
+
+  const expiringCount = items.filter((item) => item.expiring_soon).length
 
   if (loading) {
     return (
@@ -157,150 +260,105 @@ export default function FridgePage() {
         subtitle={
           items.length === 0
             ? '还没有记过库存, 加几样试试'
-            : `共 ${items.length} 样${expiring.length ? `, ${expiring.length} 样快过期` : ''}`
+            : `${items.length} 样食材 · ${expiringCount} 样建议优先吃`
+        }
+        action={
+          <View className="d-btn d-btn--sm d-btn--primary tap" onClick={() => setModalOpen(true)}>
+            <Text>手动入库</Text>
+          </View>
         }
       />
 
-      {error ? <Banner tone="danger">{error}</Banner> : null}
+      {error ? <View className="d-card d-card--tight" style={{ marginBottom: 12 }}><Text style={{ color: 'var(--red)', fontSize: 13 }}>{error}</Text></View> : null}
 
-      {expiring.length > 0 ? (
-        <Banner tone="warn">
-          有 {expiring.length} 样快过期了
-          {usedTonight.length > 0
-            ? `, ${usedTonight.map((item) => item.ingredient_name).join('、')} 已排入今晚菜单。`
-            : ', 优先用掉它们能省不少钱。'}
-        </Banner>
-      ) : null}
-
-      <Card>
-        <View className="card__head">
-          <Text className="card__label">拍照入库</Text>
-          <Text className="card__hint" style={{ marginTop: 0 }}>
-            拍一张就知道大概有什么
-          </Text>
-        </View>
-        <PillButton block variant="gray" onClick={() => setRecognizeOpen(true)}>
-          拍照识别
-        </PillButton>
-        <View className="card__hint">
-          识别结果只是草稿, 确认后才会入库; 采购到货自动入库, 做饭也会自动扣减。
-        </View>
-      </Card>
-
-      <Card>
-        <View className="card__head">
-          <Text className="card__label">记一笔入库</Text>
-          <Text className="card__hint" style={{ marginTop: 0 }}>
-            冰箱有数了, 采购清单才准
-          </Text>
-        </View>
-
-        <View className="field">
-          <View className="field__label">食材</View>
-          <Input
-            className="text-input"
-            value={name}
-            placeholder="比如 西红柿"
-            onInput={(event) => setName(event.detail.value)}
-          />
-        </View>
-
-        <View style={{ display: 'flex', gap: px(10) }}>
-          <View className="field" style={{ flex: 1 }}>
-            <View className="field__label">数量</View>
-            <Input
-              className="text-input"
-              type="digit"
-              value={quantity}
-              placeholder="500"
-              onInput={(event) => setQuantity(event.detail.value)}
-            />
-          </View>
-          <View className="field" style={{ width: 100 }}>
-            <View className="field__label">单位</View>
-            <Picker
-              mode="selector"
-              range={UNITS}
-              value={unitIndex}
-              onChange={(event) => setUnitIndex(Number(event.detail.value))}
-            >
-              <View className="text-input" style={{ display: 'flex', alignItems: 'center' }}>
-                {UNITS[unitIndex]}
-              </View>
-            </Picker>
-          </View>
-        </View>
-
-        <View className="field">
-          <View className="field__label">保质期 (可不填)</View>
-          <Picker
-            mode="date"
-            start="2024-01-01"
-            value={expiry || todayIso()}
-            onChange={(event) => setExpiry(String(event.detail.value))}
-          >
-            <View className="text-input" style={{ display: 'flex', alignItems: 'center' }}>
-              {expiry || '选择日期'}
-            </View>
-          </Picker>
-        </View>
-
-        <View style={{ marginTop: 18 }}>
-          <PillButton block disabled={saving} onClick={handleAdd}>
-            {saving ? '入库中…' : '加进冰箱'}
-          </PillButton>
-        </View>
-      </Card>
-
-      <SectionTitle text="冰箱里" hint={`${items.length} 样`} />
-
-      <View style={{ display: 'flex', gap: px(8), marginBottom: px(10) }}>
-        <View
-          className={`chip-option tap${active === 'all' ? ' chip-option--on' : ''}`}
-          onClick={() => setActive('all')}
-        >
-          全部
-        </View>
-        <View
-          className={`chip-option tap${active === 'expiring' ? ' chip-option--on' : ''}`}
-          onClick={() => setActive('expiring')}
-        >
-          快过期 {expiring.length}
+      {/* Demo tools: 搜索 + 补充常备食材 */}
+      <View className="d-tools">
+        <Input
+          className="d-search"
+          value={query}
+          placeholder="搜索食材"
+          onInput={(event) => handleSearchInput(event.detail.value)}
+        />
+        <View className={`d-btn tap${filling ? ' d-btn--disabled' : ''}`} onClick={() => void handleBulkFill()}>
+          <Text>{filling ? '补充中…' : '补充常备食材'}</Text>
         </View>
       </View>
+      <View className="d-quick-note" style={{ margin: '8px 4px 0' }}>
+        <Text onClick={() => setRecognizeOpen(true)}>拍照入库 →</Text>
+      </View>
 
-      {shown.length === 0 ? (
-        <Card>
-          <Text className="empty__title">{active === 'expiring' ? '没有临期食材' : '冰箱是空的'}</Text>
-          <View className="empty__desc">
-            {active === 'expiring'
-              ? '挺好, 说明没囤太多东西。'
-              : '买菜回来顺手记一笔, 之后采购清单会自动扣掉这些量。'}
+      {/* Demo 库存卡: fresh dot + 名称 + 数量(点按可改) + 移除 */}
+      <View className="d-card" style={{ marginTop: 12 }}>
+        {items.length === 0 ? (
+          <View className="d-empty-state">
+            {query.trim() ? '没有匹配的食材' : '冰箱是空的，买菜回来顺手记一笔'}
           </View>
-        </Card>
-      ) : (
-        <Card tight>
-          {shown.map((item) => (
-            <View
-              key={item.id}
-              className={`inv-row${item.expiring_soon ? ' inv-row--expiring' : ''}`}
-            >
-              <View style={{ flex: 1 }}>
-                <Text className="inv-row__name">{item.ingredient_name}</Text>
-                <View className="inv-row__meta">
-                  {[item.category, item.expiry_date ? formatExpiry(item.days_left) : null]
-                    .filter(Boolean)
-                    .join(' · ')}
+        ) : (
+          items.map((item) => {
+            const state = freshState(item)
+            return (
+              <View key={item.id} className="d-inv-row">
+                <View className={`d-fresh${state === 'warn' ? ' d-fresh--warn' : state === 'danger' ? ' d-fresh--danger' : ''}`} />
+                <View className="d-inv-name">
+                  <Text className="d-inv-name__name">{item.ingredient_name}</Text>
+                  <View className="d-inv-name__sub">{freshHint(item)}</View>
+                </View>
+                <Text className="d-inv-qty tap" onClick={() => void handleEditQuantity(item)}>
+                  {formatQuantity(item.quantity)} {item.unit}
+                </Text>
+                <View className="d-icon-btn tap" onClick={() => void handleRemove(item)}>
+                  <Text>×</Text>
                 </View>
               </View>
-              <Text className="inv-row__qty">
-                {formatQuantity(item.quantity)}
-                {item.unit}
-              </Text>
+            )
+          })
+        )}
+      </View>
+
+      {/* Demo 入库 modal */}
+      {modalOpen ? (
+        <View className="d-modal-overlay" onClick={() => setModalOpen(false)}>
+          <View className="d-modal" onClick={(e) => e.stopPropagation()}>
+            <Text className="d-modal__title">入库一样食材</Text>
+            <View className="d-field">
+              <View className="d-field__label">食材名称</View>
+              <Input
+                className="d-field__input"
+                value={name}
+                placeholder="例如：西红柿"
+                onInput={(event) => setName(event.detail.value)}
+              />
             </View>
-          ))}
-        </Card>
-      )}
+            <View className="d-field-row">
+              <View className="d-field">
+                <View className="d-field__label">数量</View>
+                <Input
+                  className="d-field__input"
+                  type="digit"
+                  value={quantity}
+                  onInput={(event) => setQuantity(event.detail.value)}
+                />
+              </View>
+              <View className="d-field">
+                <View className="d-field__label">单位</View>
+                <Input
+                  className="d-field__input"
+                  value={unit}
+                  onInput={(event) => setUnit(event.detail.value)}
+                />
+              </View>
+            </View>
+            <View className="d-modal-actions">
+              <View className="d-btn tap" onClick={() => setModalOpen(false)}>
+                <Text>取消</Text>
+              </View>
+              <View className={`d-btn d-btn--primary tap${saving ? ' d-btn--disabled' : ''}`} onClick={() => void handleAdd()}>
+                <Text>{saving ? '入库中…' : '加入冰箱'}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      ) : null}
 
       <RecognizeSheet
         open={recognizeOpen}

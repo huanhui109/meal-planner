@@ -17,7 +17,7 @@ const HomeStatusBar: React.FC<{ fridgeCount: number | null; now?: Date }> = ({
   fridgeCount,
   now,
 }) => (
-  <div className="home-status">
+  <div className="status-line">
     {/* now 可注入: 深夜/周末的文案没人会真的等到那个点去点一遍验证 */}
     {statusLine({ date: now, fridgeCount, mealSlotLabel: (slot) => MEAL_SLOT_LABELS[slot] ?? '' })}
   </div>

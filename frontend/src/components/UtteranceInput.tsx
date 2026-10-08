@@ -105,49 +105,45 @@ const UtteranceInput: React.FC<{ variant?: 'hero' | 'inline' }> = ({ variant = '
 
   return (
     <div className={`utterance utterance--${variant}`}>
-      {!open ? (
-        <button type="button" className="utterance-guide" onClick={() => setOpen(true)}>
-          {echoLine ?? guide}
-        </button>
-      ) : (
-        <div className="utterance-box">
-          <input
-            ref={inputRef}
-            className="utterance-input"
-            value={draft}
-            placeholder={PLACEHOLDER}
-            maxLength={200}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== 'Enter') return
-              e.preventDefault()
-              void apply(draft)
-            }}
-          />
-          <button type="button" className="utterance-send" onClick={() => void apply(draft)}>
-            好了
-          </button>
-          <button type="button" className="utterance-close" onClick={() => setOpen(false)}>
-            收起
-          </button>
-        </div>
-      )}
+      <button type="button" className="ask-toggle" onClick={() => setOpen((prev) => !prev)}>
+        {echoLine ?? guide}
+      </button>
 
       {open && (
-        <div className="utterance-chips">
-          {chips.map((chip) => (
-            <button
-              key={chip}
-              type="button"
-              className="utterance-chip"
-              onClick={() => {
-                setDraft(chip)
-                void apply(chip)
+        <div className="ask-panel">
+          <div className="ask-row">
+            <input
+              ref={inputRef}
+              value={draft}
+              placeholder={PLACEHOLDER}
+              maxLength={200}
+              aria-label="一句话诉求"
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return
+                e.preventDefault()
+                void apply(draft)
               }}
-            >
-              {chip}
+            />
+            <button type="button" className="button small" onClick={() => void apply(draft)}>
+              好了
             </button>
-          ))}
+          </div>
+          <div className="quick-chips">
+            {chips.map((chip) => (
+              <button
+                key={chip}
+                type="button"
+                className="chip"
+                onClick={() => {
+                  setDraft(chip)
+                  void apply(chip)
+                }}
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -156,10 +152,10 @@ const UtteranceInput: React.FC<{ variant?: 'hero' | 'inline' }> = ({ variant = '
         没听懂就当没听见, 比猜错之后再改用户的菜要好。
       */}
       {echoLine ? (
-        <div className="utterance-echo">
-          <span>{echoLine}</span>
-          <button type="button" className="utterance-echo-x" onClick={clear}>
-            ✕
+        <div className="quick-note">
+          <span>{echoLine} </span>
+          <button type="button" className="text-button" style={{ minHeight: 24 }} onClick={clear}>
+            ✕ 撤掉
           </button>
         </div>
       ) : null}

@@ -39,7 +39,7 @@ const MeSheet: React.FC<MeSheetProps> = ({ open, onClose, children }) => {
       width={desktop ? 420 : undefined}
       height={desktop ? undefined : '88dvh'}
       closable={false}
-      rootClassName="me-sheet"
+      rootClassName="me-sheet demo"
       styles={{
         body: { padding: 0 },
         content: desktop

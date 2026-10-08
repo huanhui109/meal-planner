@@ -1,44 +1,23 @@
 /**
  * 今日 - 三段式首页: 首屏只做一件事(定这一顿), 次屏才放"决定之后"的事
  *
- * 首屏(不滚动可见, ≤1.5 屏):
+ * 版式照 《饭决 UI Demo.html》:
  *   ① 状态行「19:20 · 晚餐 · 家里有 6 样」  ← 替代问候语, 餐次由钟点推断不给选
- *   ② 决策区 DecideBoard                    ← 全页唯一黑色主按钮
- *   ③ 一条浅色出口「不想做饭？点外卖 →」
+ *   ② 一条浅色出口「不想做饭？点外卖 →」
+ *   ③ 决策卡 DecideBoard (.decision = main + aside) ← 全页唯一黑色主按钮
+ *   ④ 「家里有啥」快选卡: chip 点一下增/减
  *
  * 次屏(决策之后才关心的事):
- *   ④ 「家里有啥」摘要条  ⑤ 补单卡  ⑥ 今晚这一餐  ⑦ 拍照入库页脚
+ *   ⑤ 补单卡  ⑥ 今晚这一餐  ⑦ 拍照入库页脚
  *   〔折叠〕今日预算条 —— 深夜(22:00-05:00)完全不渲染
- *
- * 从首页移走的模块与理由:
- *   - 下一步引导卡:   onboarding 残留。它挡在主按钮下方 = 告诉用户"你还有一步要做",
- *                    直接违反"打开就能定" (本地池 ≥60 道已经保证永远有答案)
- *   - 周概览 4 个磁贴: 旧内核「每周鲜」残留, 每次出现都在制造"我还有一整周要规划"
- *                    的焦虑。移到 /menus 周菜单页, 想看的人会自己去
- *   - 今日流程时间线:  那是**系统**的自动化日志, 不是用户要做的事。移到「我的 → 运行状态」
- *   - 自做 vs 外卖对比卡: 降级成上面 ③ 那一行文字链。能打开饭决的人已经是"愿意做"的人,
- *                    这张卡越强越是在给外卖导流
  *
  * 判断标准(用来砍模块): 一个模块如果不能帮助用户在 2 秒内定下"这一顿", 它就不该在首页。
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Alert, Collapse, message } from 'antd'
-import {
-  CheckOutlined,
-  DownOutlined,
-  ShoppingOutlined,
-} from '@ant-design/icons'
-import {
-  Bar,
-  Banner,
-  Card,
-  Chip,
-  EmptyState,
-  LoadingStack,
-  PillButton,
-  SectionTitle,
-} from '../../components/ui'
+import { DownOutlined } from '@ant-design/icons'
+import { LoadingStack } from '../../components/ui'
 import { getToday } from '../../api/today'
 import { markItemCooked, undoMarkCooked } from '../../api/menu'
 import { addInventoryItem, listInventory } from '../../api/inventory'
@@ -64,16 +43,6 @@ import HomeStatusBar from '../../components/HomeStatusBar'
 import FridgeQuickAdd from '../../components/FridgeQuickAdd'
 import { toastWithUndo } from '../../lib/undo'
 
-/**
- * 首页布局版本 —— 埋点用它切片 (R-16)。
- * 值由服务端 /decide 下发后覆盖 lib/layout-version 里的默认值, 拿不到时是 null,
- * 不拿本地猜的值冒充灰度归属 —— 那会让灰度结论直接失效。
- */
-
-/**
- * 首页不再需要 user: 问候语「晚上好, 小明」已经换成状态行, 名字在决策这件事上
- * 没有信息量。props 留空是为了让调用方(App.tsx)不必为一个不再使用的字段取用户信息。
- */
 const Today: React.FC = () => {
   const navigate = useNavigate()
   const [data, setData] = useState<TodayOverview | null>(null)
@@ -203,6 +172,9 @@ const Today: React.FC = () => {
   // 深夜完全不渲染预算条: 那时候给用户看"预算已用 87%"不是提醒是添堵
   const showBudget = shouldShowBudgetStrip() && dailyBudget > 0
 
+  const fridgeNames = fridge?.map((item) => item.ingredient_name)
+  const expiringCount = fridge?.filter((item) => item.expiring_soon).length ?? null
+
   return (
     <div className="page">
       {/* ① 状态行: 一行三件事(时间 · 餐次 · 家里有啥), 替代原来的两行问候语 */}
@@ -212,19 +184,14 @@ const Today: React.FC = () => {
       {generation.error && <Alert type="error" showIcon message={generation.error} closable />}
 
       {/*
-        ② 饭决主决策区: 首页唯一主按钮。
-        放在最上面是因为用户打开 App 的第一诉求就是"今天吃什么",
-        其余都是"已经决定之后"才关心的事, 全部下沉。
+        ② 模式出口: 浅色文字链, 不是按钮。
+        这个判断用户 1 秒就做完了, 做成带 VS 布局的对比卡是在逼他重做一遍。
+        保留出口(它是真实需求), 砍掉对比。
       */}
-      <DecideBoard />
-
-      {/* ③ 模式出口: 浅色文字链, 不是按钮。
-          这个判断用户 1 秒就做完了, 做成带 VS 布局的对比卡是在逼他重做一遍。
-          保留出口(它是真实需求), 砍掉对比。 */}
       {data?.takeout ? (
         <button
           type="button"
-          className="home-takeout-link"
+          className="text-button takeout-link"
           onClick={() => {
             track('home_takeout_exit', { meal_slot: resolveMealSlot() })
             window.open(data.takeout!.link, '_blank', 'noopener')
@@ -234,62 +201,72 @@ const Today: React.FC = () => {
         </button>
       ) : null}
 
+      {/*
+        ③ 饭决主决策区: 首页唯一主按钮 (Demo 的 .decision 大卡 = main + aside)。
+        冰箱名单只用于 aside 的库存命中展示, 拿不到就空着, 不阻塞出菜。
+      */}
+      <DecideBoard
+        fridgeNames={fridgeNames}
+        fridgeCount={fridge?.length ?? null}
+        expiringCount={expiringCount}
+      />
+
       {/* ④ 「家里有啥」: 次屏第一个, 因为它是"做"这个模式的合法性证明 */}
-      <SectionTitle>家里有啥</SectionTitle>
-      <Card tight>
+      <div className="section-label">家里有啥</div>
+      <div className="card quick-card">
         <FridgeQuickAdd items={fridge ?? []} onChanged={loadFridge} />
-      </Card>
+      </div>
 
       {/* ⑤ 补单决策: 排在决定之后 —— 只有决定了做什么, 才知道缺什么 */}
       {data?.order ? (
-        <Card className="order-card">
+        <div className="card">
           <div className="card-head">
             <div>
               <div className="card-title">今晚要补 {data.order.missing_count} 样</div>
               <div className="card-sub">{orderSummaryText(data.order)}</div>
             </div>
-            <Chip tone={data.order.reaches_min_order ? 'green' : 'warn'}>
+            <span className={`tag ${data.order.reaches_min_order ? 'good' : 'warn'}`}>
               {orderStatusText(data.order)}
-            </Chip>
+            </span>
           </div>
 
-          <div className="order-lines">
+          <div className="ingredient-mini">
             {data.order.items.slice(0, 6).map((line) => (
-              <div key={`${line.name}-${line.is_topup}`} className="order-line">
-                <span className={`order-dot ${line.is_topup ? 'is-topup' : ''}`} />
-                <span className="order-name">
+              <div key={`${line.name}-${line.is_topup}`}>
+                <span>
                   {line.name}
-                  {line.is_topup && <Chip>凑单</Chip>}
+                  {line.is_topup ? '（凑单）' : ''}
                 </span>
-                <span className="order-amount">
+                <strong>
                   {formatAmount(line.quantity, line.unit)}
-                  <em>{line.estimated_price != null ? formatMoney(line.estimated_price) : '—'}</em>
-                </span>
+                  {line.estimated_price != null ? ` · ${formatMoney(line.estimated_price)}` : ''}
+                </strong>
               </div>
             ))}
           </div>
 
-          {data.order.note && <div className="card-sub">{data.order.note}</div>}
+          {data.order.note && <div className="card-sub" style={{ marginTop: 10 }}>{data.order.note}</div>}
 
-          <div className="stack-actions">
-            <PillButton
-              block
+          <div className="decision-actions">
+            <button
+              type="button"
+              className="button primary"
               onClick={() => {
                 window.open(data.order!.order_link, '_blank', 'noopener')
               }}
             >
-              <ShoppingOutlined /> 立即下单
-            </PillButton>
-            <PillButton variant="gray" block onClick={() => navigate('/menus')}>
+              立即下单
+            </button>
+            <button type="button" className="text-button" onClick={() => navigate('/menus')}>
               调整菜单
-            </PillButton>
+            </button>
           </div>
-        </Card>
+        </div>
       ) : null}
 
       {/* ⑥ 今晚这一餐: 决策后的"做完了扣库存"落点 */}
       {data?.tonight ? (
-        <Card className="tonight-card">
+        <div className="card">
           <div className="card-head">
             <div>
               <div className="card-title">{data.tonight.name || '今晚还没定'}</div>
@@ -299,15 +276,15 @@ const Today: React.FC = () => {
               </div>
             </div>
             {data.tonight.is_cooked ? (
-              <Chip tone="green">已做</Chip>
+              <span className="tag good">已做</span>
             ) : data.tonight.is_locked ? (
-              <Chip>已锁定</Chip>
+              <span className="tag">已锁定</span>
             ) : null}
           </div>
 
           {/* 深夜不出现热量: 说教类信息在深夜是添堵 */}
           {!shouldShowBudgetStrip() ? null : data.tonight.calories != null ? (
-            <div className="meta-row">
+            <div className="meal-meta" style={{ marginTop: -4 }}>
               <span>{formatKcal(data.tonight.calories)}</span>
               {data.tonight.protein_g != null && (
                 <span>蛋白 {Math.round(data.tonight.protein_g)} g</span>
@@ -319,13 +296,12 @@ const Today: React.FC = () => {
           ) : null}
 
           {data.tonight.uses_expiring.length > 0 && (
-            <Banner
-              tone="accent"
-              title={`消耗临期食材 ${data.tonight.uses_expiring.length} 样`}
-              text={data.tonight.uses_expiring
+            <div className="success-line">
+              消耗临期食材 {data.tonight.uses_expiring.length} 样：
+              {data.tonight.uses_expiring
                 .map((item) => `${item.ingredient_name}(${formatRemaining(item.days_left)})`)
                 .join(' · ')}
-            />
+            </div>
           )}
 
           {data.tonight.ingredients.length > 0 && (
@@ -360,27 +336,37 @@ const Today: React.FC = () => {
             />
           )}
 
-          <div className="stack-actions">
+          <div className="decision-actions">
             {!data.tonight.is_cooked && (
-              <PillButton block loading={cooking} onClick={handleCook}>
-                <CheckOutlined /> 做完了, 扣库存
-              </PillButton>
+              <button
+                type="button"
+                className="button primary"
+                disabled={cooking}
+                onClick={() => void handleCook()}
+              >
+                {cooking ? '标记中…' : '做完了，扣库存'}
+              </button>
             )}
-            <PillButton variant="gray" block onClick={() => navigate('/menus')}>
+            <button type="button" className="text-button" onClick={() => navigate('/menus')}>
               看整周 / 换一道
-            </PillButton>
+            </button>
           </div>
-        </Card>
+        </div>
       ) : (
         data?.menu_id && (
-          <Card>
-            <EmptyState
-              title="今天没有排餐"
-              description="这周的菜单里没有今天, 可以去周菜单看看, 或者换一道"
-              actionLabel="看周菜单"
-              onAction={() => navigate('/menus')}
-            />
-          </Card>
+          <div className="card">
+            <div className="empty-state">
+              <p>今天没有排餐</p>
+              <p className="card-sub" style={{ marginTop: 6 }}>
+                这周的菜单里没有今天, 可以去周菜单看看, 或者换一道
+              </p>
+              <div className="decision-actions" style={{ justifyContent: 'center' }}>
+                <button type="button" className="button" onClick={() => navigate('/menus')}>
+                  看周菜单
+                </button>
+              </div>
+            </div>
+          </div>
         )
       )}
 
@@ -394,11 +380,13 @@ const Today: React.FC = () => {
               label: `今日预算 · 已用 ${formatPercent(budgetPercent)}`,
               children: (
                 <div>
-                  <div className="stat-value">
+                  <div className="stat-value" style={{ marginTop: 0 }}>
                     {formatMoney(Math.max(0, budget.remaining_today ?? 0))}
                     <span className="stat-unit">可用 / {formatMoney(dailyBudget)}</span>
                   </div>
-                  <Bar percent={budgetPercent} tone={budgetPercent > 100 ? 'over' : 'ink'} />
+                  <div className={`bar ${budgetPercent > 100 ? 'is-over' : ''}`}>
+                    <i style={{ width: `${Math.max(0, Math.min(100, budgetPercent))}%` }} />
+                  </div>
                 </div>
               ),
             },

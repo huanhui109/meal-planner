@@ -159,52 +159,51 @@ const FridgeQuickAdd: React.FC<{
 
   return (
     <div className="fridge-quick">
-      <div className="fridge-quick-head">
-        <span className="fridge-quick-title">
+      <div className="quick-title">
+        <span>
           {items.length > 0
-            ? `家里有 ${items.length} 样${expiringCount > 0 ? ` · ${expiringCount} 样临期` : ''}`
+            ? `已记 ${items.length} 样 · 点一下可增减${expiringCount > 0 ? ` · ${expiringCount} 样临期` : ''}`
             : '家里有啥？点一下，30 秒告诉我'}
         </span>
-        {items.length > 0 ? (
-          <button type="button" className="card-link" onClick={() => navigate('/inventory')}>
-            改一下 →
-          </button>
-        ) : null}
+        <button type="button" className="text-button" onClick={() => navigate('/inventory')}>
+          管理冰箱 →
+        </button>
       </div>
 
-      {items.length > 0 ? (
-        <div className="fridge-quick-chips">
-          {items.slice(0, 12).map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`fridge-chip ${item.expiring_soon ? 'is-expiring' : ''}`}
-              onClick={() => void remove(item)}
-            >
-              {item.ingredient_name} ×
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {/* 空态常驻: 无论有没有数据, 高频 chip 都在, 因为"再补一样"是高频动作 */}
-      <div className="fridge-quick-chips">
+      {/*
+        Demo 版式: 一个池子里的 chip 点一下增/减。
+        已有食材 = 实色 chip (✓ 再点移除), 高频候选 = 浅色 chip (＋ 点一下入库)。
+        已录入但不在高频池里的, 也按实色 chip 排在前面。
+      */}
+      <div className="quick-chips">
+        {items.slice(0, 12).map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className="chip owned"
+            onClick={() => void remove(item)}
+          >
+            ✓ {item.ingredient_name}
+          </button>
+        ))}
         {QUICK_CHIPS.filter((chip) => !owned.has(chip.name)).map((chip) => (
           <button
             key={chip.name}
             type="button"
-            className="fridge-chip is-add"
+            className="chip"
             disabled={pending != null}
             onClick={() => void add(chip.name, chip.days)}
           >
-            {chip.name}
+            ＋ {chip.name}
           </button>
         ))}
       </div>
 
       {items.length === 0 ? (
-        <div className="fridge-quick-note">一个都不点也能直接按饭决，不影响出菜。</div>
-      ) : null}
+        <div className="quick-note">一个都不点也能直接按饭决，不影响出菜。</div>
+      ) : (
+        <div className="quick-note">点实色 chip 可从冰箱移除, 3 秒内可撤销。</div>
+      )}
     </div>
   )
 }

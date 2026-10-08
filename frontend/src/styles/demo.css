@@ -1,0 +1,1393 @@
+/**
+ * 饭决 UI Demo 设计层 (移植自 《饭决 UI Demo.html》)
+ *
+ * 两层令牌:
+ *   1. Demo 自有令牌 (--bg / --surface / --ink / --green ...) —— 与 Demo 完全一致
+ *   2. 把 Demo 色板映射到既有 --color-* 令牌 —— 老组件(登录页除外, 都在 .demo 壳内)
+ *      不用改一行也能吃到同一套色板
+ *
+ * 主题: html[data-theme] 由 stores/useThemeStore.ts 写入 (cream/cool=亮, dark=暗)。
+ * 组件类一律作用域在 .demo 之下 (Layout 根节点挂着), 避免冲击 antd 与裸页 (Login/Onboarding)。
+ */
+
+/* ===== Demo 令牌 (亮) ===== */
+:root,
+:root[data-theme='cream'],
+:root[data-theme='cool'] {
+  --bg: #f3f5f4;
+  --surface: #ffffff;
+  --surface-2: #eef1ef;
+  --surface-3: #e5e9e6;
+  --ink: #161817;
+  --muted: #616864;
+  --faint: #969d99;
+  --line: rgba(22, 24, 23, 0.1);
+  --inverse: #ffffff;
+  --green: #197647;
+  --green-soft: #e2f2e8;
+  --orange: #b35f20;
+  --orange-soft: #fbebdd;
+  --red: #c43b30;
+  --shadow: 0 18px 54px rgba(20, 28, 23, 0.09);
+  --shadow-small: 0 7px 24px rgba(20, 28, 23, 0.06);
+  --r-xl: 28px;
+  --r-lg: 20px;
+  --r-md: 14px;
+  --sidebar: 220px;
+  --page: 1040px;
+  --tap: 46px;
+
+  /* 既有设计令牌 ← Demo 色板 */
+  --color-bg: var(--bg);
+  --color-screen: var(--surface);
+  --color-card: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink2: var(--muted);
+  --color-ink3: var(--faint);
+  --color-line: var(--line);
+  --color-fill: var(--surface-2);
+  --color-on-ink: var(--inverse);
+  --color-accent: var(--green);
+  --color-accent-ink: var(--green);
+  --color-accent-soft: var(--green-soft);
+  --color-warn: var(--orange);
+  --color-warn-ink: var(--orange);
+  --color-warn-soft: var(--orange-soft);
+  --color-danger: var(--red);
+  --color-danger-soft: rgba(196, 59, 48, 0.12);
+  --color-glass: rgba(255, 255, 255, 0.86);
+  --shadow-card: var(--shadow-small);
+  --shadow-float: var(--shadow);
+  --shadow-lift: var(--shadow);
+}
+
+/* ===== Demo 令牌 (暗) ===== */
+:root[data-theme='dark'] {
+  --bg: #0c0e0d;
+  --surface: #171a18;
+  --surface-2: #232724;
+  --surface-3: #303531;
+  --ink: #f5f7f5;
+  --muted: #b1b8b3;
+  --faint: #7c847f;
+  --line: rgba(255, 255, 255, 0.1);
+  --inverse: #0b0d0c;
+  --green: #64d693;
+  --green-soft: #183a28;
+  --orange: #f0a568;
+  --orange-soft: #402a1a;
+  --red: #ff746a;
+  --shadow: 0 0 0 1px var(--line);
+  --shadow-small: 0 0 0 1px var(--line);
+
+  --color-bg: var(--bg);
+  --color-screen: var(--surface);
+  --color-card: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink2: var(--muted);
+  --color-ink3: var(--faint);
+  --color-line: var(--line);
+  --color-fill: var(--surface-2);
+  --color-on-ink: var(--inverse);
+  --color-accent: var(--green);
+  --color-accent-ink: var(--green);
+  --color-accent-soft: var(--green-soft);
+  --color-warn: var(--orange);
+  --color-warn-ink: var(--orange);
+  --color-warn-soft: var(--orange-soft);
+  --color-danger: var(--red);
+  --color-danger-soft: rgba(255, 116, 106, 0.16);
+  --color-glass: rgba(23, 26, 24, 0.78);
+  --shadow-card: var(--shadow-small);
+  --shadow-float: var(--shadow);
+  --shadow-lift: var(--shadow);
+}
+
+/* ===== 壳 ===== */
+.demo {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.demo button,
+.demo input {
+  font: inherit;
+  color: inherit;
+}
+.demo button:focus-visible,
+.demo input:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--green) 32%, transparent);
+  outline-offset: 2px;
+}
+
+.demo.app {
+  display: flex;
+}
+.demo .sidebar {
+  width: var(--sidebar);
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 14px 18px;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  z-index: 20;
+  flex: none;
+}
+.demo .side-context {
+  padding: 4px 12px 20px;
+}
+.demo .side-context strong {
+  display: block;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+.demo .side-context span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.demo .nav-list {
+  display: grid;
+  gap: 5px;
+}
+.demo .nav-item {
+  min-height: var(--tap);
+  padding: 0 14px;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  cursor: pointer;
+  text-align: left;
+  font-weight: 630;
+  transition: background 0.16s ease, color 0.16s ease;
+  position: relative;
+  text-decoration: none;
+}
+.demo .nav-item:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.demo .nav-item.active {
+  background: var(--ink);
+  color: var(--inverse);
+}
+.demo .icon {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.demo .icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.demo .side-foot {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.demo .profile-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 8px;
+  min-height: var(--tap);
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.demo .profile-button:hover {
+  background: var(--surface-2);
+}
+.demo .avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface-3);
+  color: var(--ink);
+  font-weight: 750;
+  flex: none;
+}
+.demo .profile-copy {
+  min-width: 0;
+  text-align: left;
+}
+.demo .profile-copy b {
+  display: block;
+  font-size: 13px;
+}
+.demo .profile-copy small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.demo .main {
+  flex: 1;
+  min-width: 0;
+}
+.demo .mobile-top {
+  display: none;
+  height: 60px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  padding: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--line);
+}
+.demo .mobile-title {
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+.demo .avatar-button {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  position: relative;
+}
+.demo .content {
+  width: min(100%, var(--page));
+  margin: 0 auto;
+  padding: 28px 30px 56px;
+}
+
+/* 页面容器: 覆盖 global.css 的 .page (宽度由 .content 统管) */
+.demo .page {
+  max-width: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: demo-page-in 0.18s ease both;
+}
+@keyframes demo-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo * {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ===== 通用 ===== */
+.demo .page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+.demo .page-head h1 {
+  font-size: clamp(25px, 3.5vw, 34px);
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+.demo .page-head p {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.demo .page-head-actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+.demo .section-label {
+  margin: 12px 4px -4px;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 700;
+}
+.demo .card {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  padding: 22px;
+  box-shadow: var(--shadow-small);
+}
+.demo .card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 15px;
+}
+.demo .card-title {
+  font-size: 18px;
+  font-weight: 760;
+  letter-spacing: -0.025em;
+}
+.demo .card-sub {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.demo .tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.demo .tag.good {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.demo .tag.warn {
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+.demo .button {
+  min-height: var(--tap);
+  border: 0;
+  border-radius: 999px;
+  padding: 0 18px;
+  background: var(--surface-2);
+  cursor: pointer;
+  font-weight: 700;
+  transition: transform 0.14s ease, opacity 0.14s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.demo .button:active {
+  transform: scale(0.97);
+}
+.demo .button.primary {
+  background: var(--ink);
+  color: var(--inverse);
+}
+.demo .button.ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+}
+.demo .button.small {
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+.demo .button[disabled] {
+  opacity: 0.42;
+  cursor: default;
+}
+.demo .text-button {
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  padding: 0 5px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+}
+.demo .text-button:hover {
+  color: var(--ink);
+}
+.demo .empty-state {
+  padding: 44px 20px;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* ===== 今日: 状态行 + 决策卡 ===== */
+.demo .status-line {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 4px -6px;
+  font-variant-numeric: tabular-nums;
+}
+.demo .takeout-link {
+  display: block;
+  margin: 0 0 -4px auto;
+  min-height: 38px;
+}
+.demo .decision {
+  min-height: 430px;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  padding: 0;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.demo .decision-main {
+  flex: 1;
+  min-width: 0;
+  padding: 34px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.demo .decision-aside {
+  width: 270px;
+  flex: none;
+  padding: 26px;
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+}
+.demo .decision-empty {
+  text-align: center;
+  align-items: center;
+}
+.demo .decision-empty h2 {
+  margin-top: 4px;
+  font-size: clamp(28px, 5vw, 42px);
+  letter-spacing: 0.12em;
+  text-indent: 0.12em;
+}
+.demo .decision-empty .slogan {
+  color: var(--muted);
+  margin-top: 8px;
+}
+.demo .decide-orb {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  margin-top: 26px;
+  border: 0;
+  background: var(--ink);
+  color: var(--inverse);
+  font-size: 26px;
+  font-weight: 780;
+  letter-spacing: 0.14em;
+  text-indent: 0.14em;
+  cursor: pointer;
+  box-shadow: 0 18px 42px rgba(20, 24, 22, 0.2);
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.demo .decide-orb:active {
+  transform: scale(0.96);
+}
+.demo .decide-orb[disabled] {
+  opacity: 0.72;
+  cursor: default;
+}
+.demo .decide-error {
+  margin-top: 12px;
+  color: var(--red);
+  font-size: 13px;
+}
+.demo .ask-toggle {
+  margin-top: 16px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  min-height: 42px;
+}
+.demo .ask-panel {
+  width: min(100%, 470px);
+  margin: 14px auto 0;
+  text-align: left;
+}
+.demo .ask-row {
+  display: flex;
+  gap: 8px;
+}
+.demo .ask-row input {
+  width: 100%;
+  min-width: 0;
+  height: 46px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface-2);
+  padding: 0 14px;
+  font-size: 16px;
+}
+.demo .quick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+.demo .chip {
+  min-height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  padding: 0 12px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+  display: inline-flex;
+  align-items: center;
+}
+.demo .chip.selected,
+.demo .chip.owned {
+  background: var(--ink);
+  color: var(--inverse);
+}
+.demo .chip[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+/* 既有 ui Chip 组件的语义色, 在 Demo 色板下重新指定 */
+.demo .chip--green {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.demo .chip--warn {
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+.demo .chip--danger {
+  background: var(--color-danger-soft);
+  color: var(--red);
+}
+.demo .chip--ink {
+  background: var(--ink);
+  color: var(--inverse);
+}
+.demo .chip--gray {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.demo .decision-aside h3 {
+  font-size: 15px;
+}
+.demo .aside-list {
+  display: grid;
+  gap: 9px;
+  margin-top: 15px;
+}
+.demo .aside-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.demo .aside-row b {
+  color: var(--ink);
+  font-size: 13px;
+}
+.demo .aside-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.demo .dish-kicker {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 680;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.demo .dish-name {
+  font-size: clamp(36px, 6vw, 58px);
+  line-height: 1.05;
+  letter-spacing: -0.055em;
+  margin-top: 10px;
+  font-weight: 760;
+}
+.demo .dish-reason {
+  margin-top: 12px;
+  color: var(--orange);
+  font-size: 16px;
+  font-weight: 650;
+}
+.demo .dish-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.demo .dish-facts span {
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.demo .steps {
+  list-style: none;
+  padding: 0;
+  margin: 22px 0 0;
+  display: grid;
+  gap: 12px;
+}
+.demo .steps li {
+  display: flex;
+  gap: 11px;
+  color: var(--muted);
+}
+.demo .steps i {
+  width: 23px;
+  height: 23px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--ink);
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 750;
+}
+.demo .decision-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 25px;
+  flex-wrap: wrap;
+}
+.demo .decision-actions .primary {
+  min-width: 180px;
+}
+.demo .success-line {
+  margin-top: 14px;
+  padding: 11px 13px;
+  border-radius: 13px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 650;
+}
+.demo .aside-dish {
+  font-size: 22px;
+  font-weight: 780;
+  letter-spacing: -0.03em;
+}
+.demo .ingredient-mini {
+  display: grid;
+  gap: 9px;
+  margin-top: 18px;
+}
+.demo .ingredient-mini div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.demo .ingredient-mini strong {
+  color: var(--ink);
+}
+.demo .decide-note {
+  margin-top: 14px;
+  color: var(--faint);
+  font-size: 12px;
+}
+.demo .decide-locked {
+  margin-top: 10px;
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+/* 「家里有啥」快卡 */
+.demo .quick-card {
+  padding: 18px 20px;
+}
+.demo .quick-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 720;
+}
+.demo .quick-title .text-button {
+  min-height: 34px;
+}
+.demo .quick-card .quick-chips {
+  margin-top: 12px;
+}
+.demo .quick-note {
+  color: var(--faint);
+  margin-top: 10px;
+  font-size: 11px;
+}
+
+/* ===== 周菜单 ===== */
+.demo .week-summary {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 0;
+}
+.demo .stat {
+  padding: 18px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-small);
+}
+.demo .stat-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.demo .stat-value {
+  margin-top: 7px;
+  font-size: 24px;
+  font-weight: 780;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}
+.demo .stat small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.demo .bar {
+  height: 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin-top: 12px;
+}
+.demo .bar i {
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  background: var(--green);
+}
+.demo .bar.is-over i {
+  background: var(--red);
+}
+.demo .days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 7px;
+  margin: 4px 0 0;
+}
+.demo .day {
+  min-height: 62px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  cursor: pointer;
+  box-shadow: var(--shadow-small);
+}
+.demo .day span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+.demo .day b {
+  display: block;
+  margin-top: 4px;
+  font-size: 15px;
+}
+.demo .day.active {
+  background: var(--ink);
+  color: var(--inverse);
+}
+.demo .day.active span {
+  color: var(--inverse);
+  opacity: 0.75;
+}
+.demo .day .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--green);
+  margin: 4px auto 0;
+}
+.demo .meal-list {
+  display: grid;
+}
+.demo .meal-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+.demo .meal-row:first-child {
+  border-top: 0;
+}
+.demo .meal-slot {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.demo .meal-info {
+  min-width: 0;
+}
+.demo .meal-info b {
+  font-size: 16px;
+}
+.demo .meal-meta {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.demo .meal-actions {
+  display: flex;
+  gap: 7px;
+}
+.demo .meal-row.done .meal-info b {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+/* ===== 采购 ===== */
+.demo .shopping-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 12px;
+  align-items: start;
+}
+.demo .shopping-groups {
+  display: grid;
+  gap: 12px;
+}
+.demo .shop-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.demo .shop-row:first-child {
+  border-top: 0;
+}
+.demo .shop-mark {
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: transparent;
+  cursor: pointer;
+  background: transparent;
+  padding: 0;
+  font-size: 14px;
+}
+.demo .shop-row.done .shop-mark {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.demo .shop-name {
+  flex: 1;
+  min-width: 0;
+}
+.demo .shop-name b {
+  display: block;
+}
+.demo .shop-name small {
+  color: var(--muted);
+}
+.demo .shop-row.done .shop-name b {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.demo .shop-qty {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.demo .summary-list {
+  display: grid;
+  gap: 14px;
+  margin: 18px 0;
+}
+.demo .summary-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+}
+.demo .summary-list b {
+  color: var(--ink);
+}
+
+/* ===== 冰箱 ===== */
+.demo .inventory-tools {
+  display: flex;
+  gap: 8px;
+}
+.demo .search {
+  min-height: var(--tap);
+  flex: 1;
+  border: 0;
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 0 18px;
+  box-shadow: var(--shadow-small);
+  font-size: 16px;
+}
+.demo .inventory-card {
+  margin-top: 0;
+}
+.demo .inv-row {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 13px;
+  padding: 15px 0;
+  border-top: 1px solid var(--line);
+}
+.demo .inv-row:first-child {
+  border-top: 0;
+}
+.demo .fresh {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--green);
+}
+.demo .fresh.warn {
+  background: var(--orange);
+}
+.demo .fresh.danger {
+  background: var(--red);
+}
+.demo .inv-name {
+  min-width: 0;
+}
+.demo .inv-name b {
+  display: block;
+}
+.demo .inv-name small {
+  color: var(--muted);
+}
+.demo .inv-qty {
+  font-weight: 720;
+  font-variant-numeric: tabular-nums;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+.demo .inv-qty:hover {
+  background: var(--surface-2);
+}
+.demo .icon-button {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+}
+.demo .icon-button:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* ===== 底部导航 (移动) ===== */
+.demo .bottom-nav {
+  display: none;
+}
+
+/* ===== 抽屉 / 弹层 / Toast ===== */
+.demo .overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.42);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+.demo .overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.demo .drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(430px, 100%);
+  height: 100%;
+  background: var(--bg);
+  padding: 22px;
+  transform: translateX(100%);
+  transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+  overflow-y: auto;
+}
+.demo .overlay.open .drawer {
+  transform: none;
+}
+.demo .drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.demo .drawer-head h2 {
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+.demo .settings {
+  display: grid;
+}
+.demo .setting-row {
+  width: 100%;
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+.demo .setting-row:first-child {
+  border-top: 0;
+}
+.demo .setting-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: var(--surface-2);
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.demo .setting-copy {
+  min-width: 0;
+}
+.demo .setting-copy b {
+  display: block;
+  font-size: 14px;
+}
+.demo .setting-copy span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.demo .setting-value {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.demo .theme-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+  margin-top: 12px;
+}
+.demo .theme-choice {
+  min-height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  cursor: pointer;
+  font-weight: 680;
+}
+.demo .theme-choice.active {
+  background: var(--ink);
+  color: var(--inverse);
+}
+
+.demo .modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  background: rgba(0, 0, 0, 0.46);
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+}
+.demo .modal-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.demo .modal {
+  width: min(420px, 100%);
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 22px;
+  transform: scale(0.98);
+  transition: transform 0.16s ease;
+  box-shadow: var(--shadow);
+}
+.demo .modal-overlay.open .modal {
+  transform: none;
+}
+.demo .modal h2 {
+  font-size: 20px;
+}
+.demo .field {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+}
+.demo .field label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.demo .field input {
+  min-height: 46px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface-2);
+  padding: 0 14px;
+  font-size: 16px;
+}
+.demo .field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.demo .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+.demo .toast {
+  position: fixed;
+  z-index: 200;
+  left: 50%;
+  bottom: 28px;
+  transform: translate(-50%, 18px);
+  opacity: 0;
+  pointer-events: none;
+  background: var(--ink);
+  color: var(--inverse);
+  border-radius: 999px;
+  padding: 12px 18px;
+  font-size: 13px;
+  font-weight: 680;
+  box-shadow: var(--shadow);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.demo .toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 900px) {
+  .demo .sidebar {
+    display: none;
+  }
+  .demo .mobile-top {
+    display: flex;
+  }
+  .demo .content {
+    padding: 18px 18px calc(112px + env(safe-area-inset-bottom));
+  }
+  .demo .bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    position: fixed;
+    z-index: 60;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    height: 70px;
+    padding: 7px;
+    border-radius: 24px;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(18px);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+  }
+  .demo .bottom-item {
+    border: 0;
+    background: transparent;
+    border-radius: 18px;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 700;
+    position: relative;
+  }
+  .demo .bottom-item.active {
+    background: var(--ink);
+    color: var(--inverse);
+  }
+  .demo .bottom-item .icon svg {
+    width: 19px;
+    height: 19px;
+  }
+  .demo .decision {
+    min-height: auto;
+    display: block;
+  }
+  .demo .decision-main {
+    padding: 28px 22px;
+    min-height: 440px;
+  }
+  .demo .decision-aside {
+    width: 100%;
+    padding: 20px 22px;
+    min-height: 150px;
+  }
+  .demo .week-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+  .demo .week-summary .stat:first-child {
+    grid-column: 1 / -1;
+  }
+  .demo .shopping-layout {
+    grid-template-columns: 1fr;
+  }
+  .demo .drawer {
+    top: auto;
+    bottom: 0;
+    height: min(86dvh, 760px);
+    border-radius: 28px 28px 0 0;
+    transform: translateY(100%);
+  }
+  .demo .overlay.open .drawer {
+    transform: none;
+  }
+  .demo .toast {
+    bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+}
+@media (max-width: 580px) {
+  .demo .content {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .demo .page-head {
+    align-items: flex-start;
+  }
+  .demo .page-head h1 {
+    font-size: 26px;
+  }
+  .demo .card {
+    padding: 18px;
+    border-radius: 22px;
+  }
+  .demo .decision-main {
+    min-height: 420px;
+    padding: 26px 18px;
+  }
+  .demo .decision-empty h2 {
+    font-size: 32px;
+  }
+  .demo .decide-orb {
+    width: 128px;
+    height: 128px;
+  }
+  .demo .dish-name {
+    font-size: 39px;
+  }
+  .demo .days {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .demo .day:nth-child(n + 5) {
+    min-height: 52px;
+  }
+  .demo .meal-row {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+  .demo .meal-actions {
+    grid-column: 2;
+    flex-wrap: wrap;
+  }
+  .demo .meal-actions .button {
+    flex: 1;
+  }
+  .demo .week-summary {
+    grid-template-columns: 1fr;
+  }
+  .demo .week-summary .stat:first-child {
+    grid-column: auto;
+  }
+  .demo .inventory-tools {
+    flex-wrap: wrap;
+  }
+  .demo .inventory-tools .search {
+    flex-basis: 100%;
+    order: 2;
+  }
+  .demo .inv-row {
+    grid-template-columns: 9px minmax(0, 1fr) auto;
+  }
+  .demo .inv-row .icon-button {
+    grid-column: 3;
+    grid-row: 2;
+    height: 34px;
+  }
+  .demo .quick-chips {
+    gap: 6px;
+  }
+  .demo .shop-row {
+    align-items: flex-start;
+  }
+}

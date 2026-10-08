@@ -1,5 +1,7 @@
 import './styles/tokens.css'
 import './global.css'
+// Demo 设计层: 令牌映射 + 组件类, 必须压在 tokens/global 之后
+import './styles/demo.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { ConfigProvider } from 'antd'
