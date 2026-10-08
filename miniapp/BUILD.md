@@ -36,8 +36,15 @@ Taro 4 不支持按平台分 `outputRoot`，`miniapp/config/index.ts` 显式把�
 
 ## 真机调试的后端地址
 
-后端地址由环境变量 `MP_API_BASE` 驱动，**默认是 `http://127.0.0.1:8000/api`**，
-模拟器开箱即用。
+后端地址由 `config/base.ts` 的 `resolveApiBase()` 在**构建 / dev-server 启动那一刻**解析，
+优先级是：**显式 `MP_API_BASE` > 自动探测的局域网 IP > `127.0.0.1` 兜底**。
+
+| `MP_API_BASE` | 实际指向 | 场景 |
+| --- | --- | --- |
+| （未设） | `http://<局域网IP>:8000/api` | 默认：模拟器 + 同 Wi-Fi 真机都可用 |
+| （未设，取不到 IP） | `http://127.0.0.1:8000/api` | 离线兜底，仅模拟器可用 |
+| `http://192.168.x.x:8000/api` | 指定局域网 IP | 多网卡 / 虚拟机 / 探测错时手动指定 |
+| `https://app.example.com/api` | 生产域名 | 上线（必须 HTTPS + 已备案） |
 
 | 场景 | 命令 |
 | --- | --- |
@@ -45,11 +52,26 @@ Taro 4 不支持按平台分 `outputRoot`，`miniapp/config/index.ts` 显式把�
 | 真机调试（局域网） | `MP_API_BASE=http://192.168.x.x:8000/api npm run dev:weapp` |
 | 生产发布（HTTPS 备案域名） | `MP_API_BASE=https://app.example.com/api npm run build:weapp` |
 
-启动期若检测到 `https://127.0.0.1` 或「生产构建但默认 HTTP」会在终端打 warn，
-提醒你显式指定 `MP_API_BASE`。
+**为什么默认不是 `127.0.0.1`**：真机的包跑在**手机**上，`127.0.0.1` 是手机自己，
+请求必然「网络连接失败」。默认改成局域网 IP 后，同 Wi-Fi 真机直连可用，模拟器 /
+开发者工具访问电脑自己的局域网 IP 同样通，不牺牲本地体验。
 
-`config/base.ts` 集中处理 URL 解析与告警；旧的 `dev.ts` / `prod.ts` 已经合并掉，
-因为它们的唯一差异就是这个默认值。
+### ⚠ 多网卡 / DHCP 换 IP：必须显式指定或重新构建
+
+`API_BASE_URL` 是 `defineConstants` **编译期写死进 `dist/` 的常量**，不是运行期读取。
+两个坑：
+
+- **多网卡**：`lanAddress()` 只取「第一个非回环 IPv4」，有多块网卡（有线 + Wi-Fi +
+  虚拟机桥接）时可能选错。此时必须显式 `MP_API_BASE=http://<对的那个IP>:8000/api`。
+- **DHCP 换 IP**：电脑 IP 变了（如 `192.168.3.83 → 192.168.3.34`），旧的 `dist/` 里
+  仍是已失效的旧 IP，开发者工具报 **`net::ERR_ADDRESS_UNREACHABLE`**。
+  修复 = **重新跑 `npm run dev:weapp`** 让它探测新 IP；或干脆显式指定
+  `MP_API_BASE=http://127.0.0.1:8000/api`（仅模拟器，免疫 DHCP）/ 当前局域网 IP。
+
+启动期会把解析结果打在终端（`[miniapp config] API = ...`），并在「https://127.0.0.1」
+或「生产构建但默认 HTTP」时打 warn，提醒你显式指定 `MP_API_BASE`。
+
+旧的 `dev.ts` / `prod.ts` 已经合并进 `config/base.ts`，它们的唯一差异就是这个默认值。
 
 「预览」模式会校验 request 合法域名，http 一定被拦；只有「真机调试」会自动跳过。
 生产环境必须用 `MP_API_BASE=https://...` 的备案域名，并在小程序后台登记。
