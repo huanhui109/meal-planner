@@ -68,7 +68,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="饭决 FAN·DECIDE",
     description="今天吃啥，交给饭决: 口味档案即约束 → 一次点击决定这一餐 → 给一句话理由 → 3-5 步极简做法。断网也有答案。",
-    version="2.6.0",
+    version="2.7.0",
     lifespan=lifespan,
 )
 

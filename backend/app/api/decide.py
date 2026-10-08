@@ -7,11 +7,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import current_layout_version
 from app.dependencies import get_current_user, get_db
+from app.models.decision import DecisionLog
 from app.models.user import User
 from app.schemas.common import SuccessResponse
 from app.schemas.decide import (
@@ -20,6 +21,7 @@ from app.schemas.decide import (
     UnderstandRequest,
 )
 from app.services.decision_service import DecisionService
+from app.services.inventory_service import InventoryService
 from app.services.intent_service import MealIntentService
 
 router = APIRouter(prefix="/decide", tags=["饭决决策"])
@@ -118,3 +120,51 @@ async def decide_feedback(
     if not ok:
         return SuccessResponse(code=1, message="决策记录不存在或无权访问", data=None)
     return SuccessResponse(data={"accepted": payload.liked})
+
+
+@router.post("/{decision_id}/cook", response_model=SuccessResponse)
+async def cook_decision(
+    decision_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """今日饭决「做完了」: 按结果菜谱扣减冰箱库存
+
+    幂等: 已经 is_cooked 直接返回 already_cooked, 不重复扣。结果菜谱没有库内
+    recipe_id (离线/本地兜底菜) 时只置标记、不扣减 (返回 no_recipe)。
+    这是今日线唯一的扣库存入口 —— 周菜单走 /menus/{id}/items/{item_id}/cooked。
+    """
+    log = await db.get(DecisionLog, decision_id)
+    if log is None or log.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="决策记录不存在或无权访问"
+        )
+    if log.is_cooked:
+        return SuccessResponse(
+            code=0,
+            message="这顿已经做完并扣过库存了",
+            data={"decision_id": log.id, "already_cooked": True, "consumed": [], "missing": []},
+        )
+
+    if not log.recipe_id:
+        log.is_cooked = True
+        await db.flush()
+        return SuccessResponse(
+            code=0,
+            message="已记下, 但这道是离线菜谱, 没法精确扣库存",
+            data={"decision_id": log.id, "already_cooked": False, "no_recipe": True, "consumed": [], "missing": []},
+        )
+
+    result = await InventoryService(db).consume_by_recipe(log.recipe_id, user.id, log.id)
+    log.is_cooked = True
+    await db.flush()
+    return SuccessResponse(
+        code=0,
+        message="已扣减冰箱库存",
+        data={
+            "decision_id": log.id,
+            "already_cooked": False,
+            "consumed": result.consumed if result else [],
+            "missing": result.missing if result else [],
+        },
+    )

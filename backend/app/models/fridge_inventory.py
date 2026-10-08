@@ -50,6 +50,12 @@ class ConsumptionRecord(Base):
     menu_item_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("menu_item.id", ondelete="SET NULL"), nullable=True
     )
+    # 今日饭决「做完了」也会走扣库存, 但没有 menu_item 可挂 —— 用 decision_id 把流水
+    # 锚定到那次决策, 否则今日消耗的流水 menu_item_id/decision_id 全空, 既不可审计也
+    # 没法写撤销逻辑。二者至多其一非空。
+    decision_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("decision_log.id", ondelete="SET NULL"), nullable=True, comment="关联的今日饭决决策"
+    )
     # 流水必须自解释: 只记"扣了 200"没法回答"扣的是什么"。撤销「标记已做」时,
     # 如果批次行已经因为扣空被删除, 就靠这两个字段把库存行按原样补回来。
     ingredient_id: Mapped[Optional[int]] = mapped_column(

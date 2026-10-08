@@ -1,7 +1,7 @@
 {
   "name": "fan-decide-miniapp",
   "private": true,
-  "version": "2.6.0",
+  "version": "2.7.0",
   "description": "饭决 FAN·DECIDE - 微信小程序 (Taro 4 + React), 与 H5 共用 shared/ 业务层",
   "templateInfo": {
     "name": "default",

@@ -20,6 +20,16 @@ class InventoryUpdate(BaseModel):
     expiry_date: Optional[str] = None
 
 
+class InventoryBulkItem(BaseModel):
+    ingredient_name: str
+    quantity: float = 1
+    unit: str = "份"
+
+
+class InventoryBulkCreate(BaseModel):
+    items: list[InventoryBulkItem]
+
+
 class InventoryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

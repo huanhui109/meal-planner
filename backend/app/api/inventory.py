@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +14,7 @@ from app.models.fridge_inventory import FridgeInventory
 from app.models.ingredient import Ingredient
 from app.models.user import User
 from app.schemas.common import SuccessResponse
-from app.schemas.inventory import InventoryCreate
+from app.schemas.inventory import InventoryBulkCreate, InventoryCreate, InventoryUpdate
 from app.services.activity_service import (
     CHANNEL_VISION,
     KIND_VISION_RECOGNIZE,
@@ -59,19 +59,25 @@ def _serialize(item: FridgeInventory, ingredient_name: str, category: str | None
 
 
 @router.get("", response_model=SuccessResponse)
-async def list_inventory(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    """当前库存 (临期优先展示)"""
-    result = await db.execute(
+async def list_inventory(
+    q: str | None = Query(default=None, description="按食材名模糊搜索"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """当前库存 (临期优先展示), 可选 q 按食材名模糊搜索"""
+    stmt = (
         select(FridgeInventory, Ingredient.name, Ingredient.category)
         .join(Ingredient, Ingredient.id == FridgeInventory.ingredient_id)
         .where(FridgeInventory.user_id == user.id)
-        .order_by(
-            FridgeInventory.expiry_date.is_(None),
-            FridgeInventory.expiry_date.asc(),
-            FridgeInventory.id.asc(),
-        )
     )
-    rows = result.all()
+    if q:
+        stmt = stmt.where(Ingredient.name.like(f"%{q.strip()}%"))
+    stmt = stmt.order_by(
+        FridgeInventory.expiry_date.is_(None),
+        FridgeInventory.expiry_date.asc(),
+        FridgeInventory.id.asc(),
+    )
+    rows = (await db.execute(stmt)).all()
     items = [_serialize(item, name, category) for item, name, category in rows]
     return SuccessResponse(
         code=0,
@@ -110,6 +116,17 @@ async def add_inventory_item(
     )
 
 
+@router.post("/bulk", response_model=SuccessResponse, status_code=status.HTTP_201_CREATED)
+async def bulk_add_inventory(
+    data: InventoryBulkCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """批量入库 (快速补常备食材): 一次传多条 {ingredient_name, quantity, unit}"""
+    created = await InventoryService(db).bulk_add(user.id, [it.model_dump() for it in data.items])
+    return SuccessResponse(code=0, message=f"已入库 {len(created)} 样", data={"added": created})
+
+
 @router.delete("/{item_id}", response_model=SuccessResponse)
 async def delete_inventory_item(
     item_id: int,
@@ -121,6 +138,29 @@ async def delete_inventory_item(
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="库存项不存在")
     return SuccessResponse(code=0, message="已删除")
+
+
+@router.put("/{item_id}", response_model=SuccessResponse)
+async def update_inventory_item(
+    item_id: int,
+    data: InventoryUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """修改库存项的数量 / 保质期 (接线既有 InventoryUpdate schema)"""
+    item = await InventoryService(db).update_item(
+        item_id, user.id, quantity=data.quantity, expiry_date=_parse_date(data.expiry_date)
+    )
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="库存项不存在")
+    ingredient = await db.get(Ingredient, item.ingredient_id)
+    return SuccessResponse(
+        code=0,
+        message="已更新",
+        data=_serialize(
+            item, ingredient.name if ingredient else "", ingredient.category if ingredient else None
+        ),
+    )
 
 
 @router.get("/expiring", response_model=SuccessResponse)

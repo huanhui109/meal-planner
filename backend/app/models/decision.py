@@ -89,6 +89,11 @@ class DecisionLog(Base, TimestampMixin):
     weather: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, comment="决策时的天气")
     # null = 还没表态; True = 就这个; False = 换一个
     accepted: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True, comment="用户是否采纳")
+    # 今日饭决结果是否被「做完了」并扣减了冰箱库存 (V2.7 新增)。
+    # 用来防止"刷新/再次点做完了"重复扣减 —— 今日线没有 menu_item, 这条是唯一幂等闸。
+    is_cooked: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("0"), comment="今日饭决是否已做并扣库存"
+    )
     # 整份结果的快照。recipe 可能被删/被改, 但「上次饭决给了什么」必须能原样回放,
     # 否则 GET /decide/last 只能返回半个结果, 冷启动会闪一下空卡。
     payload: Mapped[Optional[str]] = mapped_column(Text, nullable=True, comment="决策快照 JSON")

@@ -1,6 +1,6 @@
 # CHANGELOG
 
-本仓库采用 **语义化版本（SemVer）** 作为唯一权威版本号，当前版本 **2.6.0**。
+本仓库采用 **语义化版本（SemVer）** 作为唯一权威版本号，当前版本 **2.7.0**。
 版本号在以下 4 处保持一致，修改时须同步更新：
 
 - `pyproject.toml`（`[project].version`）
@@ -11,6 +11,23 @@
 > `requirements-v2.3.md`、`requirements-v2.5-dark-mode.md`、`v3.0-scraper-spec.md`、
 > `product-v2.md`）使用 `Vx.x` 作为**产品规划里程碑**编号，不代表已发布的 SemVer 版本。
 > 自 2.6.0 起，代码版本号与规划里程碑不再强绑定——里程碑的落地以本文件的 SemVer 为准。
+
+## [2.7.0] - 2026-10-08
+
+饭决极简屏 `fandecide/` 五大模块重构（UI + 后端联调），版本号 2.0.0 → 2.7.0 与仓库统一。
+
+- **今日页**：以「饭决」大按钮为核心，点击生成结果卡；支持「换一道」切换菜品；状态推进
+  「就这个 → 开始做 → 做完了」，做完了调用 `POST /api/decide/{id}/cook`（幂等，依赖
+  `decision_log.is_cooked`）自动扣减冰箱库存
+- **周菜单**：7 天网格重排，按天查看与调整；支持锁定 / 换菜 / 标记做过（做过后自动扣库存）；
+  新增「重新排一周」（按冰箱现有食材 `fridge-rebuild`，保留锁定餐次）；菜单响应新增 `budget` 字段
+- **采购清单**：按库存自动汇总缺料（`GET /api/shopping/{menu_id}`），支持勾选与一键复制
+- **冰箱**：食材搜索（`GET /api/inventory?q=`）、新增、删除、快速入库
+  （`POST /api/inventory/bulk`、`PUT /api/inventory/{id}`）
+- **我的/偏好**：抽屉式入口，五组偏好（家庭/口味/忌口/目标预算）可编辑，外观主题切换
+  （auto/light/dark，持久化到 localStorage）
+- 新增后端迁移 `0023_decision_cooked`：`decision_log.is_cooked` + `consumption_record.decision_id`，
+  打通「今日决策 → 扣库存」链路
 
 ## [2.6.0] - 2026-09-29
 
