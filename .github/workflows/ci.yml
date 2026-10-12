@@ -85,8 +85,12 @@ jobs:
         # 曾经就漏了 aiosqlite, 于是 test_decision_context_real_chain.py
         # 在本地全绿、在 CI 上以 ModuleNotFoundError 报 error。
         # 测试依赖的唯一真源是 pyproject.toml。
+        #
+        # ⚠ 这里曾经带 `-x`(遇错即停)。门禁里不要用它 —— 一条失败就把后面所有失败
+        #   藏起来了, 你永远只能看见"第一个"问题, 修完再推, 再看见下一个,
+        #   一次 CI 只暴露一个 bug。全量跑完才能一次看清全貌。
         run: |
-          pytest tests/ -x --tb=short -q
+          pytest tests/ --tb=short -q
 
   shared-assets:
     runs-on: ubuntu-latest

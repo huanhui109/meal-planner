@@ -37,6 +37,12 @@ dev = [
     #  断言等于没有断言)。所以 aiosqlite 是**测试依赖**, 不是运行依赖 ——
     #  少了它, CI 上这条用例会以 ModuleNotFoundError 报 error, 本地却全绿。
     "aiosqlite>=0.20",
+    # tests/unit/test_system_one_service.py::test_build_questions_maps_all_primitives
+    # 要用 typesafe_sdk 的 Choice/Score/Noul 真类型验映射。
+    # 只装这一个**轻量**包(依赖只有 httpx2/pydantic/tenacity), 不装 system-one 里的
+    # laya —— 那个会拖进 torch+transformers(约 2GB), 且没有任何用例需要它。
+    # 运行时仍然"不装也能跑"(provider=rule 兜底), 它在这里是**测试依赖**。
+    "typesafe-sdk>=0.7.0",
 ]
 # 可选: 更快的 MySQL 异步驱动 (需要编译, 装不上就用默认的 aiomysql)
 performance = [
