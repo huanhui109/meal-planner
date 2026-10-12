@@ -26,6 +26,11 @@
   - `.github/workflows/ci.yml` 补上 `TEST_DATABASE_URL`。此前**142 条集成用例全部 skip**，
     线上实际只跑 759 条 —— skip 是 absence 不是 presence
   - 同一 workflow 的 ruff 步骤去掉 `|| true`。正是它让 lint 永远"看起来是绿的"
+- **修复迁移 0023 的 downgrade**（MySQL 1828）：`decision_id` 带外键却在 downgrade 里
+  直接 `drop_column`，MySQL 报"needed in a foreign key constraint"。
+  根因是该外键**没命名**（MySQL 自动生成 `consumption_record_ibfk_3`）—— 0023 是仓库里
+  唯一没遵守 `fk_*` 命名约定的迁移。已显式命名 `fk_consumption_decision`，
+  downgrade 改为先删约束与索引再删列（并兼容已跑过旧版、约束仍是 `ibfk_N` 的库）
 - **修复小程序设计令牌漂移**：Demo 视觉变量原本**手写在自动生成**的
   `miniapp/src/styles/_tokens.scss` 里，导致 `check-tokens` 长期报警；已迁出到独立的
   `_demo-tokens.scss`（H5 一直把 Demo 变量放在手写的 `demo.css`，与之对齐）。
