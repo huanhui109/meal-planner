@@ -51,12 +51,14 @@ jobs:
           python-version: "3.13"
           cache: pip
       - name: Install backend deps
-        working-directory: backend
+        # ⚠ 这里原来装的是 backend/ai_meal_planner.egg-info/requires.txt ——
+        #   但 `.gitignore` 里有 `*.egg-info/`, 这个文件**根本不在版本库里**,
+        #   于是 pip 必然失败, 又被 `|| true` 吞掉 —— 后端依赖一次都没装上,
+        #   后面的 alembic 就以 `ModuleNotFoundError: No module named 'yaml'` 崩掉。
+        #   包的定义在**仓库根**的 pyproject.toml, 所以从根目录 -e ".[dev]" 装。
         run: |
           python -m pip install --upgrade pip
-          # egg-info 已有 requires.txt, 装它即可
-          test -f pyproject.toml || (cd .. && pip install -e ./backend || true)
-          pip install -r ai_meal_planner.egg-info/requires.txt || true
+          pip install -e ".[dev]"
       - name: Run ruff
         working-directory: backend
         # 这里曾经是 `ruff check app tests || true` —— `|| true` 让 lint 永远"看起来是绿的",
