@@ -22,15 +22,9 @@ SOFTWARE.
 
 ---
 
-第三方数据署名 / Third-party data attribution
+本仓库代码采用 MIT 许可证。内置菜谱数据来自开源项目，其原始许可优先于本文件，
+署名见 README / README_EN 的「许可证与分发」一节。
 
-内置菜谱数据来源于开源项目，其原始许可优先于本文件：
-
-- HowToCook（https://github.com/Anduin2017/HowToCook）— Unlicense
-- proj.kitchen — 详见 data/ 与 scripts/import_recipes/ 中的来源标注
-
-The bundled recipe data originates from open-source projects whose original
-licenses take precedence over this file:
-
-- HowToCook (https://github.com/Anduin2017/HowToCook) — Unlicense
-- proj.kitchen — see source annotations in data/ and scripts/import_recipes/
+The code in this repository is licensed under MIT. The bundled recipe data
+originates from open-source projects whose original licenses take precedence
+over this file; see the "License & Distribution" section of the README.

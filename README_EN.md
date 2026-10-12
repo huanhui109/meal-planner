@@ -216,7 +216,7 @@ collection is an unofficial implementation and may violate platform terms of ser
 assume the risk themselves. Features shipped in the current release contain no collection
 behaviour.
 
-## License
+## License & Distribution
 
 Released under the **MIT License** — see [LICENSE](LICENSE).
 
