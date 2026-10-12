@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import current_layout_version
@@ -21,8 +21,8 @@ from app.schemas.decide import (
     UnderstandRequest,
 )
 from app.services.decision_service import DecisionService
-from app.services.inventory_service import InventoryService
 from app.services.intent_service import MealIntentService
+from app.services.inventory_service import InventoryService
 
 router = APIRouter(prefix="/decide", tags=["饭决决策"])
 

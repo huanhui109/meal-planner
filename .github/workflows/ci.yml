@@ -36,6 +36,10 @@ jobs:
       CI_DB_NAME: meal_planner_test
       CI_DB_PORT: "3306"
       APP__DATABASE__URL: mysql+aiomysql://meal:meal@127.0.0.1:3306/meal_planner_test?charset=utf8mb4
+      # ⚠ 集成测试读的是 TEST_DATABASE_URL, 不是 APP__DATABASE_URL。
+      # 漏了这一行, 142 条需要 MySQL 的用例会全部 skip —— CI 照样绿, 但集成层一行没跑。
+      # (skip 是 absence 不是 presence: 绿 ≠ 覆盖)
+      TEST_DATABASE_URL: mysql+aiomysql://meal:meal@127.0.0.1:3306/meal_planner_test?charset=utf8mb4
       APP__AUTH__JWT_SECRET: ci-test-secret-not-for-production-use
       APP__APP__DEBUG: "true"
       APP__APP__CORS_ORIGINS: "[]"
@@ -55,9 +59,13 @@ jobs:
           pip install -r ai_meal_planner.egg-info/requires.txt || true
       - name: Run ruff
         working-directory: backend
+        # 这里曾经是 `ruff check app tests || true` —— `|| true` 让 lint 永远"看起来是绿的",
+        # 于是 F821(未定义名) 这类**运行时必崩**的问题一直活在主线。
+        # 2026-10-12 就靠摘掉它抓出两个: api/decide.py 的 status 未导入、
+        # inventory_service.py 的 user.id(应为 user_id)。**别把 || true 加回来**。
         run: |
           pip install ruff
-          ruff check app tests || true
+          ruff check .
       - name: Alembic migrations on MySQL 8.0
         # 迁移链最容易坏在"本地 SQLite 能过、MySQL 上过不去"。
         # 这里升到 head 再一路 downgrade 回 base 再升回来, 同时验证可升级与可回滚。

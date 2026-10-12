@@ -126,7 +126,7 @@ class InventoryService:
 
     async def delete_item(self, item_id: int, user_id: int) -> bool:
         result = await self.db.execute(
-            select(FridgeInventory).where(FridgeInventory.id == item_id, FridgeInventory.user_id == user.id)
+            select(FridgeInventory).where(FridgeInventory.id == item_id, FridgeInventory.user_id == user_id)
         )
         item = result.scalar_one_or_none()
         if not item:

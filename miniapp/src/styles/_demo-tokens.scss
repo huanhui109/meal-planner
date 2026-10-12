@@ -1,0 +1,61 @@
+// ---------- 饭决 UI Demo 设计变量 (2026-10 移植) ----------
+// 与 --color-* 并存: 旧组件继续用 --color-*, Demo 重构的 5 个模块用这套。
+// 宿主同样是 page / .theme-root / .theme-vars; light 为默认, dark 在 .theme-dark 覆盖。
+// _demo.scss 从这里取 --bg / --surface / --ink / --green / --r-md ...
+//
+// ⚠ 为什么必须独立于 _tokens.scss:
+//   _tokens.scss 是 `node scripts/gen_tokens.mjs` 从 shared/tokens.ts **自动生成**的,
+//   文件头就写着"请勿手改" —— 手改的内容会在下一次生成时被**整个覆盖掉**。
+//
+//   2026-10-12 实测踩到: 这批变量原本直接写在 _tokens.scss 里, 于是
+//   `make gen-tokens`(为修 check-tokens 漂移而跑)一次就把 Demo 层的
+//   --bg/--surface/--ink/--green 全清了, 而 `gen_tokens --check` 照样报通过 ——
+//   因为它只比对 shared/tokens.ts, **检查通过 ≠ 文件完整**。
+//
+//   H5 侧的做法正是这个模式的样板: Demo 变量写在手写的 demo.css 里,
+//   生成器碰不到。小程序这里对齐同一套。**别把这批变量放回 _tokens.scss。**
+
+page,
+.theme-root,
+.theme-vars {
+  --bg: #f3f5f4;
+  --surface: #ffffff;
+  --surface-2: #eef1ef;
+  --surface-3: #e5e9e6;
+  --ink: #161817;
+  --muted: #616864;
+  --faint: #969d99;
+  --line: rgba(22, 24, 23, 0.1);
+  --inverse: #ffffff;
+  --green: #197647;
+  --green-soft: #e2f2e8;
+  --orange: #b35f20;
+  --orange-soft: #fbebdd;
+  --red: #c43b30;
+  --shadow: 0 18px 54px rgba(20, 28, 23, 0.09);
+  --shadow-small: 0 7px 24px rgba(20, 28, 23, 0.06);
+  --r-xl: 28px;
+  --r-lg: 20px;
+  --r-md: 14px;
+}
+
+// 暗色只换颜色, 圆角不随主题变 (所以这里不重复 --r-*)
+.theme-root.theme-dark,
+.theme-vars.theme-dark {
+  --bg: #0c0e0d;
+  --surface: #171a18;
+  --surface-2: #232724;
+  --surface-3: #303531;
+  --ink: #f5f7f5;
+  --muted: #b1b8b3;
+  --faint: #7c847f;
+  --line: rgba(255, 255, 255, 0.1);
+  --inverse: #0b0d0c;
+  --green: #64d693;
+  --green-soft: #183a28;
+  --orange: #f0a568;
+  --orange-soft: #402a1a;
+  --red: #ff746a;
+  --shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+  --shadow-small: 0 0 0 1px rgba(255, 255, 255, 0.1);
+}

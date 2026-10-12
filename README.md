@@ -1,11 +1,13 @@
 # 饭决 FAN·DECIDE · 今天吃啥，交给饭决
 
+[English](README_EN.md) | 简体中文
+
 > 把一周吃饭这件事交给 AI 排好：飞书扫码 / 微信一键登录 → 填偏好 → 生成一周菜单 →
 > 补单下单 → 做饭扣库存，形成闭环。H5、微信小程序、饭决极简屏等多个前端形态共用同一套业务层与设计系统。
 >
 > 产品方案（命名/Logo、信息架构、交互优先级）见 [docs/product-v2.md](docs/product-v2.md)。
 >
-> 当前版本：**2.6.0**（变更记录与里程碑说明见 [CHANGELOG.md](CHANGELOG.md)）。
+> 当前版本：**2.8.0**（变更记录与里程碑说明见 [CHANGELOG.md](CHANGELOG.md)）。
 
 ## 功能概览
 
@@ -40,8 +42,9 @@
 - **响应式 H5**：Bento 首页，<1024px 悬浮胶囊 TabBar，≥1024px 左侧导航 + 右侧「我的」抽屉
 - **微信小程序**：独立 `miniapp/`（Taro 4 + React），功能与 H5 完全一致；微信一键登录自动建号，
   与飞书账号并存不绑定；与 H5 共用 `shared/` 的类型、格式化、下一步指引与设计令牌
-- **饭决极简屏**：独立 `fandecide/`（Vite + React + TS，仅前端），复用 `/api/decide` 与
-  `/api/auth/dev-login`，后端零新增；UI 三原则——少文字、大留白、图标化，默认只露餐次+菜名+一句话理由
+- **饭决极简屏**（遗留）：`fandecide/` 曾是独立的极简决策屏（Vite + React + TS，仅前端），
+  UI 三原则为少文字、大留白、图标化。该目录目前已从版本库中移除（git 跟踪文件为 0），
+  小程序端仍保留 `pages/fandecide`。详见 [docs/codebase-audit.md](docs/codebase-audit.md) 第 6 节
 - **设计系统**：中性灰 + 语义色（绿=完成/橙=注意）+ 黑胶囊主按钮；令牌单一真源，两端零漂移，
   见 [docs/design-system.md](docs/design-system.md)
 - **飞书 Bot**：事件回调（签名校验 + AES 解密 + `event_id` 去重 + 1 秒内响应）；指令「菜单 / 库存 /
@@ -141,7 +144,7 @@ meal-planner/
 ├── frontend/             # React + Vite 的 H5 端 (Bento 首页 + 设计系统)
 ├── miniapp/              # 微信小程序 (Taro 4 + React), 与 H5 同功能
 ├── shared/               # H5 与小程序共享的纯 TS 层 (类型/格式化/下一步/设计令牌)
-├── fandecide/            # 饭决极简屏 (Vite+React+TS, 仅前端 :5188), 复用 /api/decide, 大留白极简决策页
+├── fandecide/            # (遗留, 已从版本库移除) 极简决策屏; 详见 docs/codebase-audit.md
 ├── config/               # default.yaml 与 Prompt 模板
 ├── deploy/               # nginx / systemd / MySQL 初始化 / 上线手册
 ├── docs/                 # 本地部署、架构、上线、飞书配置
@@ -158,6 +161,8 @@ meal-planner/
 
 - [**全项目总案**](docs/master-plan.md) —— 模块结构与规划、需求 × 版本台账、差异对齐、路线图、TAPD 落地映射
 - [项目审计](docs/project-audit.md) —— 模块划分 / 依赖关系 / 业务流程 / 历史进度还原
+- [**全项目代码分析（2026-10-12）**](docs/codebase-audit.md) —— 模块地图与依赖方向 /
+  决策引擎离线同构契约 / 门禁缺陷（CI 假绿）/ 技术债与孤儿资产
 - [产品方案 V2.0](docs/product-v2.md)
 - [架构设计](docs/architecture.md)
 - [数据库说明文档](docs/database.md) —— 表结构 / 索引 / 外键 / ER 关系图 / 字段含义（`make db-doc` 生成）
@@ -176,5 +181,11 @@ meal-planner/
 
 ## 许可证与分发
 
-本仓库为**私有仓库**，不开放源代码，不授予任何再分发、复制或商用权利。未经作者书面许可，
-不得复制、传播本仓库内容或将其用于商业目的。
+本项目采用 **MIT 许可证**开源，详见 [LICENSE](LICENSE)。
+
+内置菜谱数据来源于开源项目，其原始许可优先于本仓库许可：
+HowToCook（[Anduin2017/HowToCook](https://github.com/Anduin2017/HowToCook)，Unlicense）
+与 proj.kitchen，来源标注见 `data/` 与 `scripts/import_recipes/`。
+
+> 2026-10-12 起本仓库由私有转为公开。在此之前 README 中"私有仓库、不开放源代码"的声明
+> 已随本次变更作废。

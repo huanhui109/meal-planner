@@ -95,13 +95,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import get_settings  # noqa: E402
-from app.services.intent_service import MealIntent  # noqa: E402
 from app.services import decision_service as ds  # noqa: E402
 from app.services.decision_service import (  # noqa: E402
     DecisionService,
     Profile,
     RecentHistory,
 )
+from app.services.intent_service import MealIntent  # noqa: E402
 from app.services.weather_service import WeatherContext  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402

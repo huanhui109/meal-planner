@@ -7,6 +7,9 @@
  *   * 数字一律 tabular-nums, 金额/进度对齐后才"亲近"
  */
 @use './styles/tokens' as *;
+/* Demo 视觉变量。必须独立于 _tokens.scss —— 那个文件是自动生成的,
+   手改内容会被下次 gen_tokens 清掉。详见 _demo-tokens.scss 头部说明 */
+@use './styles/demo-tokens';
 /* 饭决 UI Demo 移植 (5 个模块的新视觉); @use 必须在文件顶部 */
 @use './styles/demo';
 

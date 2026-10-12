@@ -12,6 +12,28 @@
 > `product-v2.md`）使用 `Vx.x` 作为**产品规划里程碑**编号，不代表已发布的 SemVer 版本。
 > 自 2.6.0 起，代码版本号与规划里程碑不再强绑定——里程碑的落地以本文件的 SemVer 为准。
 
+## [Unreleased] - 2026-10-12
+
+代码整理与开源化。**版本号保持 2.8.0 不变** —— 本次无功能变更，只修缺陷、补文档、换许可证，
+不构成 SemVer 的 minor/patch 发布。完整分析见 [docs/codebase-audit.md](docs/codebase-audit.md)。
+
+- **修复两个运行时 Bug**
+  - `backend/app/api/decide.py`：`status.HTTP_404_NOT_FOUND` 用到的 `status` **未导入** →
+    `/decide/{id}/cook` 查不到记录时 NameError → 500
+  - `backend/app/services/inventory_service.py`：`delete_item` 参数是 `user_id`，代码却写
+    `user.id` → 删除库存接口必崩
+- **修复 CI 门禁失效（这两个 Bug 能活到主线的根因）**
+  - `.github/workflows/ci.yml` 补上 `TEST_DATABASE_URL`。此前**142 条集成用例全部 skip**，
+    线上实际只跑 759 条 —— skip 是 absence 不是 presence
+  - 同一 workflow 的 ruff 步骤去掉 `|| true`。正是它让 lint 永远"看起来是绿的"
+- **修复小程序设计令牌漂移**：Demo 视觉变量原本**手写在自动生成**的
+  `miniapp/src/styles/_tokens.scss` 里，导致 `check-tokens` 长期报警；已迁出到独立的
+  `_demo-tokens.scss`（H5 一直把 Demo 变量放在手写的 `demo.css`，与之对齐）。
+  ⚠ 教训：`gen_tokens --check` **通过 ≠ 文件完整** —— 直接 `make gen-tokens` 会清掉
+  生成文件里的手写内容，生成物里不要手写
+- **新增**：`docs/codebase-audit.md`（全项目代码分析）、`README_EN.md`（英文说明）、`LICENSE`
+- **开源化**：仓库由私有转为公开，采用 MIT 许可证；README 移除"私有/不开放源代码"声明
+
 ## [2.8.0] - 2026-10-08
 
 把 2.7.0 里新增、但当时没有任何消费方的「孤儿端点」接到两个真实交付面（H5 + 小程序），
