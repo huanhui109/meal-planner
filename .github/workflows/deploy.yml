@@ -25,13 +25,14 @@ jobs:
           pip install -e ".[dev]"
       - name: Build frontend
         working-directory: frontend
+        # 同 ci.yml: 锁文件漂移必须红, 不许用 `|| npm install` 兜底抹平
         run: |
-          npm ci || npm install
+          npm ci
           npm run build
       - name: Build miniapp
         working-directory: miniapp
         run: |
-          npm ci || npm install
+          npm ci
           npm run build:weapp
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

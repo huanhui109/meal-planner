@@ -36,6 +36,28 @@
   `_demo-tokens.scss`（H5 一直把 Demo 变量放在手写的 `demo.css`，与之对齐）。
   ⚠ 教训：`gen_tokens --check` **通过 ≠ 文件完整** —— 直接 `make gen-tokens` 会清掉
   生成文件里的手写内容，生成物里不要手写
+- **修复锁文件漂移（`npm ci` 其实是失败的）**
+  - `miniapp/package-lock.json` 缺 `ajv` / `ajv-keywords` / `json-schema-traverse`；
+    `frontend/package-lock.json` 里 vite 是 6.x、vitest 是 2.x，而 package.json 要 7.x / 3.x。
+    两个 `npm ci` 都会在 CI 上报错，但被 `npm ci || npm install` 兜底抹平 ——
+    **兜底重新解析出一个和锁文件完全不同的依赖树**，本地复现不出来。两个锁文件已重新生成，
+    CI 与 deploy 的 `|| npm install` 一律摘掉：锁文件漂移必须红
+  - **miniapp 的 webpack 收敛到 `~5.104.0`**。这不是随手锁版本，是一个三方死锁：
+    - Taro 4.2.1 的 `peerDependencies` 把 webpack 钉在 **5.91.0**，`webpackbar@5`
+      又会把自己那份 options（`name`/`color`/`reporters`/…）**覆写**到继承来的
+      `this.options` 上
+    - webpack **< 5.94 有已知漏洞**，不能降
+    - webpack **≥ 5.106** 把 `ProgressPlugin` 的 options 校验从构造函数挪到了 `apply()`，
+      正好校验到被 webpackbar 覆写后的 `this.options` → `ValidationError`，
+      `build:weapp` 直接崩
+    - 所以唯一可行区间是 `5.94.0 ≤ version < 5.106.0`，取 `~5.104.0`
+    - （webpackbar 升 6 同样有覆写问题；升 7 修好了 options，但删掉了 Taro 子类依赖的
+      `callReporters` / `updateProgress`，走不通）
+- **补上测试依赖 `aiosqlite`**：`tests/test_decision_context_real_chain.py` 刻意自建
+  SQLite 内存库跑真链路（理由见该文件头注释），但 `aiosqlite` 只装在本地 venv、
+  没写进 `pyproject.toml` 的 `[dev]`，于是 CI 上以 `ModuleNotFoundError` 报 error。
+  同时删掉 CI 里手写的 `pip install pytest pytest-asyncio httpx` —— 手写清单会和
+  pyproject 漂移（aiosqlite 就是这么漏的）。测试依赖的唯一真源是 `pyproject.toml`
 - **新增**：`docs/codebase-audit.md`（全项目代码分析）、`README_EN.md`（英文说明）、`LICENSE`
 - **开源化**：仓库由私有转为公开，采用 MIT 许可证；README 移除"私有/不开放源代码"声明
 

@@ -32,6 +32,11 @@ dev = [
     "pytest-asyncio>=0.23",
     "pytest-cov>=5.0",
     "ruff>=0.6.0",
+    # tests/test_decision_context_real_chain.py 刻意自建 SQLite 内存库跑真链路
+    # (理由见该文件头注释: 集成 fixture 缺 TEST_DATABASE_URL 时是 skip, 一条不执行的
+    #  断言等于没有断言)。所以 aiosqlite 是**测试依赖**, 不是运行依赖 ——
+    #  少了它, CI 上这条用例会以 ModuleNotFoundError 报 error, 本地却全绿。
+    "aiosqlite>=0.20",
 ]
 # 可选: 更快的 MySQL 异步驱动 (需要编译, 装不上就用默认的 aiomysql)
 performance = [
