@@ -421,6 +421,41 @@ class WechatSettings(BaseModel):
     app_secret: str = ""
 
 
+class WorkBuddySettings(BaseModel):
+    """Web-to-assistant invocation. Secrets stay on the server."""
+
+    client_id: str = ""
+    client_secret: str = ""
+    redirect_uri: str = ""
+    encryption_key: str = ""
+    timeout_seconds: float = Field(default=12, ge=1, le=20)
+    adjustment_timeout_seconds: int = Field(default=300, ge=30, le=900)
+    poll_seconds: int = Field(default=3, ge=2, le=30)
+
+
+class InboundBridgeSettings(BaseModel):
+    """双向唤醒模块 (2.9.0 独立特性) 的运行参数。
+
+    L0 硬总闸 enabled 默认 false: 模块未启用时所有入站端点 100% 拒绝 (1503),
+    且快速推荐 / 既有 /assistant/adjustments 旧桥 / Skill 连接完全不受影响。
+    真正启用还需要 L1 运行开关 (inbound_bridge_config.enabled) 同时打开。
+
+    密钥永远不落 yaml: encryption_key 只由 APP__INBOUND_BRIDGE__ENCRYPTION_KEY
+    注入, 为空时派生自 auth.jwt_secret; 启用但密钥缺失在 validate_for_runtime() 快速失败。
+    """
+
+    enabled: bool = False
+    transport: str = "send"  # send = M1 出站唤醒; poll = M2 降级拉取
+    pair_ttl_seconds: int = Field(default=43200, ge=60, le=86400)        # 12h, 有人值守短会话
+    rotation_days: int = Field(default=7, ge=1, le=90)                     # 7d 强制轮换
+    rotation_grace_seconds: int = Field(default=300, ge=0, le=3600)
+    clock_skew_seconds: int = Field(default=300, ge=30, le=900)
+    task_timeout_seconds: int = Field(default=300, ge=30, le=900)
+    poll_seconds: int = Field(default=3, ge=2, le=30)
+    audit_retention_days: int = Field(default=90, ge=1, le=365)
+    encryption_key: str = ""
+
+
 class PlatformXiaoxiangSettings(BaseModel):
     """小象超市配置
 
@@ -619,6 +654,8 @@ class Settings(BaseSettings):
     llm: LLMSettings = LLMSettings()
     feishu: FeishuSettings = FeishuSettings()
     wechat: WechatSettings = WechatSettings()
+    workbuddy: WorkBuddySettings = WorkBuddySettings()
+    inbound_bridge: InboundBridgeSettings = InboundBridgeSettings()
     platforms: PlatformSettings = PlatformSettings()
     scraping: ScrapingSettings = ScrapingSettings()
     recipes: RecipeImportSettings = RecipeImportSettings()
@@ -718,6 +755,18 @@ class Settings(BaseSettings):
         不放在 Settings.load() 里 —— 那样纯逻辑单测也会被迫配一个数据库,
         反而会逼着人在测试里塞真凭据。
         """
+        # 双向唤醒模块启用时必须能派生出签名密钥。放在这里而不是 InboundBridgeSettings
+        # 的 validator 里: auth.jwt_secret 是在 inject_secrets() 才注入的, 构造嵌套模型
+        # 时还看不到它, 早校验会误判"配了 JWT_SECRET 却说没配"。
+        if self.inbound_bridge.enabled:
+            secret = self.inbound_bridge.encryption_key or self.auth.jwt_secret
+            if len(secret) < 32:
+                raise RuntimeError(
+                    "双向唤醒模块已启用, 但签名密钥不可用 (需至少 32 字符)。\n"
+                    "  请设置 APP__INBOUND_BRIDGE__ENCRYPTION_KEY, 或配置 APP__AUTH__JWT_SECRET;\n"
+                    "  也可以先设 APP__INBOUND_BRIDGE__ENABLED=false 停用该模块。"
+                )
+
         if not require_db:
             return
 

@@ -2,6 +2,7 @@
 
 from app.models.activity_log import ActivityLog
 from app.models.allergy_restriction import AllergyRestriction
+from app.models.assistant_bridge import AssistantAdjustment, WorkBuddyConnection
 from app.models.base import Base, TimestampMixin
 from app.models.budget import Budget
 from app.models.build_info import BuildInfo
@@ -12,8 +13,10 @@ from app.models.feedback import Feedback
 from app.models.fridge_inventory import ConsumptionRecord, FridgeInventory
 from app.models.health_goal import HealthGoal
 from app.models.household import Household
+from app.models.inbound_bridge import InboundAudit, InboundBridgeConfig, InboundTask, InboundTokenPair
 from app.models.ingredient import Ingredient
 from app.models.invite import Invite
+from app.models.meal import AssistantGrant, MealEvent, MealProposal, MealSession, MealStockMovement
 from app.models.menu import GenerationStatus, Menu, MenuGenerationTask, MenuItem, MenuStatus
 from app.models.product import Product, ProductMapping
 from app.models.product_price import ProductPrice
@@ -57,4 +60,15 @@ __all__ = [
     "MealSlot",
     "PurchaseRecord",
     "UserFeishuConfig",
+    "MealSession",
+    "MealProposal",
+    "MealEvent",
+    "MealStockMovement",
+    "AssistantGrant",
+    "AssistantAdjustment",
+    "WorkBuddyConnection",
+    "InboundTokenPair",
+    "InboundTask",
+    "InboundAudit",
+    "InboundBridgeConfig",
 ]

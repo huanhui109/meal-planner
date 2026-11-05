@@ -4,14 +4,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter, FastAPI
 
+from app.api.assistant import router as assistant_router
 from app.api.auth import router as auth_router
 from app.api.automation import router as automation_router
 from app.api.build import router as build_router
 from app.api.decide import router as decide_router
 from app.api.events import router as events_router
 from app.api.feedback import router as feedback_router
+from app.api.inbound_bridge import router as inbound_bridge_router
 from app.api.inventory import router as inventory_router
 from app.api.invite import router as invite_router
+from app.api.meals import router as meals_router
 from app.api.menus import router as menus_router
 from app.api.preferences import router as preferences_router
 from app.api.products import router as products_router
@@ -28,6 +31,9 @@ def register_routes(app: FastAPI) -> None:
     api_router = APIRouter(prefix=API_PREFIX)
     api_router.include_router(auth_router)
     api_router.include_router(preferences_router)
+    api_router.include_router(meals_router)
+    api_router.include_router(assistant_router)
+    api_router.include_router(inbound_bridge_router)
     # /decide 必须挂在 /menus 之前: menus 里有 /{menu_id} 通配,
     # 虽然前缀不同不会真冲突, 但路由匹配是按注册顺序的, 放前面更不容易出意外。
     api_router.include_router(decide_router)

@@ -119,6 +119,9 @@ class Recipe(Base, TimestampMixin):
     )
     difficulty: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, comment="难度 1-5")
     cook_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, comment="烹饪时间(分钟)")
+    base_servings: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True
+    )
     calories: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, comment="热量(kcal)")
     protein_g: Mapped[Optional[float]] = mapped_column(Float, nullable=True, comment="蛋白质(g)")
     carb_g: Mapped[Optional[float]] = mapped_column(Float, nullable=True, comment="碳水(g)")

@@ -71,6 +71,28 @@ export const ENDPOINTS = {
   automationStatus: '/automation/status',
   automationFeishu: '/automation/feishu',
   automationFeishuTest: '/automation/feishu/test',
+
+  // 饭决 Skill / 助手连接 (既有端点, 补录单真源缺口; 取值与 backend/app/api/assistant.py 一致)
+  assistantGrants: '/assistant/grants',
+  assistantGrant: (id: string) => `/assistant/grants/${encodeURIComponent(id)}`,
+  assistantSkillZip: '/assistant/skill.zip',
+  assistantWorkBuddy: '/assistant/workbuddy',
+  assistantWorkBuddyAuthorize: '/assistant/workbuddy/authorize',
+  assistantAdjustments: '/assistant/adjustments',
+  assistantAdjustmentsCurrent: '/assistant/adjustments/current',
+  assistantAdjustment: (id: string) => `/assistant/adjustments/${encodeURIComponent(id)}`,
+  assistantAdjustmentCancel: (id: string) => `/assistant/adjustments/${encodeURIComponent(id)}/cancel`,
+
+  // 双向唤醒模块 (2.9.0 独立特性, 默认关闭)
+  inboundBridgeEvents: '/inbound/bridge/events',
+  inboundBridgeReceipts: '/inbound/bridge/receipts',
+  inboundBridgeStatus: '/inbound/bridge/status',
+  inboundBridgePoll: '/inbound/bridge/poll',
+  inboundBridgePair: '/inbound/bridge/pair',
+  inboundBridgePairRotate: (id: string) => `/inbound/bridge/pair/${encodeURIComponent(id)}/rotate`,
+  inboundBridgePairItem: (id: string) => `/inbound/bridge/pair/${encodeURIComponent(id)}`,
+  inboundBridgeAllowlist: '/inbound/bridge/allowlist',
+  inboundBridgeAudit: '/inbound/bridge/audit',
 } as const
 
 export default ENDPOINTS

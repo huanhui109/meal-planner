@@ -16,7 +16,11 @@ import { theme as antdThemeAlg } from 'antd'
 import { tokens, palettes, type PaletteName } from '@shared/index'
 
 const buildAntdTheme = (applied: PaletteName): ThemeConfig => {
-  const p = palettes[applied]
+  const p = applied === 'dark'
+    ? { ...palettes.dark, bg: '#171818', screen: '#171818', card: '#202222', card2: '#282a2a',
+      ink: '#f2f3f3', ink2: '#c0c4c3', ink3: '#969e9b', line: '#383d3b', fill: '#2d3130' }
+    : { ...palettes.cool, bg: '#fafbfa', screen: '#fafbfa', card: '#ffffff', card2: '#f2f4f3',
+      ink: '#202523', ink2: '#5e6863', ink3: '#758079', line: '#e1e6e3', fill: '#f0f3f1' }
   return {
     // 真·深色下用 antd 5 自带的 dark algorithm (它会处理 Switch/DatePicker 等
     // 内部子组件的暗色调; 我们自己的 token 仍由 palettes.dark 提供)
@@ -32,13 +36,13 @@ const buildAntdTheme = (applied: PaletteName): ThemeConfig => {
       colorTextTertiary: p.ink3,
       colorBgLayout: p.screen,
       colorBgContainer: p.card,
-      colorBgElevated: applied === 'dark' ? palettes.dark.card2 : p.card,
+      colorBgElevated: p.card,
       colorBorder: p.line,
       colorBorderSecondary: p.line,
       colorFillSecondary: p.fill,
-      borderRadius: 16,
-      borderRadiusLG: 22,
-      borderRadiusSM: 12,
+      borderRadius: 8,
+      borderRadiusLG: 8,
+      borderRadiusSM: 6,
       controlHeight: 44,
       fontFamily: tokens.font.family,
       fontSize: 15,
@@ -51,7 +55,7 @@ const buildAntdTheme = (applied: PaletteName): ThemeConfig => {
         primaryShadow: 'none',
         defaultShadow: 'none',
       },
-      Modal: { borderRadiusLG: 28 },
+      Modal: { borderRadiusLG: 8 },
       Message: { contentBg: p.ink, colorText: p.onInk },
       Tag: { borderRadiusSM: 999 },
       Segmented: { borderRadius: 999 },

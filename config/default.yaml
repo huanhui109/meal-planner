@@ -326,3 +326,17 @@ recipes:
     branch: "master"
   nutrition_batch_size: 20      # LLM 回填每批菜谱数
   nutrition_max_attempts: 2     # 每批最多重试次数
+
+# 双向唤醒模块 (2.9.0 独立特性)。这里只放公开的非敏感默认值,
+# 密钥只由 APP__INBOUND_BRIDGE__ENCRYPTION_KEY 注入, 数据库 URL 唯一真源是 .env。
+# 默认关闭: 停用后快速推荐 / 既有助手调整桥 / Skill 连接 100% 可用。
+inbound_bridge:
+  enabled: false                # L0 硬总闸; 另需 L1 运行开关同时打开
+  transport: "send"             # send = M1 出站唤醒 | poll = M2 降级拉取
+  pair_ttl_seconds: 43200       # 令牌对 TTL 12 小时 (不沿用 Skill 的 90 天)
+  rotation_days: 7              # 强制轮换 7 天
+  rotation_grace_seconds: 300
+  clock_skew_seconds: 300
+  task_timeout_seconds: 300
+  poll_seconds: 3
+  audit_retention_days: 90

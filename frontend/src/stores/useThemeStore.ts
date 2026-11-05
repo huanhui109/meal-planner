@@ -20,7 +20,7 @@ import { palettes, resolveAutoTheme, type PaletteName, type ThemeName } from '@s
 
 const STORAGE_KEY = 'meal-planner:theme:v2'
 const STORAGE_KEY_LEGACY = 'meal-planner:theme'
-const DEFAULT_THEME: ThemeName = 'cream'
+const DEFAULT_THEME: ThemeName = 'auto'
 
 type State = {
   theme: ThemeName

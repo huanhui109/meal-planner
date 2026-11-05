@@ -78,7 +78,9 @@ export function normalizeError(error: unknown): Error {
   const payload = axiosError?.response?.data
   if (payload) {
     const message = payload.message ?? payload.detail ?? payload.error
-    if (typeof message === 'string' && message) return new Error(message)
+    if (typeof message === 'string' && message) {
+      return Object.assign(new Error(message), { status: axiosError.response?.status })
+    }
     if (Array.isArray(message) && message.length > 0) {
       const first = message[0] as { msg?: string }
       if (first?.msg) return new Error(first.msg)
