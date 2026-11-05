@@ -32,7 +32,7 @@
 │      │                                                         │
 │  ┌───▼──────────────────────────────────────────────────────┐  │
 │  │ SQLAlchemy 2.0 async + aiomysql + Alembic                │  │
-│  │ MySQL 8.0 / utf8mb4 / 19 张表                            │  │
+│  │ MySQL 8.0 / utf8mb4 / 39 张表                            │  │
 │  └──────────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────┘
                                 │  HTTP /api
@@ -66,13 +66,18 @@
 | 前端 | React 18 + Vite 6 + Ant Design 5 | 移动优先自适应 |
 | 状态 | Zustand + React Query | 轻量高效 |
 
-## 数据模型 (19 表)
+## 数据模型（核心 19 张，完整 39 张见 `docs/database.md`）
 
 - **用户侧 (6)**：`user`、`household`、`diet_preference`、`allergy_restriction`、`health_goal`、`budget`
 - **内容 (3)**：`ingredient`(含 `reference_price`)、`recipe`、`recipe_ingredient`(含 `amount_text`)
 - **外部 (2)**：`product`、`product_mapping`
 - **运行 (7)**：`fridge_inventory`、`consumption_record`、`menu`、`menu_item`、`menu_generation_task`、`purchase_record`、`activity_log`
 - **配置 (1)**：`user_feishu_config`(迁移 `0006`，按用户隔离的飞书应用凭证)
+
+上表是早期的 19 张核心表；后续新增的决策分析、事件埋点、这一餐工作台、助手连接与
+双向唤醒等表未逐项列出。**当前设计值共 39 张 ORM 业务表**，以 `backend/app/models/`
+与 `backend/alembic/versions/`（head `0026`）为准；`docs/database.md` 是某次本地库结构的
+生成快照，其表数量不等于设计值。
 
 > 单一字段 `user_id` 贯穿所有用户侧数据；所有查询都带 `user_id` 过滤，越权一律 404。
 

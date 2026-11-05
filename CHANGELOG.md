@@ -1,21 +1,57 @@
 # CHANGELOG
 
-本仓库采用 **语义化版本（SemVer）** 作为唯一权威版本号，当前版本 **2.8.0**。
-版本号在以下 4 处保持一致，修改时须同步更新：
+本仓库采用 **语义化版本（SemVer）** 作为唯一权威版本号，当前版本 **2.9.0**。
+版本号在以下 6 处机器可读位置保持一致，修改时须同步更新：
 
 - `pyproject.toml`（`[project].version`）
 - `backend/app/main.py`（`FastAPI(version=)`）
 - `frontend/package.json` / `miniapp/package.json` / `shared/package.json`（`version`）
+- `frontend/src/lib/app-version.ts`（`APP_VERSION`，由 `frontend/tests/app-version.test.ts` 钉住与 `frontend/package.json` 一致）
 
-> **关于 `V2.x` / `V3.0` 标签**：历史提交信息与 `docs/` 下的规划文档（如
-> `requirements-v2.3.md`、`requirements-v2.5-dark-mode.md`、`v3.0-scraper-spec.md`、
-> `product-v2.md`）使用 `Vx.x` 作为**产品规划里程碑**编号，不代表已发布的 SemVer 版本。
-> 自 2.6.0 起，代码版本号与规划里程碑不再强绑定——里程碑的落地以本文件的 SemVer 为准。
+另有 3 处文档字面量需同步：`README.md`、`README_EN.md` 与本文件顶部；两个
+`package-lock.json` 的 `version` / `packages[""].version` 也须跟随。
 
-## [Unreleased] - 2026-10-12
+> **关于 `V2.x` / `V3.0` 标签**：历史提交信息使用 `Vx.x` 作为**产品规划里程碑**编号，
+> 不代表已发布的 SemVer 版本。自 2.6.0 起，代码版本号与规划里程碑不再强绑定——
+> 里程碑的落地以本文件的 SemVer 为准。
 
-代码整理与开源化。**版本号保持 2.8.0 不变** —— 本次无功能变更，只修缺陷、补文档、换许可证，
-不构成 SemVer 的 minor/patch 发布。完整分析见 [docs/codebase-audit.md](docs/codebase-audit.md)。
+## [2.9.0] - 2026-11-06
+
+以「这一餐」为核心的用餐工作台首次发布，并将此前未提交的 2.9.0 实现一次性纳入版本库。
+旧 `/api/decide`、周菜单、采购等接口保持兼容，旧数据未搬移或删除；小程序端暂停新增功能。
+
+- **这一餐工作台**：新增 `/`、`/kitchen`、`/history`、`/me` 页面与迁移 `0024_meal_workspace`；
+  自动给出完整一餐，支持家庭人数、做饭/外卖、预算、参考用时、辣度与临时忌口；
+  展示 / 拒绝 / 选定 / 吃过四态分离，默认不扣库存、主动扣库可撤销（独立扣库收据）。
+- **饭决 Skill**：`skills/fandecide/`（Skill 说明 + 本机 CLI），由 `/api/assistant/skill.zip` 分发；
+  仅有 `meal:read` / `meal:propose` 作用域，凭据只存 SHA256、可撤销，
+  候选 key 一律由服务端校验。
+- **可选直连 WorkBuddy + 统一助手连接**：网页编辑要求后直接发送并回显新方案，支持刷新恢复、
+  取消与离线复制；OAuth 凭据加密存储，单次授权 state 防重放、自动刷新。
+  头像设置合并网页直发与 Skill 凭据管理。新增迁移 `0025_assistant_bridge`。
+- **双向唤醒模块（独立特性，默认关闭）**：新增迁移 `0026_inbound_bridge`，
+  本次只补齐入站能力，不替换既有通道：
+  - 九端点入站网关统一挂在 `/api/inbound/bridge/*`；事件白名单默认拒绝，
+    命中永久禁止清单（如下单、支付、确认吃过、扣库存、发外部消息）一律 403。
+  - 双向令牌对：库内只存 SHA256 哈希与 Fernet 密文，明文仅颁发时显示一次；支持单端
+    轮换 / 撤销、时间窗与 `event_id` 防重放、归属隔离与四元回执匹配。
+  - L0（`APP__INBOUND_BRIDGE__ENABLED`，默认 `false`）与 L1
+    （`inbound_bridge_config.enabled`，默认 `0`）双层开关；关闭时入站端点返回 503，
+    快速推荐、既有 `/api/assistant/adjustments` 旧桥与 Skill 连接完全不受影响
+    （**补门不换桥，旧桥共存**）。
+  - 全模块唯一写入口是 `MealService.propose()`，只保存建议（`source='assistant'` /
+    `status='proposed'`），不自动确认吃过、扣库存或发外部消息。
+- **公开仓库整理与脱敏**：移出内部数据库快照、本地工作台原型与过程文档（本地保留）；
+  小程序 AppID、个人绝对路径、局域网 IP 与内部链接改为占位或移除；
+  中英文 README 与本文档按当前代码口径重写，修正表数、路由模块数与依赖版本漂移。
+
+> **联调状态**：真实 WorkBuddy 账号未完成平台级联调（真实 OAuth 授权、在线发送、
+> 宿主模型质量）。本次验收均为本地模拟与自动化测试，模拟通过不等于线上可用。
+
+## 代码整理与开源化 - 2026-10-12（2.8.0 期间，未单独发版）
+
+本节记录 2.8.0 发布之后的仓库整理：本次无功能变更，只修缺陷、补文档、换许可证，
+**版本号保持 2.8.0 不变**，不构成 SemVer 的 minor/patch 发布；2.8.0 的功能变更见下一节。
 
 - **修复两个运行时 Bug**
   - `backend/app/api/decide.py`：`status.HTTP_404_NOT_FOUND` 用到的 `status` **未导入** →
@@ -126,9 +162,9 @@
 - 本地菜谱库优先（proj.kitchen + HowToCook）的决策引擎定稿
 - 对外道数口径：342 道（`is_dish=1` 的真菜）
 
-## [3.0.0] - 规划中（未完成，勿据此发版）
+## Roadmap / 规划中（非发布版本）
 
-规划里程碑 `v3.0-scraper-spec.md`，以下子项**尚未完成**：
+规划里程碑 V3.0，以下子项**尚未完成**：
 
 - 真实数据采集链路
 - 法务签字 / 服务条款落地

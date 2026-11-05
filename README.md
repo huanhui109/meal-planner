@@ -2,74 +2,92 @@
 
 [English](README_EN.md) | 简体中文
 
-> 把一周吃饭这件事交给 AI 排好：飞书扫码 / 微信一键登录 → 填偏好 → 生成一周菜单 →
-> 补单下单 → 做饭扣库存，形成闭环。H5、微信小程序、饭决极简屏等多个前端形态共用同一套业务层与设计系统。
+> 围绕「这一餐」的家庭用餐助手：打开看到建议 → 接受或微调 → 做饭或点外卖 → 记录实际吃过。
+> 快速推荐不依赖模型 Key，也不要求先录入库存；饭决 Skill 借助宿主助手理解自然语言，
+> 与网页共用同一份用餐状态。
 >
-> 产品方案（命名/Logo、信息架构、交互优先级）见 [docs/product-v2.md](docs/product-v2.md)。
+> **当前版本：2.9.0** · 最近更新 2026-11-06 · 变更见 [CHANGELOG.md](CHANGELOG.md)
 >
-> 当前版本：**2.8.0**（变更记录与里程碑说明见 [CHANGELOG.md](CHANGELOG.md)）。
+> 新工作台的领域结构、迁移与约束见 [docs/meal-workspace.md](docs/meal-workspace.md)；
+> 命名与信息架构的历史设计依据见 [docs/product-v2.md](docs/product-v2.md)（V2.0 时期文档）。
+>
+> 网页一级导航为「这一餐 / 厨房 / 记录」。周菜单、采购、冰箱等旧能力作为兼容层保留，
+> 小程序端暂停新增功能。
+
+---
 
 ## 功能概览
 
-**本期已实现**
+### 2.9.0 · 这一餐工作台
 
-- **飞书扫码登录**：网页应用形态，PC 展示二维码 / 手机唤起飞书；httpOnly Cookie 会话（access 2h / refresh 30d）
-- **多用户隔离**：所有数据按登录用户过滤，越权访问返回 404；生成配额分两档 —— 首次生成 3 次/日、重新生成 10 次/日，互不占用
-- **飞书机器人可自助配置**：在「我的 → 自动化」填写自己的 App ID / App Secret / 接收人，保存后可一键发测试消息；App Secret 加密存储且只回掩码
-- **智能菜谱生成**：异步任务（`202 + task_id`，前端轮询，可关页面）；同一周已有草稿直接复用不重复消耗额度
-- **本地菜谱库优先**：内置 300+ 道开源菜谱（proj.kitchen + HowToCook，MIT / Unlicense）；一周菜单先在本地库按
-  「热量贴合 / 库存命中 / 偏好菜系」打分编排，**本地凑齐即零模型调用**，不足才把候选短名单交给 AI 兜底。
-  菜单与每餐都标注来源（本地菜谱库 / 本地 + AI / AI 生成），生成策略可用 `mode` 切换（`auto` / `local` / `ai`）
-- **换一道也走本地优先**：先按当前菜单设定从本地库挑一道，挑不到才调 AI；本地换来的结果可一键「让 AI 再换一道」（`force_ai`）
-- **营养均衡校验**：按日汇总热量与三大营养素供能比，偏差写进告警
-- **预算控制**：按 `ingredient.reference_price` 真实计价，超支告警而不阻断生成
-- **多样性控制**：与近 4 周历史菜名做 Jaccard 比对，冲突自动重生成一次
-- **过敏源防线**：命中过敏源的菜品从落库前剔除并在响应中告警
-- **周菜单可视化编辑**：7 天 × 餐次卡片，支持换一道、锁定/解锁（锁定餐次不被重生成覆盖）、标记已做
-- **采购清单**：菜单所需 vs 冰箱库存的差集，含缺口数量与单位换算，支持一键复制
-- **库存闭环**：标记已做 → 临期优先扣减库存 → 写 `consumption_record`；缺料不阻断并返回明细
-- **今日页（一次请求拿全）**：`GET /api/today` 返回今日预算、餐次、采购缺口、补单建议、
-  自做 vs 外卖对比、临期食材与今日自动流程时间线，任何一块缺失都不让整页失败
-- **补单决策**：缺口按 `ingredient.reference_price` 估算合计，不够起送价时从"本周迟早要买"的
-  缺料里凑单，给出 deeplink 直接下单；小程序优先跳小程序、否则复制清单
-- **自做 vs 外卖**：自做价来自菜单成本，外卖价用用户参考价（卡片上改价会记住），
-  结论分 `homemade / takeout / either` 三档并说明预算占用
-- **拍照识别入库**：拍照 → 视觉大模型 → 候选清单逐条可编辑 → 确认后入库；
-  受 `llm.vision.daily_limit` 限流，未配置时降级为手动添加
-- **可撤销**：换一道（换回上一道）、标记已做（回滚库存与消耗流水）都有后悔窗口
-- **机器人状态卡**：`GET /api/automation/status` 如实显示飞书连接、调度开关、下次运行与最近推送
-- **4 Tab 信息架构**：今日 / 周菜单 / 采购 / 冰箱，「我的」挂在右上角头像的抽屉里
-- **响应式 H5**：Bento 首页，<1024px 悬浮胶囊 TabBar，≥1024px 左侧导航 + 右侧「我的」抽屉
-- **微信小程序**：独立 `miniapp/`（Taro 4 + React），功能与 H5 完全一致；微信一键登录自动建号，
-  与飞书账号并存不绑定；与 H5 共用 `shared/` 的类型、格式化、下一步指引与设计令牌
-- **饭决极简屏**（遗留）：`fandecide/` 曾是独立的极简决策屏（Vite + React + TS，仅前端），
-  UI 三原则为少文字、大留白、图标化。该目录目前已从版本库中移除（git 跟踪文件为 0），
-  小程序端仍保留 `pages/fandecide`。详见 [docs/codebase-audit.md](docs/codebase-audit.md) 第 6 节
-- **设计系统**：中性灰 + 语义色（绿=完成/橙=注意）+ 黑胶囊主按钮；令牌单一真源，两端零漂移，
-  见 [docs/design-system.md](docs/design-system.md)
-- **飞书 Bot**：事件回调（签名校验 + AES 解密 + `event_id` 去重 + 1 秒内响应）；指令「菜单 / 库存 /
-  添加库存 / 完成某餐 / 帮助」直接查库并回复；定时推送菜单、缺料与临期提醒（默认关闭，多 worker 用
-  MySQL `GET_LOCK` 抢锁保证只推一次）
+- **自动给出完整一餐**：按家庭人数、做饭/外卖、预算目标、参考用时、辣度和临时忌口生成；
+  条件冲突明确说明，不静默忽略。空库存不阻止推荐。
+- **四态分离与可撤销**：`viewed / rejected / accepted / eaten` 分别记录，只有「吃过」才进饮食历史；
+  默认不扣库存，主动勾选才尝试精确扣减；扣库收据独立保留批次与保质期，撤销吃过可恢复。
+- **饭决 Skill**：`skills/fandecide/` 提供 Skill 说明与本机 CLI，可从 `/api/assistant/skill.zip` 下载；
+  助手只有 `meal:read` 与 `meal:propose` 作用域，凭据仅存 SHA256、可随时撤销，
+  且只从服务端返回的真实候选 key 组织方案。
+- **可选直连 WorkBuddy**：网页编辑要求后直接发送，自动等待并回显新方案；
+  支持刷新恢复、取消与离线复制；OAuth 凭据加密存储，不暴露给网页或模型。
+- **统一「助手连接」入口**：头像设置里同时管理网页直发与 Skill 凭据；
+  连接超时可恢复重试，未配置 WorkBuddy 时仍能单独创建 Skill 凭据。
+- **双向唤醒模块（独立特性，默认关闭）**：`/api/inbound/bridge/*` 九端点入站网关、
+  双向令牌对、事件白名单默认拒绝；L0（环境变量）与 L1（数据库）双层开关，关闭时端点返回 503。
+  **「补门不换桥」**：快速推荐、既有 `/api/assistant/adjustments` 旧桥与 Skill 连接完全不受影响。
+- **服务端校验不可被模型覆盖**：显式忌口、辣度、餐次、厨具条件与 `expected_revision` 乐观锁
+  均在 `MealService` / `MealCatalog` 二次校验；AI 只提建议，不覆盖基于真实数据生成的解释。
 
-**二期（未启用，不影响上线）**
+> ⚠ **联调状态**：真实 WorkBuddy 账号的平台级联调（真实 OAuth 授权、在线发送、宿主模型质量）
+> **尚未完成**。现有验收均为本地模拟与自动化测试，模拟通过不等于线上可用。
 
-- 小象超市采集（Playwright 登录态、商品库、价格快照、食材-商品匹配）
-  —— V2.0 的补单链路已用"参考价 + deeplink"打通，采集只用于把估算换成实价
+### 兼容能力（历史版本，继续可用）
+
+- **登录与隔离**：飞书扫码（httpOnly Cookie，access 2h / refresh 30d）、微信小程序一键登录、
+  本地开发登录；三种账号并存且互相隔离，所有查询按用户过滤，越权返回 404。
+- **决策引擎**：`shared/decide.ts` 与服务端 `decision_service.py` 离线同构；
+  三条硬规则、分差带内软随机抽签、≤20 字纯规则理由；断网/超时时用内置菜池给出「本地答案」。
+  对外菜品道数口径为 **342 道**（`is_dish=1`）。
+- **周菜单**：异步任务（`202 + task_id`，可关页面轮询）、本地菜谱库优先（凑齐即零模型调用）、
+  换一道、锁定/解锁、标记已做；生成配额分首次 3 次/日与重新生成 10 次/日两档，互不占用。
+- **营养 / 预算 / 多样性 / 过敏源**：按日汇总热量与三大营养素供能比；
+  按 `ingredient.reference_price` 计价、超支告警而不阻断；近 4 周菜名 Jaccard 去重；
+  命中过敏源的菜品落库前剔除并在响应中告警。
+- **采购与库存闭环**：菜单需求 vs 冰箱库存差集、缺口数量与单位换算、一键复制；
+  临期优先扣减并写 `consumption_record`，缺料不阻断并返回明细。
+- **今日页 / 补单 / 自做 vs 外卖**：`GET /api/today` 一次请求拿全，任一模块失败不拖垮整页；
+  缺口按参考价凑起送价并给 deeplink；结论分 `homemade / takeout / either` 三档。
+- **拍照识别入库**、**可撤销**（换一道、标记已做）、**机器人状态卡**如实显示连接与调度状态。
+- **飞书 Bot**：事件回调（签名校验 + AES 解密 + `event_id` 去重 + 1 秒内响应），
+  指令直接查库回复；定时推送默认关闭，多 worker 用 MySQL `GET_LOCK` 抢锁保证只推一次。
+- **多端与设计系统**：H5 响应式（<1024px 悬浮胶囊 TabBar，≥1024px 左侧导航）；
+  小程序（Taro 4.2 + React）保留 4 Tab 兼容界面；两端共用 `shared/` 类型、格式化、
+  决策规则与设计令牌，见 [docs/design-system.md](docs/design-system.md)。
+
+### 二期（未启用，不影响使用）
+
+- 小象超市采集（Playwright 登录态、商品库、价格快照、食材-商品匹配）。
+  补单链路已用「参考价 + deeplink」打通，采集只用于把估算换成实价；
+  **当前版本不包含任何采集行为**。
+
+---
 
 ## 技术栈
 
 | 层 | 技术 |
 |----|------|
-| 后端 | Python 3.12 / FastAPI / SQLAlchemy 2.0 async / aiomysql |
-| 数据库 | MySQL 8.0 (utf8mb4) / Alembic 迁移 |
+| 后端 | Python 3.11+（开发用 3.12） / FastAPI / SQLAlchemy 2.0 async / aiomysql |
+| 数据库 | MySQL 8.0 (utf8mb4) / Alembic 迁移（当前 head `0026`；39 张 ORM 业务表） |
+| 接口 | `backend/app/api/` 下 17 个业务路由模块 + 飞书 webhook，统一挂 `/api` |
 | 任务 | DB 表 + 进程内 worker (`SELECT ... FOR UPDATE SKIP LOCKED`) |
-| 定时 | APScheduler（默认关闭，跨 worker 用 MySQL `GET_LOCK` 抢锁） |
-| 认证 | 飞书扫码 / 微信小程序一键登录 + 自签 JWT（H5 走 httpOnly Cookie，小程序走 Bearer） |
-| LLM | GLM-4 → Qwen-Max → DeepSeek（本地模型可选降级） |
-| H5 | React 18 / Vite 6 / TypeScript / Ant Design 5 |
+| 定时 | APScheduler（默认关闭，跨 worker 用 MySQL `GET_LOCK`） |
+| 认证 | 飞书扫码 / 微信小程序 + 自签 JWT；助手作用域凭据独立 |
+| LLM | GLM-4 → Qwen-Max → DeepSeek（本地模型可选降级）；快速推荐不调用模型 |
+| H5 | React 18 / Vite 7 / TypeScript / Ant Design 5 / Vitest 3 |
 | 小程序 | Taro 4.2 / React 18 / TypeScript / SCSS（自研轻组件，不引 UI 库） |
-| 共享层 | `shared/` 纯 TS（类型 / 格式化 / 下一步规则 / 设计令牌） |
-| 部署 | nginx + systemd + certbot（见 `deploy/README.md`） |
+| 共享层 | `shared/` 纯 TS（类型 / 格式化 / 决策规则 / 端点 / 设计令牌） |
+| 部署 | nginx + systemd + certbot（见 [deploy/README.md](deploy/README.md)） |
+
+---
 
 ## 快速启动
 
@@ -79,8 +97,8 @@
 bash scripts/setup_local.sh
 ```
 
-脚本会自动装 MySQL 8.0 / Python 3.12、建库建号、生成 `.env`、建表、导入种子数据、
-装前端依赖并跑一遍测试。然后一条命令把服务拉起来（后台运行，不占终端）：
+脚本会自动装 MySQL 8.0 / Python 3.12、建库建号、生成 `.env`、执行全部迁移、
+导入种子数据、装前端依赖并跑一遍测试。然后一条命令把服务拉起来（后台运行，不占终端）：
 
 ```bash
 make up             # 数据库 + 后端 + 前端
@@ -121,12 +139,16 @@ make build-miniapp     # 构建微信小程序, 产物在 miniapp/dist
 环境已经就绪时：
 
 ```bash
-make setup      # 后端 pip install -e ".[dev]" + 前端 npm install
-cp .env.example .env   # 填 APP__DATABASE__URL / APP__AUTH__JWT_SECRET / LLM Key
-make migrate    # alembic upgrade head, 建 19 张表
-make seed       # 导入 66 条食材与参考价
-make test       # 需先 export TEST_DATABASE_URL
+make setup                  # 后端 pip install -e ".[dev]" + 前端 npm install
+cp .env.example .env        # 填 APP__DATABASE__URL / APP__AUTH__JWT_SECRET / LLM Key
+make migrate                # alembic upgrade head（执行全部迁移）
+make seed                   # 导入食材与参考价种子数据
+make test                   # 需先 export TEST_DATABASE_URL
 ```
+
+> ⚠ 不设 `TEST_DATABASE_URL` 时集成用例是 **skip 不是 pass**，看到「全绿」先确认它真的跑了。
+
+---
 
 ## 项目结构
 
@@ -134,45 +156,40 @@ make test       # 需先 export TEST_DATABASE_URL
 meal-planner/
 ├── backend/
 │   ├── app/
-│   │   ├── api/          # 路由: auth / preferences / menus / inventory / products
-│   │   ├── auth/         # JWT 令牌与飞书 OAuth 客户端
-│   │   ├── models/       # 19 张表的 ORM 定义
+│   │   ├── api/          # 17 个业务路由模块 (auth / decide / menus / meals / assistant / inbound_bridge / ...)
+│   │   ├── models/       # 39 张 ORM 业务表
 │   │   ├── schemas/      # Pydantic 请求/响应模型与序列化
-│   │   └── services/     # 生成流水线、菜单、库存、采购、营养、预算、多样性
-│   ├── alembic/          # 迁移脚本 (0001_init 为基线)
-│   └── tests/            # unit / integration / e2e
-├── frontend/             # React + Vite 的 H5 端 (Bento 首页 + 设计系统)
-├── miniapp/              # 微信小程序 (Taro 4 + React), 与 H5 同功能
-├── shared/               # H5 与小程序共享的纯 TS 层 (类型/格式化/下一步/设计令牌)
-├── fandecide/            # (遗留, 已从版本库移除) 极简决策屏; 详见 docs/codebase-audit.md
+│   │   └── services/     # 决策、菜单、库存、这一餐工作台、助手桥接、双向唤醒
+│   ├── alembic/          # 迁移 0001 → 0026
+│   └── tests/            # unit / integration
+├── frontend/             # React + Vite 的 H5 端（这一餐 / 厨房 / 记录）
+├── miniapp/              # 微信小程序（Taro 4.2 + React），保留兼容界面
+├── shared/               # 双端唯一真源：类型 / 格式化 / 决策规则 / 端点 / 设计令牌
+├── skills/fandecide/     # 饭决 Skill 说明与本机 CLI（/api/assistant/skill.zip 分发）
+├── data/                 # 开源菜谱种子与语料
 ├── config/               # default.yaml 与 Prompt 模板
 ├── deploy/               # nginx / systemd / MySQL 初始化 / 上线手册
-├── docs/                 # 本地部署、架构、上线、飞书配置
-├── logs/                 # 后台服务日志与 PID (git 忽略)
-└── scripts/
-    ├── setup_local.sh    # 一键初始化本地环境
-    ├── service.sh        # 服务运维台: 启停/重启/日志/自检
-    ├── mysql_local.sh    # 项目专用 MySQL 实例管理
-    ├── seed_data.py      # 食材与参考价种子数据
-    └── backup_db.py      # 数据库备份
+├── docs/                 # 部署、架构、数据库、设计系统、小程序配置
+├── scripts/              # 本地初始化、服务运维、数据回填与校准
+├── .github/workflows/    # CI 与部署流水线
+├── output/               # 校准产物与测试用 CSV（其余本地产物不入库）
+└── logs/                 # 后台服务日志（git 忽略）
 ```
 
 ## 文档
 
-- [**全项目总案**](docs/master-plan.md) —— 模块结构与规划、需求 × 版本台账、差异对齐、路线图、TAPD 落地映射
-- [项目审计](docs/project-audit.md) —— 模块划分 / 依赖关系 / 业务流程 / 历史进度还原
-- [**全项目代码分析（2026-10-12）**](docs/codebase-audit.md) —— 模块地图与依赖方向 /
-  决策引擎离线同构契约 / 门禁缺陷（CI 假绿）/ 技术债与孤儿资产
-- [产品方案 V2.0](docs/product-v2.md)
-- [架构设计](docs/architecture.md)
-- [数据库说明文档](docs/database.md) —— 表结构 / 索引 / 外键 / ER 关系图 / 字段含义（`make db-doc` 生成）
-- [V2.3 需求说明 · 菜谱库与本地优先生成](docs/requirements-v2.3.md) —— 背景 / 目标 / R-31~R-34 / 验收标准
-- [设计系统](docs/design-system.md)
-- [微信小程序配置与调试](docs/miniapp-setup.md)
-- [本地部署指南（傻瓜版）](docs/local-setup.md)
-- [部署指南](docs/deployment.md)
-- [上线手册（生产）](deploy/README.md)
+- [这一餐工作台设计](docs/meal-workspace.md) —— 领域结构、数据边界、迁移与约束
+- [架构设计](docs/architecture.md) · [数据库配置](docs/database-config.md) · [数据库说明（生成物快照）](docs/database.md)
+- [菜品数据设计](docs/dish-data-design.md) · [System One 接入](docs/system-one-integration.md)
+- [设计系统](docs/design-system.md) · [小程序品牌资产](docs/miniapp-brand-assets.md)
+- [本地部署指南](docs/local-setup.md) · [生产上线手册](deploy/README.md) · [内测灰度](deploy/internal-test.md)
+- [小程序配置与调试](docs/miniapp-setup.md) · [小程序排障](docs/miniapp-troubleshooting.md) · [构建说明](miniapp/BUILD.md)
 - [飞书扫码登录配置](docs/feishu-setup.md)
+- [隐私政策模板](docs/legal/privacy.md) · [服务条款模板](docs/legal/terms.md)（模板草案，非生效法律文本）
+- [产品方案 V2.0（历史规划）](docs/product-v2.md)
+
+> `docs/database.md` 由 `make db-doc` 从某一时刻的本地库结构生成，其中的表数量是**快照值**；
+> 当前设计值以 `backend/app/models/` 与 alembic 迁移为准。
 
 ## 免责声明
 
@@ -187,5 +204,9 @@ meal-planner/
 HowToCook（[Anduin2017/HowToCook](https://github.com/Anduin2017/HowToCook)，Unlicense）
 与 proj.kitchen，来源标注见 `data/` 与 `scripts/import_recipes/`。
 
-> 2026-10-12 起本仓库由私有转为公开。在此之前 README 中"私有仓库、不开放源代码"的声明
-> 已随本次变更作废。
+> 2026-10-12 起本仓库由私有转为公开。在此之前 README 中「私有仓库、不开放源代码」的声明
+> 已随该次变更作废。
+
+---
+
+最后更新：2026-11-06

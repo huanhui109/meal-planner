@@ -146,11 +146,11 @@ sudo systemctl status meal-planner-api
 
 ```bash
 curl -sS https://meal.example.com/api/health
-# => {"status":"ok","app":"AI 每周营养菜谱工具","database":"ok","version":"0.2.0"}
+# => {"status":"ok","app":"饭决 FAN·DECIDE","database":"ok","version":"2.9.0"}
 ```
 
 浏览器打开 `https://meal.example.com` → 应跳转登录页 → 点「飞书扫码登录」→ PC 显示二维码，
-手机扫码后回到周视图。
+手机扫码后回到应用首页。
 
 ---
 
