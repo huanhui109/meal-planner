@@ -76,3 +76,11 @@ deploy/.env.*
 
 # Vite 临时产物
 *.timestamp-*
+
+# 内部数据库快照 / 本地工作台原型 / 内部交付过程稿
+# 这些文件本地保留、不进入公开版本库；注意 output/ 下的 CSV 与校准 JSON 被脚本和测试引用，不能整目录忽略
+backup/
+output/*.html
+output/playwright/
+deliverables/
+*.log

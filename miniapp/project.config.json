@@ -2,7 +2,7 @@
   "miniprogramRoot": "dist/",
   "projectname": "meal-planner-miniapp",
   "description": "AI 每周营养菜谱工具",
-  "appid": "wxf240348f8cae1d34",
+  "appid": "touristappid",
   "libVersion": "3.17.1",
   "setting": {
     "urlCheck": false,

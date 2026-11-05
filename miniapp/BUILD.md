@@ -63,7 +63,7 @@ Taro 4 不支持按平台分 `outputRoot`，`miniapp/config/index.ts` 显式把�
 
 - **多网卡**：`lanAddress()` 只取「第一个非回环 IPv4」，有多块网卡（有线 + Wi-Fi +
   虚拟机桥接）时可能选错。此时必须显式 `MP_API_BASE=http://<对的那个IP>:8000/api`。
-- **DHCP 换 IP**：电脑 IP 变了（如 `192.168.3.83 → 192.168.3.34`），旧的 `dist/` 里
+- **DHCP 换 IP**：电脑 IP 变了（如 `192.168.x.x → 192.168.y.y`），旧的 `dist/` 里
   仍是已失效的旧 IP，开发者工具报 **`net::ERR_ADDRESS_UNREACHABLE`**。
   修复 = **重新跑 `npm run dev:weapp`** 让它探测新 IP；或干脆显式指定
   `MP_API_BASE=http://127.0.0.1:8000/api`（仅模拟器，免疫 DHCP）/ 当前局域网 IP。
@@ -78,7 +78,7 @@ Taro 4 不支持按平台分 `outputRoot`，`miniapp/config/index.ts` 显式把�
 
 ---
 
-## 7. 微信基础库版本（audit B8 收口）
+## 7. 微信基础库版本
 
 `project.config.json` 与 `project.private.config.json` 的 `libVersion` 当前锁 **`3.17.1`**，
 这是**有意保持**，不是漏升级。
@@ -89,7 +89,7 @@ Taro 4 不支持按平台分 `outputRoot`，`miniapp/config/index.ts` 显式把�
   小程序的最低微信版本门槛**，改低则用不了新 API —— 属产品 / 运营决策，不属技术清理范围。
 - 本项目用到的 API（`setBackgroundColor` / `setNavigationBarColor` / `requestSubscribeMessage` /
   `chooseMedia` / `getUserProfile`）在 3.17.1 上全部可用，没有必须升级的诉求。
-- 审查报告 B8 只写「建议提升」，未给出目标版本与依据，因此不做无依据的改动。
+- 早期审查只写了「建议提升」，未给出目标版本与依据，因此不做无依据的改动。
 
 **什么时候该动**：
 

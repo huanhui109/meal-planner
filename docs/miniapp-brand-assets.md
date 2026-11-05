@@ -104,7 +104,7 @@ import { LOGO_MARK_DATA_URI } from '../../lib/logo'
 
 ## 5. 调色板（V2.5: 冷色 / 明亮 / 真·深色 + auto）
 
-V2.5 起调色板命名收敛: `dark` → `cool`、`light` → `cream`、新 `dark` = 真·深色, 详见 [`docs/requirements-v2.5-dark-mode.md`](requirements-v2.5-dark-mode.md)。
+V2.5 起调色板命名收敛: `dark` → `cool`、`light` → `cream`、新 `dark` = 真·深色；`auto` 跟随系统。当前口径以 `shared/tokens.ts` 与本文档为准。
 
 三套色板都从 `shared/tokens.ts` 的 `palettes.{cool, cream, dark}` 一处取, 生成器同时产出三组覆盖块:
 

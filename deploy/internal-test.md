@@ -1,4 +1,4 @@
-# 内测灰度部署 (V3.0 + 微信小程序)
+# 内测灰度部署 (H5 + 微信小程序 + 后端)
 
 > 面向「微信小程序 + H5 + 后端」三端同时跑通最低配置, 不需要域名备案。
 
@@ -66,7 +66,7 @@ APP__APP__CORS_ORIGINS=["https://<ngrok子域名>"]
 
 # 鉴权
 APP__AUTH__JWT_SECRET=<32字节随机>
-APP__AUTH__DEV_LOGIN=true   # 内测期允许昵称直接登录
+APP__AUTH__DEV_LOGIN=true   # 仅限内测：允许昵称直接登录；生产环境必须为 false
 
 # 飞书 (临时回调地址)
 APP__FEISHU__REDIRECT_URI=https://<ngrok子域名>/api/auth/feishu/callback

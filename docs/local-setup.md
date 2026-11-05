@@ -45,7 +45,7 @@ node --version    # 需要 v18 或更高，没有就 brew install node
 进入项目目录，执行：
 
 ```bash
-cd /Users/jason/Documents/project/meal-planner
+cd meal-planner
 bash scripts/setup_local.sh
 ```
 
@@ -57,7 +57,7 @@ bash scripts/setup_local.sh
 2. 启动 MySQL，建 `meal_planner`、`meal_planner_test` 两个库和 `meal_planner` 账号
 3. 建 `.venv` 并 `pip install -e ".[dev]"`
 4. 生成 `.env`（自动填随机 JWT 密钥、本地库地址、打开本地开发登录）
-5. `alembic upgrade head` 建 19 张表 + 导入 66 条食材种子
+5. `alembic upgrade head` 执行全部迁移建表 + 导入食材种子数据
 6. `npm install` 装前端依赖
 7. 跑一遍后端测试，打印结果
 
@@ -95,7 +95,7 @@ bash scripts/setup_local.sh
 ### 一条命令全起来（后台运行，不占终端）
 
 ```bash
-cd /Users/jason/Documents/project/meal-planner
+cd meal-planner
 make up
 ```
 
@@ -183,7 +183,7 @@ bash scripts/service.sh migrate                # 升级数据库表结构
 **终端 1 —— 后端：**
 
 ```bash
-cd /Users/jason/Documents/project/meal-planner
+cd meal-planner
 make dev-backend
 ```
 
@@ -194,7 +194,7 @@ make dev-backend
 **终端 2 —— 前端：**
 
 ```bash
-cd /Users/jason/Documents/project/meal-planner
+cd meal-planner
 make dev-frontend
 ```
 
@@ -370,7 +370,7 @@ FLUSH PRIVILEGES;
 SQL
 
 # ---- 4. 虚拟环境与依赖 ----
-cd /Users/jason/Documents/project/meal-planner
+cd meal-planner
 python3.12 -m venv .venv
 .venv/bin/pip install -U pip
 .venv/bin/pip install -e ".[dev]"

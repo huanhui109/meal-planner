@@ -52,7 +52,7 @@ APP__DATABASE__URL=mysql+aiomysql://<用户>:<密码>@127.0.0.1:3306/meal_planne
 | `scripts/mysql_local.sh` | 定位改写为「3306 不可用时的专用实例兜底」，不再被误当作应用端口 |
 | `deploy/mysql/01-create-database.sql` | 改为占位符 `${MP_DB_USER}` / `${MP_DB_PASSWORD}`，不再出现明文密码 |
 | `deploy/mysql/create-database.sh` | 新增：渲染占位符并执行，密码走 stdin/环境变量，占位与弱密码拒绝执行 |
-| `deploy/README.md` / `docs/deployment.md` | 建库、环境变量说明改为占位符写法 |
+| `deploy/README.md` | 建库、环境变量说明改为占位符写法 |
 | `deploy/systemd/*.service` | 描述更新为「饭决 FAN·DECIDE」 |
 | `.github/workflows/ci.yml` | 服务容器统一 3306；新增「真实 MySQL 上跑 `alembic upgrade head`」步骤防迁移链回归 |
 | `backend/alembic/versions/0008/0009/0010/0012/0013/0014` | 修复 MySQL 1553 回滚缺陷（见第 6 节） |

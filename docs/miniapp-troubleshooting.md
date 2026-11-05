@@ -93,7 +93,7 @@ Provisional headers are shown
 可达，所以本地体验没有损失，真机调试则开箱即用。构建时会打印：
 
 ```
-[miniapp config] API = http://192.168.3.83:8000/api (自动探测, 未设 MP_API_BASE)
+[miniapp config] API = http://192.168.x.x:8000/api (自动探测, 未设 MP_API_BASE)
 [miniapp config] 真机调试请确保手机与电脑在同一 Wi-Fi, 并在开发者工具勾选「不校验合法域名」
 ```
 
@@ -226,13 +226,15 @@ app.json 6 个页面 + custom-tab-bar + comp 组件引用 → 全部存在
 
 这些我无法在命令行里替代你确认，但**每一件都会直接导致真机不可用**。
 
-### 1. AppID `wxf240348f8cae1d34` 是否属于当前登录的微信账号
+### 1. AppID 是否属于当前登录的微信账号
 
 - 不属于 / 不存在 → 真机预览、真机调试、上传、微信一键登录**全部不可用**，只能留在模拟器。
-- 确认路径：小程序后台 → 开发管理 → 开发设置 → 开发者 ID，与 `miniapp/project.config.json` 的 `appid` 比对。
+- 仓库里 `miniapp/project.config.json` 提交的是占位 `touristappid`（游客模式），不含任何真实 AppID。
+  你自己的 AppID 请写入已被 `.gitignore` 忽略的 `miniapp/project.private.config.json` 的 `appid` 字段，
+  开发者工具会优先读取它。
+- 确认路径：小程序后台 → 开发管理 → 开发设置 → 开发者 ID，与本地实际生效的 `appid` 比对。
 - 临时方案：用「测试号」导入，先把模拟器跑通。
-- 日志里出现过 IDE 内部请求 `gettestpublib?appid=`（appid 为空）返回
-  `系统错误，错误码：41002, appid missing`，如果换了正确 AppID 后这条仍出现，就是账号不匹配。
+- 若开发者工具日志出现 `41002, appid missing`，通常是 AppID 未配置或账号不匹配。
 
 ### 2. 后端微信登录配置（影响"微信一键登录"按钮）
 
@@ -300,8 +302,8 @@ React 组件实例），**没有** `setSelected`；`setSelected` 定义在 `cust
 
 5. 后端已默认绑到 `0.0.0.0`（`service.sh` 新默认值）；如需确认，跑 `bash scripts/service.sh restart backend`，
    确认 `lsof -nP -iTCP:8000 -sTCP:LISTEN` 显示 `*:8000`。
-6. 查电脑局域网 IP（`ipconfig getifaddr en0`，当前是 `192.168.3.83`）。
-7. `MP_API_BASE=http://192.168.3.83:8000/api npm run dev:weapp`。
+6. 查电脑局域网 IP（`ipconfig getifaddr en0`，例如 `192.168.x.x`）。
+7. `MP_API_BASE=http://<LAN-IP>:8000/api npm run dev:weapp`。
 8. 开发者工具 → **真机调试**（不是"预览"）→ 扫码 → 手机上确认能登录、能拉到今日数据。
 9. 正式预览前：配 HTTPS 备案域名 + 后台 request 合法域名 + 改 `config/prod.ts`。
 

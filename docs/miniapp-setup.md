@@ -51,6 +51,10 @@ WECHAT_APP_ID=wx0123456789abcdef
 WECHAT_APP_SECRET=0123456789abcdef0123456789abcdef
 ```
 
+> **小程序工程 AppID**：`miniapp/project.config.json` 提交的是占位 `touristappid`（游客模式），
+> 仓库不含任何真实 AppID。你自己的 AppID 请写入已被 `.gitignore` 忽略的
+> `miniapp/project.private.config.json` 的 `appid` 字段，微信开发者工具会优先读取它。
+
 - `WECHAT_APP_ID` / `WECHAT_APP_SECRET` 在小程序后台
   「开发 → 开发管理 → 开发设置 → 开发者 ID」里。
 - 配好后访问 `GET /api/auth/providers` 会返回 `"wechat": true`，小程序登录页就会出现
