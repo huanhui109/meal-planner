@@ -98,12 +98,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # 复合索引不会随列消失, 必须先 drop_index 再 drop_table。
-    op.drop_index("ix_inbound_audit_user_created", table_name="inbound_audit")
-    op.drop_index("ix_inbound_task_pair_status", table_name="inbound_task")
-    op.drop_index("ix_inbound_task_user_created", table_name="inbound_task")
-    op.drop_index("ix_inbound_token_pair_user_created", table_name="inbound_token_pair")
+    # ⚠ MySQL 1553，别把 drop_index 加回来。
+    # inbound_task.pair_id 的外键落在复合索引 ix_inbound_task_pair_status 的 pair_id
+    # 前缀上，直接 DROP INDEX 会被外键约束挡住（1553: needed in a foreign key
+    # constraint）；反过来先删父表 inbound_token_pair 又会被子表外键挡住。
+    # 这里不 drop_column，索引会随 DROP TABLE 一并消失，所以按「先子表后父表」删表即可。
+    # （"复合索引必须先 drop_index" 只适用于 drop_column 保留表的场景，不适用于整表删除。）
     op.drop_table("inbound_bridge_config")
     op.drop_table("inbound_audit")
-    op.drop_table("inbound_task")
-    op.drop_table("inbound_token_pair")
+    op.drop_table("inbound_task")        # child: 持有指向 inbound_token_pair 的外键
+    op.drop_table("inbound_token_pair")  # parent
