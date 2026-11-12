@@ -38,8 +38,13 @@ pytestmark = requires_mysql
 class FakeWorkBuddyModel(WorkBuddyModelClient):
     """Returns a canned model reply with REAL candidate keys from the prompt."""
 
-    def __init__(self):
-        super().__init__(Settings(workbuddy=WorkBuddySettings(model_timeout_seconds=10)))
+    def __init__(self, catalog_file: str = ""):
+        # The catalog is injected by the fixture: a developer machine happens to
+        # have a real plugin catalog on disk, CI does not. Reading the real one
+        # made these tests pass locally while silently asserting nothing on CI.
+        super().__init__(Settings(workbuddy=WorkBuddySettings(
+            model_timeout_seconds=10, catalog_file=catalog_file,
+        )))
         self.calls: list[dict] = []
         self.reply_override = None
         self.failure = None
@@ -116,11 +121,20 @@ class FakeWorkBuddy(WorkBuddyClient):
 
 
 @pytest.fixture
-def host():
+def host(tmp_path):
     from app.main import app
 
+    # Model directory normally comes from a locally installed plugin. Never rely
+    # on that file: build a minimal one so CI and a dev machine see the SAME
+    # directory, and "model not in catalog" can actually be rejected with 422.
+    catalog = tmp_path / ".workbuddy-catalog.json"
+    payload = {"entries": {"cn": {"models": [
+        {"id": "hy4free", "name": "HY4 Free", "billing": {"free": True, "credits": "0", "badges": []}},
+        {"id": "kimi-k3-1", "name": "Kimi K3-1", "billing": {"free": False, "credits": "2", "badges": []}},
+    ]}}}
+    catalog.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     fake = FakeWorkBuddy()
-    model = FakeWorkBuddyModel()
+    model = FakeWorkBuddyModel(catalog_file=str(catalog))
     app.dependency_overrides[get_workbuddy_client] = lambda: fake
     app.dependency_overrides[get_workbuddy_model_client] = lambda: model
     yield model, fake
@@ -194,7 +208,8 @@ async def test_model_status_is_readonly_and_lists_the_catalog(
     # No explicit choice -> auto, resolved from the catalog's free tier.
     assert data["auto"] is True and data["selected"] == ""
     assert data["model"] == "hy4free"
-    assert isinstance(data["catalog"], list)
+    # Guard against a silently empty catalog falling back to "hy3".
+    assert any(item["id"] == "hy4free" for item in data["catalog"])
     assert model.calls == []  # status must never call chat
 
 
