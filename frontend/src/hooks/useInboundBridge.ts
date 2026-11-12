@@ -2,6 +2,8 @@
  * 双向唤醒独立状态机 —— 参照 useMealAssistant.ts 的 epoch / lock 并发保护,
  * 但与既有 useMealAssistant / MealAssistantDialog 完全隔离、零改动。
  *
+ * 兼容资产（deprecated）：统一模式后本文件不再被挂载，保留供签名固定向量测试与旧调用方引用；不参与主流程。
+ *
  * 红线:
  *  - 网页侧令牌只存「内存态」(模块级内存 + React useSyncExternalStore 订阅),
  *    绝不写 localStorage / sessionStorage / URL / 日志;

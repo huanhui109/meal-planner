@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Alert, Skeleton } from 'antd'
 import { ArrowLeftOutlined, CheckOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons'
 import { getPreferenceSummary, updateAllergy, updateDiet, updateHousehold } from '../../api/preferences'
+import { DISH_CATEGORIES } from '@shared/dish-category'
 import type { UserPreferenceSummary } from '../../types'
 
 const split = (text: string) => text.split(/[、,，\n]/).map((word) => word.trim()).filter(Boolean)
@@ -16,6 +17,7 @@ export default function MealPreferences() {
   const [servings, setServings] = useState(1)
   const [minutes, setMinutes] = useState(30)
   const [spice, setSpice] = useState(2)
+  const [dishCategory, setDishCategory] = useState('')
   const [allergens, setAllergens] = useState('')
   const [avoid, setAvoid] = useState('')
   const [other, setOther] = useState('')
@@ -27,6 +29,7 @@ export default function MealPreferences() {
       setServings(data.household?.member_count ?? 1)
       setMinutes(data.household?.weekday_cook_minutes ?? 30)
       setSpice(Math.min(4, data.diet_preference?.spice_level ?? 2))
+      setDishCategory(data.diet_preference?.dish_category ?? '')
       setAllergens(data.allergy_restriction?.allergens.join('、') ?? '')
       setAvoid(data.allergy_restriction?.avoid_ingredients.join('、') ?? '')
       setOther(data.allergy_restriction?.dietary_restrictions ?? '')
@@ -69,12 +72,19 @@ export default function MealPreferences() {
         void save('diet', () => updateDiet({
           ...(summary.diet_preference ?? {}), cuisines: summary.diet_preference?.cuisines.length ? summary.diet_preference.cuisines : ['家常'],
           spice_level: spice,
+          dish_category: dishCategory || null,
         }))
       }} onChange={() => setSaved('')}>
-        <h2>辣度偏好</h2>
+        <h2>口味与菜品类别</h2>
         <label className="meal-field"><span>能接受的辣度</span><select value={spice} onChange={(event) => setSpice(Number(event.target.value))}>
           {['不辣', '微辣', '中辣', '较辣', '不限'].map((text, value) => <option key={value} value={value}>{text}</option>)}
         </select></label>
+        <label className="meal-field"><span>菜品类别</span><select value={dishCategory}
+          onChange={(event) => setDishCategory(event.target.value)}>
+          <option value="">不限类别</option>
+          {DISH_CATEGORIES.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}
+        </select></label>
+        <p>单选且互斥：同一份出餐方案里的菜（含主食）都是同一类别，中餐与西餐不会混在一起。原有的偏好菜系不受影响。</p>
         {submit('diet')}
       </form>
       <form className="meal-settings-section meal-form" onSubmit={(event) => {

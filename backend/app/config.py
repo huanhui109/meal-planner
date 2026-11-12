@@ -422,8 +422,20 @@ class WechatSettings(BaseModel):
 
 
 class WorkBuddySettings(BaseModel):
-    """Web-to-assistant invocation. Secrets stay on the server."""
+    """Web-to-assistant invocation. Secrets stay on the server.
 
+    Two connection families live here on purpose:
+    - ``client_*`` / ``encryption_key`` / ``timeout_seconds`` drive the *legacy*
+      official-OAuth localassistant endpoints (``/assistant/workbuddy*``). They are
+      kept for backward compatibility; the unified in-app mode does not use them.
+    - ``vault_dir`` / ``catalog_file`` / ``model*`` / ``chat_base_*`` drive the
+      unified direct-model path: the backend reads the connection artifacts that
+      ``dsh-connect-workbuddy`` wrote to disk and calls the upstream itself.
+      No secret belongs in yaml; the vault is READ-ONLY and holds the user's own
+      WorkBuddy tokens, which never leave this process except in the chat request.
+    """
+
+    # ---- legacy official OAuth (kept, unified mode does not use these) ----
     client_id: str = ""
     client_secret: str = ""
     redirect_uri: str = ""
@@ -431,6 +443,24 @@ class WorkBuddySettings(BaseModel):
     timeout_seconds: float = Field(default=12, ge=1, le=20)
     adjustment_timeout_seconds: int = Field(default=300, ge=30, le=900)
     poll_seconds: int = Field(default=3, ge=2, le=30)
+
+    # ---- unified direct-model connection (dsh-connect-workbuddy artifacts) ----
+    # Empty means: resolve from $DSH_HOME (or ~/.dsh) at request time. Only the
+    # directory/ file LOCATION is configurable here, never a token value.
+    vault_dir: str = ""
+    catalog_file: str = ""
+    model: str = ""
+    model_timeout_seconds: float = Field(default=90, ge=10, le=300)
+    chat_base_cn: str = ""
+    chat_base_global: str = ""
+
+    # ---- 低延迟优先：每次应用内模型请求都受这三个值约束 ----
+    # 候选菜品 / 选菜两次调用共用：短输出 + 低温 + 单次请求，不重试不追问。
+    # chat_max_tokens=0 或 chat_temperature=None 表示不下发该字段（上游不兼容时可关闭）。
+    chat_max_tokens: int = Field(default=1200, ge=0, le=16000)
+    chat_temperature: float | None = Field(default=0.0, ge=0, le=2)
+    # 同步候选端点 /assistant/candidates 的硬超时，远小于统一模式的 90s。
+    candidate_timeout_seconds: float = Field(default=20, ge=5, le=120)
 
 
 class InboundBridgeSettings(BaseModel):

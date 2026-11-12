@@ -6,8 +6,9 @@ import type { AssistantGrant } from '@shared/meal'
 import AssistantConnection from '../src/components/AssistantConnection'
 import { authorizationTarget, grantState } from '../src/lib/assistantConnection'
 import {
-  authorizeWorkBuddy, createAssistantGrant, disconnectWorkBuddy,
-  getAssistantGrants, getWorkBuddyStatus, revokeAssistantGrant,
+  authorizeWorkBuddy, chooseModel, createAssistantGrant, disconnectWorkBuddy,
+  getAssistantGrants, getModelStatus, getWorkBuddyStatus, pollWorkBuddyLogin,
+  revokeAssistantGrant, startWorkBuddyLogin,
 } from '../src/api/meals'
 
 const transport = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), delete: vi.fn() }))
@@ -34,6 +35,22 @@ describe('统一助手连接入口', () => {
     expect(connect).toBeDefined()
     // The separate refresh button may be busy; the setup entry must never depend on it.
     expect(connect?.slice(connect.lastIndexOf('<button'))).not.toContain('disabled')
+    expect(html).toContain('正在检查网页直发')
+  })
+
+  it('renders a dedicated, truthful local-model status line on the unified card', async () => {
+    const model = { available: true, region: 'cn', model: 'hy4free', message: '本机已登录' }
+    // getModelStatus shares the mocked transport and unwraps the SuccessResponse data.
+    // mockResolvedValueOnce keeps later tests on a pristine vi.fn().
+    transport.get.mockResolvedValueOnce({ data: model })
+    await expect(getModelStatus()).resolves.toEqual(model)
+    const html = renderToStaticMarkup(React.createElement(StaticRouter, { location: '/me' },
+      React.createElement(AssistantConnection)))
+    // The card has its own model line, separate from hostMessage.
+    expect(html).toContain('本机 WorkBuddy 直连模型')
+    // Static (server) render has no completed effect: show the real pending state,
+    // never a fabricated "online" claim before the check actually resolves.
+    expect(html).toContain('正在确认本机模型状态')
     expect(html).toContain('正在检查网页直发')
   })
 
@@ -104,5 +121,78 @@ describe('连接请求的加载上限', () => {
     transport.get.mockRejectedValue(new Error('连接暂不可用'))
     await expect(getWorkBuddyStatus()).rejects.toThrow('连接暂不可用')
     expect(vi.getTimerCount()).toBe(0)
+  })
+})
+
+describe('模型选择与重新登录', () => {
+  it('POSTs the explicit model choice and the empty region without the connection deadline', async () => {
+    transport.post.mockResolvedValue({ data: { selected: 'kimi-k3-1', effective: 'kimi-k3-1', auto: false } })
+    await expect(chooseModel('kimi-k3-1')).resolves.toEqual({
+      selected: 'kimi-k3-1', effective: 'kimi-k3-1', auto: false,
+    })
+    expect(transport.post).toHaveBeenCalledTimes(1)
+    expect(transport.post).toHaveBeenCalledWith('/assistant/model', { model: 'kimi-k3-1', region: '' })
+    // 普通写入操作: 不包 connectionRequest, 所以没有 AbortSignal 这个配置键。
+    expect(transport.post.mock.calls[0]).toHaveLength(2)
+  })
+
+  it('keeps GET /assistant/model on the 15s deadline pattern', async () => {
+    transport.get.mockResolvedValue({ data: { available: true, region: 'cn', model: 'hy4free' } })
+    await getModelStatus()
+    expect(transport.get).toHaveBeenCalledTimes(1)
+    expect(transport.get).toHaveBeenCalledWith('/assistant/model', { signal: expect.any(AbortSignal) })
+  })
+
+  it('starts a CN login with a signal and bounds it when the transport never settles', async () => {
+    vi.useFakeTimers()
+    transport.post.mockImplementation(() => new Promise(() => {}))
+    const result = startWorkBuddyLogin('cn')
+    const rejected = expect(result).rejects.toThrow('助手连接请求超时')
+    await vi.advanceTimersByTimeAsync(15000)
+    await rejected
+    expect(transport.post).toHaveBeenCalledTimes(1)
+    expect(transport.post).toHaveBeenCalledWith('/assistant/login', { region: 'cn' }, {
+      signal: expect.any(AbortSignal),
+    })
+    const config = transport.post.mock.calls[0].at(-1) as { signal: AbortSignal }
+    expect(config.signal.aborted).toBe(true)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('polls a login by its encoded id with the region as a query param', async () => {
+    transport.get.mockResolvedValue({ data: { ok: true, done: false, message: '等待授权' } })
+    await expect(pollWorkBuddyLogin('id/x', 'cn')).resolves.toEqual({
+      ok: true, done: false, message: '等待授权',
+    })
+    expect(transport.get).toHaveBeenCalledTimes(1)
+    const [url, config] = transport.get.mock.calls[0] as [string, { params: unknown; signal: AbortSignal }]
+    expect(url).toBe('/assistant/login/id%2Fx')
+    expect(config.params).toEqual({ region: 'cn' })
+    expect(config.signal).toBeInstanceOf(AbortSignal)
+  })
+})
+
+describe('模型连接状态指示点', () => {
+  it('renders a grey dot labelled 检测中 before the model status resolves', () => {
+    const html = renderToStaticMarkup(React.createElement(StaticRouter, { location: '/me' },
+      React.createElement(AssistantConnection)))
+    // 首帧 modelStatus 为 null: 只能如实显示"检测中"的灰点，不能提前变绿。
+    expect(html).toContain('模型选择')
+    expect(html).toContain('检测中')
+    expect(html).toContain('meal-connection-dot')
+    // 绿点的 class 只应出现在真正在线时；首帧不允许出现。
+    expect(html).not.toContain('meal-connection-dot online')
+  })
+
+  it('labels the pending login block and explains the manual authorization fallback', async () => {
+    transport.post.mockResolvedValue({
+      data: { ok: true, login_id: 'wbo_x', region: 'cn', verification_uri: 'https://www.codebuddy.cn/login?state=s', expires_in: 600 },
+    })
+    transport.get.mockResolvedValue({ data: { available: false, region: '', model: '', message: '未连接' } })
+    // The dialog-opened state is internal; assert the API contract the UI consumes
+    // so a missing field can't silently break the prompt.
+    const started = await startWorkBuddyLogin('cn')
+    expect(started).toMatchObject({ ok: true, login_id: 'wbo_x', region: 'cn' })
+    expect(started.verification_uri).toContain('codebuddy.cn')
   })
 })

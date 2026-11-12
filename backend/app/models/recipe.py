@@ -117,6 +117,13 @@ class Recipe(Base, TimestampMixin):
     category: Mapped[Optional[str]] = mapped_column(
         String(50), nullable=True, comment="品类: 荤菜/素菜/汤羹/主食/面食/凉菜/小吃, 同品类打散用"
     )
+    # 互斥的「菜品大类」(迁移 0027)。与 cuisine(源分类, 列错位)、category(品类)
+    # 都不是一个维度: 单值 + 非空 = 每道菜只归属一个类别。新菜默认 other,
+    # 由 scripts/backfill_dish_category.py 按 dish_rules.guess_dish_category() 补齐。
+    dish_category_code: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="other", server_default=text("'other'"),
+        index=True, comment="菜品类别(互斥): chinese/western/japanese_korean/southeast_asian/other",
+    )
     difficulty: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, comment="难度 1-5")
     cook_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, comment="烹饪时间(分钟)")
     base_servings: Mapped[Optional[int]] = mapped_column(
@@ -196,6 +203,18 @@ class Recipe(Base, TimestampMixin):
     )
     steps_source: Mapped[Optional[str]] = mapped_column(
         String(30), nullable=True, comment="做法来源: seed/rule/llm/manual"
+    )
+
+    # ---- AI 候选补全的可追溯证据 (迁移 0028) ----
+    # 「禁止杜撰」是底线: 允许补全的前提是每道补进来的菜都能说清它凭什么存在。
+    # 空值 = 非补全路径写入; 服务层绝不把空值当成「已核验」。
+    reality_basis: Mapped[Optional[str]] = mapped_column(
+        String(500), nullable=True,
+        comment="AI 补全时的现实依据(菜系归属/通行做法要点); 空=非补全写入",
+    )
+    generated_for: Mapped[Optional[str]] = mapped_column(
+        String(200), nullable=True,
+        comment="触发 AI 补全的用户需求摘要; 空=非补全写入",
     )
 
     # ---- 是否参与「饭决」 (v1.2.0 迁移 0017) ----

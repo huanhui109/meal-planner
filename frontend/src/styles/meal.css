@@ -171,7 +171,14 @@ html[data-theme="dark"] .meal-brand img { filter: invert(1); }
 .meal-ai-pending .meal-text-link { margin-left: auto; border: 0; background: transparent; font: inherit; color: var(--meal-muted); }
 .meal-workbuddy-state { display: flex; align-items: baseline; gap: 8px; color: var(--meal-muted); font-size: 13px; }
 .meal-connection-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--meal-muted); }
-.meal-connection-dot.online { background: var(--meal-accent); }
+.meal-connection-dot.online { background: #539c77; }
+/* 模型选择标题行：状态点 + 名称 + 右侧状态文字，三者一行对齐 */
+.meal-field-label { display: inline-flex; align-items: center; gap: 7px; }
+.meal-field-label .meal-muted { font-size: 12px; }
+/* 登录等待区：左侧留出竖线，和普通说明文字区分开，避免被当成一行灰字忽略 */
+.meal-login-pending { display: flex; flex-direction: column; gap: 4px; padding: 10px 0 10px 12px;
+  border-left: 2px solid var(--meal-accent); }
+.meal-login-pending .meal-field-label { color: var(--meal-accent); }
 .meal-list-toolbar { display: flex; gap: 16px; align-items: center; justify-content: space-between; margin-bottom: 22px; }
 .meal-search { display: flex; align-items: center; gap: 10px; padding: 0 15px; background: var(--meal-paper); border: 1px solid var(--meal-line); border-radius: 99px; }
 .meal-search input { color: var(--meal-ink); font: inherit; background: none; border: 0; padding: 10px 0; width: 200px; min-width: 0; }

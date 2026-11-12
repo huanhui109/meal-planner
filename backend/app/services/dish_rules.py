@@ -280,3 +280,134 @@ def guess_season(recipe) -> Optional[List[str]]:
 
 def to_json(values: Optional[List[str]]) -> Optional[str]:
     return json.dumps(values, ensure_ascii=False) if values else None
+
+
+# ---- 菜品类别 (互斥大类, 迁移 0027) ----
+#
+# 这是 shared/dish-category.ts 的 Python 镜像, 由
+# backend/tests/unit/test_dish_category_parity.py 静态比对 code / label / 顺序。
+# 判定口径只在这里写一份: 回填脚本、候选加载、方案校验都调它, 不另起炉灶。
+#
+# 为什么靠「强特征词」而不是全量食材词: 番茄/土豆/洋葱是中餐西餐共用的食材,
+# 拿它们判会把一半菜谱划去西餐。这里只收基本不会出现在中正经中餐菜名里的词,
+# 判不了就落 CHINESE(库里绝大多数是中餐), 非菜条目落 OTHER。
+
+
+class DishCategory:
+    CHINESE = "chinese"
+    WESTERN = "western"
+    JAPANESE_KOREAN = "japanese_korean"
+    SOUTHEAST_ASIAN = "southeast_asian"
+    OTHER = "other"
+
+    ALL = (CHINESE, WESTERN, JAPANESE_KOREAN, SOUTHEAST_ASIAN, OTHER)
+    LABELS = {
+        CHINESE: "中餐", WESTERN: "西餐", JAPANESE_KOREAN: "日韩",
+        SOUTHEAST_ASIAN: "东南亚·南亚", OTHER: "其他",
+    }
+
+
+# 顺序即优先级: 「日式咖喱饭」先归日韩, 「泰式咖喱」先归东南亚,
+# 「意式香肠北非蛋」先归西餐。反过来会把一整批菜划错。
+#
+# 为什么要拆成「菜名词」和「全文本词」两组:
+#   火腿/香肠/奶油/黄油/沙拉 这类词做食材时中餐西餐都用 —— 「可乐炒饭」
+#   的配料有火腿肠, 拿全文本一判就被划成西餐了。所以这些只认菜名;
+#   只有极强、几乎不可能出现在中式菜配料里的词(味噌/姜黄/鹰嘴豆/酥油…)
+#   才允许扫食材。这条是实测「可乐炒饭 / 猪油拌饭」被误伤后定下的。
+#   「拌饭」同理太宽泛(猪油拌饭是中餐), 已移除, 靠「韩式/石锅/泡菜」判日韩。
+CATEGORY_KEYWORDS: Sequence[tuple] = (
+    (DishCategory.JAPANESE_KOREAN, (
+        "日式", "日料", "韩式", "韩餐", "寿司", "照烧", "丼", "天妇罗",
+        "石锅", "部队锅", "乌冬", "寿喜烧", "大阪烧", "章鱼烧",
+        "辣白菜", "大酱汤", "拉面", "紫菜包饭", "味噌", "纳豆", "泡菜",
+    ), (
+        "味噌", "纳豆", "木鱼花", "韩式辣酱",
+    )),
+    (DishCategory.SOUTHEAST_ASIAN, (
+        "泰式", "泰国", "冬阴功", "越南", "河粉", "新加坡", "马来", "印尼",
+        "沙爹", "咖喱", "椰浆", "椰奶", "香茅", "柠檬草", "鱼露", "印度",
+        "巴基斯坦", "南亚", "利提", "巧卡", "鹰嘴豆", "酥油", "飞饼",
+        "手标红", "芒果糯米", "叻沙", "肉骨茶", "越式", "缅式",
+    ), (
+        "姜黄粉", "印度综合香料", "罗望子", "鹰嘴豆", "酥油", "香茅", "鱼露",
+    )),
+    (DishCategory.WESTERN, (
+        "牛排", "意面", "意大利面", "意式", "披萨", "比萨", "吐司", "三明治",
+        "汉堡", "沙拉", "芝士", "奶酪", "奶油", "黄油", "焗", "司康",
+        "提拉米苏", "慕斯", "蛋挞", "巴斯克", "可颂", "通心粉", "罗宋汤",
+        "北非蛋", "苏格兰蛋", "美式", "英式", "法式", "俄式", "德式", "欧陆",
+        "培根", "火腿", "香肠", "冰淇淋", "蛋糕", "饼干", "布丁", "奶冻", "面包",
+        "鸡尾酒", "莫吉托", "可乐桶", "咖啡", "果酱", "欧姆蛋", "煎蛋卷",
+    ), (
+        "马苏里拉", "帕玛森", "罗勒", "迷迭香",
+    )),
+)
+
+NON_DISH_CATEGORY_SOURCES = frozenset({"饮品", "调味品", "调料", "半成品", "半成品加工"})
+
+# 离线池 data/local_dish_pool.json 的 cuisine 是真菜系(与 recipe.cuisine 不同),
+# 这里把它折成同一套互斥大类。
+POOL_CUISINE_TO_CATEGORY: Dict[str, str] = {
+    "家常": DishCategory.CHINESE,
+    "川湘": DishCategory.CHINESE,
+    "粤式": DishCategory.CHINESE,
+    "江浙": DishCategory.CHINESE,
+    "东北": DishCategory.CHINESE,
+    "西餐": DishCategory.WESTERN,
+    "轻食": DishCategory.WESTERN,
+    "日料": DishCategory.JAPANESE_KOREAN,
+    "东南亚": DishCategory.SOUTHEAST_ASIAN,
+}
+
+
+def normalize_dish_category(value) -> str:
+    """非法/空值一律归一为 other —— 单值列之外再加一道应用层保险"""
+    return value if value in DishCategory.ALL else DishCategory.OTHER
+
+
+def category_from_pool_cuisine(cuisine: Optional[str]) -> str:
+    return POOL_CUISINE_TO_CATEGORY.get(cuisine or "", DishCategory.OTHER)
+
+
+def guess_dish_category(recipe, ignore_explicit: bool = False) -> str:
+    """判一道菜的互斥大类。人工已显式归类的优先, 其余按强特征词, 判不了落中餐/其他
+
+    回填脚本与 load_meal_catalog 共用这一份。这里不看 steps —— 步骤里出现
+    「烤箱」「黄油」之类会把大量中式菜误划到西餐; 菜名 + 食材 + 源分类足够。
+    ignore_explicit 给回填脚本 --force 用: 规则改了之后要能全量重算,
+    否则旧值会一直「自己证明自己」。
+    """
+    if not ignore_explicit:
+        explicit = getattr(recipe, "dish_category_code", None)
+        if explicit and explicit != DishCategory.OTHER and explicit in DishCategory.ALL:
+            return explicit
+    name = recipe.name or ""
+    ingredients = getattr(recipe, "recipe_ingredients", None) or ()
+    parts = [
+        name,
+        " ".join(str(getattr(ri.ingredient, "name", "") or "") for ri in ingredients if ri.ingredient),
+    ]
+    text = " ".join(parts)
+    for code, name_words, text_words in CATEGORY_KEYWORDS:
+        if any(word in name for word in name_words) or any(word in text for word in text_words):
+            return code
+    source_category = getattr(recipe, "cuisine", None) or ""
+    if source_category in NON_DISH_CATEGORY_SOURCES:
+        return DishCategory.OTHER
+    return DishCategory.CHINESE
+
+
+def category_conflict(codes: Sequence[Optional[str]]) -> Optional[str]:
+    """同一份出餐方案的类别一致性硬规则。返回中文错误文案, None = 通过
+
+    中西混排单独给一条更明确的文案: 这是产品最在意的那条红线, 泛泛的
+    「类别不一致」不足以让用户知道该改哪里。
+    """
+    unique = {normalize_dish_category(code) for code in codes}
+    if len(unique) <= 1:
+        return None
+    if {DishCategory.CHINESE, DishCategory.WESTERN} <= unique:
+        return "中餐与西餐不能出现在同一份方案里，请只选其中一个类别"
+    labels = "、".join(DishCategory.LABELS[code] for code in DishCategory.ALL if code in unique)
+    return f"同一份方案的菜品类别必须一致：{labels}不能混搭"

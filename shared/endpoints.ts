@@ -78,7 +78,13 @@ export const ENDPOINTS = {
   assistantSkillZip: '/assistant/skill.zip',
   assistantWorkBuddy: '/assistant/workbuddy',
   assistantWorkBuddyAuthorize: '/assistant/workbuddy/authorize',
+  assistantModelStatus: '/assistant/model',
+  /** 发起 / 轮询 / 退出本机 WorkBuddy 登录 (2.9.0) */
+  assistantLogin: '/assistant/login',
+  assistantLoginStatus: (id: string) => `/assistant/login/${encodeURIComponent(id)}`,
   assistantAdjustments: '/assistant/adjustments',
+  /** 应用内候选菜品技能：模糊描述 → 3-5 个结构化候选 (单跳低延迟) */
+  assistantCandidates: '/assistant/candidates',
   assistantAdjustmentsCurrent: '/assistant/adjustments/current',
   assistantAdjustment: (id: string) => `/assistant/adjustments/${encodeURIComponent(id)}`,
   assistantAdjustmentCancel: (id: string) => `/assistant/adjustments/${encodeURIComponent(id)}/cancel`,

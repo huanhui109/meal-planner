@@ -40,6 +40,10 @@ export interface DietPreference {
   spice_level: number
   flavor_preference: string
   staple_preference: string
+  /** 引导写入的场景标签; 后端一直有这一列, shared 此前漏了 */
+  scene_tags?: string[]
+  /** 互斥的菜品大类(单选); null/缺省 = 不限 */
+  dish_category?: string | null
 }
 
 export interface AllergyRestriction {

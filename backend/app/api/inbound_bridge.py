@@ -1,4 +1,9 @@
-"""双向唤醒模块 API - 独立 router, 九端点。
+"""双向唤醒模块 API - 兼容别名 router, 九端点。
+
+兼容别名（deprecated）：统一模式由 ``/api/assistant/adjustments*`` 在应用内
+直接发起模型请求并写入方案；本九端点完整保留既有外契约（路径 / 鉴权 / L0-L1 /
+签名 / 审计 / 白名单），内部方案写入已委托统一核心
+``AssistantAdjustmentService.propose_for_compat()``，不再产生第二套主状态机。
 
 所有响应统一 SuccessResponse{code,data,message}; 错误由 problem() 抛 HTTPException,
 对外只给可读中文文案, 内部细节与令牌一律 scrub 后不进响应。全部端点 no_store。

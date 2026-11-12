@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Small scoped API client. Never sends credentials through redirects."""
+"""Small scoped API client. Never sends credentials through redirects.
+Compatibility asset for the legacy Skill/inbound flow; no longer part of the unified in-app model request path.
+"""
 from __future__ import annotations
 
 import argparse

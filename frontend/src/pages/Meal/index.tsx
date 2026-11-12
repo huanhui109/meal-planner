@@ -9,11 +9,9 @@ import {
 import { adjustmentLabel, mealSlotLabels, type MealDish, type MealSlotName } from '@shared/meal'
 import { useMeal } from '../../hooks/useMeal'
 import { useMealAssistant } from '../../hooks/useMealAssistant'
-import { useInboundBridge } from '../../hooks/useInboundBridge'
 import { copyText } from '../../lib/clipboard'
 import MealConditions from '../../components/MealConditions'
 import MealAssistantDialog from '../../components/MealAssistantDialog'
-import InboundBridgeDialog from '../../components/InboundBridgeDialog'
 
 const roleLabel = { complete: '主食餐', main: '主菜', side: '蔬菜', staple: '主食', soup: '汤' }
 const dishImages: Record<string, string> = {
@@ -30,11 +28,9 @@ export default function Meal() {
   const date = params.get('date') || undefined
   const { view, loading, busy: mealBusy, error, refresh, propose, act } = useMeal(slot, date)
   const ai = useMealAssistant(view, refresh)
-  const ib = useInboundBridge(view, refresh)
   const busy = mealBusy || ai.pending
   const [conditions, setConditions] = useState(false)
   const [assistant, setAssistant] = useState(false)
-  const [inboundAssistant, setInboundAssistant] = useState(false)
   const [deduct, setDeduct] = useState(false)
   const [copyFallback, setCopyFallback] = useState('')
   const proposal = view?.proposal
@@ -136,8 +132,6 @@ export default function Meal() {
                 onClick={() => { void propose() }}><SwapOutlined />换个方案</button>}
               <button type="button" className="meal-button meal-ai-button" disabled={mealBusy || eaten}
                 onClick={() => setAssistant(true)}><ThunderboltOutlined />交给 AI 调整</button>
-              <button type="button" className="meal-button" disabled={mealBusy || eaten}
-                onClick={() => setInboundAssistant(true)}><ThunderboltOutlined />唤醒 WorkBuddy 协助修改</button>
             </div>
             {selected && !eaten && proposal.mode === 'cook' &&
               <label className="meal-deduct">
@@ -208,8 +202,6 @@ export default function Meal() {
               onClick={() => setConditions(true)}><ControlOutlined />改条件</button>
             <button type="button" className="meal-button meal-ai-button" disabled={!view || mealBusy}
               onClick={() => setAssistant(true)}><ThunderboltOutlined />交给 AI 调整</button>
-            <button type="button" className="meal-button" disabled={!view || mealBusy}
-              onClick={() => setInboundAssistant(true)}><ThunderboltOutlined />唤醒 WorkBuddy 协助修改</button>
             {!view && <>
               <button type="button" className="meal-button" onClick={() => { void refresh(true) }}><ReloadOutlined />重新连接</button>
               {(date || slot) && <Link to="/" className="meal-button">回到当前餐次</Link>}
@@ -225,8 +217,6 @@ export default function Meal() {
       </Modal>
       {view && <MealAssistantDialog open={assistant} onClose={() => setAssistant(false)}
         view={view} assistant={ai} onCopy={copy} />}
-      {view && <InboundBridgeDialog open={inboundAssistant} onClose={() => setInboundAssistant(false)}
-        view={view} bridge={ib} onCopy={copy} onUpdated={refresh} />}
     </div>
   )
 }

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.allergy_restriction import AllergyRestriction
 from app.models.decision import DecisionLog
+from app.models.diet_preference import DietPreference
 from app.models.fridge_inventory import FridgeInventory
 from app.models.household import Household
 from app.models.ingredient import Ingredient
@@ -59,6 +60,9 @@ class MealService:
         household = (await self.db.execute(
             select(Household).where(Household.user_id == user_id)
         )).scalar_one_or_none()
+        diet = (await self.db.execute(
+            select(DietPreference.dish_category).where(DietPreference.user_id == user_id)
+        )).scalar_one_or_none()
         now = meal_now()
         return MealContext(
             meal_date=now.date(),
@@ -67,6 +71,7 @@ class MealService:
             max_minutes=min(180, max(5, profile.cook_cap if household else 30)),
             max_spice=min(4, max(0, profile.spice_level)),
             budget=profile.meal_budget,
+            dish_category=diet or None,
         )
 
     async def session(self, user_id: int, context: MealContext) -> Optional[MealSession]:
@@ -86,7 +91,11 @@ class MealService:
         target = MealContext.model_validate({**default.model_dump(mode="json"), **changes})
         session = await self.session(user_id, target)
         if session:
-            target = MealContext.model_validate({**session.context, **changes})
+            # 类别是长期口味: 设置页改了之后, 旧的 session.context 不能把它盖回去。
+            # 其余条件沿用 session(单次会话里调过的时间/人数不该被重置);
+            # patch 显式传的 dish_category 仍在最后合并, 优先级最高。
+            stored = {**session.context, "dish_category": default.dish_category}
+            target = MealContext.model_validate({**stored, **changes})
         if abs((target.meal_date - meal_now().date()).days) > 30:
             problem(422, "请选择前后 30 天内的一餐")
         return target, session
@@ -205,6 +214,7 @@ class MealService:
             "candidates": [c.view(context.servings) for c in candidates],
             "rules": [
                 "仅使用候选 key，主食与菜品组成完整一餐，不能杜撰菜谱或配料",
+                "同一份方案的菜品类别（含主食）必须完全一致；中餐与西餐绝对不能混搭",
                 "保存只是建议，不代表已采纳或已吃，也不会扣库存",
                 "参考价格和烹饪时间不是实价或实测；外卖配料需向商家确认",
             ],

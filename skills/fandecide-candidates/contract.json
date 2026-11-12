@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "fandecide-candidates/reply-1.0.json",
+  "title": "饭决候选菜品技能 · 回复契约 v1.0",
+  "description": "唯一允许的回复形态：一个只含 candidates 的 JSON 对象，3-5 个字段固定的真实候选菜品，可反向写入 recipe 表。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["candidates"],
+  "properties": {
+    "candidates": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 5,
+      "items": { "$ref": "#/definitions/candidate" }
+    }
+  },
+  "definitions": {
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name", "cuisine", "category", "main_ingredient", "cook_minutes",
+        "spice_level", "is_light", "ingredients", "quick_steps", "steps",
+        "reality_basis"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 20,
+          "description": "真实通行的中文菜名；对应 recipe.name"
+        },
+        "cuisine": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "菜系或家常；对应 recipe.cuisine"
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 20,
+          "description": "菜品类别；对应 recipe.category"
+        },
+        "main_ingredient": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "主料；对应 recipe.main_ingredient"
+        },
+        "cook_minutes": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 240,
+          "description": "出餐用时；对应 recipe.cook_minutes"
+        },
+        "spice_level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4,
+          "description": "辣度；对应 recipe.spice_level"
+        },
+        "is_light": {
+          "type": "boolean",
+          "description": "是否清淡；对应 recipe.is_light"
+        },
+        "ingredients": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 50 },
+          "description": "主辅料；服务层序列化后写 recipe.ingredients"
+        },
+        "quick_steps": {
+          "type": "array",
+          "maxItems": 5,
+          "items": { "type": "string", "minLength": 1, "maxLength": 20 },
+          "description": "极简做法；对应 recipe.quick_steps"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 12,
+          "items": { "type": "string", "minLength": 4, "maxLength": 120 },
+          "description": "可执行做法；换行拼接后写 recipe.steps"
+        },
+        "reality_basis": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 200,
+          "description": "现实依据：菜系归属 + 通行做法 + 典型配料；对应 recipe.reality_basis"
+        }
+      }
+    }
+  }
+}

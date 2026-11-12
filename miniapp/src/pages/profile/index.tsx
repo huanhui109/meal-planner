@@ -8,6 +8,8 @@ import { useCallback, useState } from 'react'
 import { Switch, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 
+import { DISH_CATEGORIES, DISH_CATEGORY_LABELS, isDishCategoryCode } from '@shared/dish-category'
+import type { DishCategoryCode } from '@shared/dish-category'
 import { currentWeekStart, formatMoney, formatPercent } from '@shared/format'
 import { GUIDE_SHOW_MODE_LABELS } from '@shared/user-settings'
 import type { GuideShowMode } from '@shared/user-settings'
@@ -43,6 +45,12 @@ const CUISINES = ['粤菜', '川菜', '江浙', '湘菜', '鲁菜', '轻食', '�
 const SPICE = ['不吃辣', '微辣', '中辣', '重辣', '变态辣']
 const FLAVORS = ['清淡', '偏咸', '偏甜', '酸辣', '酱香']
 const STAPLES = ['米饭', '面食', '杂粮', '低碳']
+/** 家人口味里的菜品大类: 单选互斥, 第一项是「不限」——ChipGroup 单选不会取消选中, 必须留一个可回到不限的口子 */
+const CATEGORY_LABELS = DISH_CATEGORIES.map((item) => item.label)
+const CATEGORY_OPTIONS = ['不限', ...CATEGORY_LABELS]
+const CATEGORY_BY_LABEL = new Map<string, DishCategoryCode>(
+  DISH_CATEGORIES.map((item) => [item.label, item.code]),
+)
 /** Switch 打开时的颜色: 用语义绿, 与 Chip--accent / 状态点一致 */
 const SWITCH_COLOR = '#34c759'
 const GOALS = ['减脂', '增肌', '控糖', '控压', '维持']
@@ -63,6 +71,8 @@ interface DietForm {
   spice_level: number
   flavor_preference: string
   staple_preference: string
+  /** 菜品大类(互斥单选), null = 不限类别; 与 H5「家人的口味」同一份口径 */
+  dish_category: DishCategoryCode | null
 }
 
 interface AllergyForm {
@@ -156,6 +166,7 @@ export default function ProfilePage() {
     spice_level: 1,
     flavor_preference: '清淡',
     staple_preference: '米饭',
+    dish_category: null,
   })
   const [allergy, setAllergy] = useState<AllergyForm>({
     allergens: [],
@@ -202,6 +213,9 @@ export default function ProfilePage() {
           spice_level: data.diet_preference.spice_level,
           flavor_preference: data.diet_preference.flavor_preference,
           staple_preference: data.diet_preference.staple_preference,
+          dish_category: isDishCategoryCode(data.diet_preference.dish_category)
+            ? data.diet_preference.dish_category
+            : null,
         })
       }
       if (data.allergy_restriction) {
@@ -276,6 +290,12 @@ export default function ProfilePage() {
 
   const toggleIn = <T extends string>(list: T[], value: T): T[] =>
     list.includes(value) ? list.filter((item) => item !== value) : [...list, value]
+
+  /** 副标题里把菜品类别放最前 —— 它是最粗的一层筛选, 比其他口味项更该被一眼看到 */
+  const savedCategoryCode = summary?.diet_preference?.dish_category
+  const savedCategoryLabel = isDishCategoryCode(savedCategoryCode)
+    ? DISH_CATEGORY_LABELS[savedCategoryCode]
+    : ''
 
   const doneCount = summary
     ? [summary.household, summary.diet_preference, summary.allergy_restriction, summary.health_goal, summary.budget].filter(
@@ -484,7 +504,7 @@ export default function ProfilePage() {
             <Text className="d-setting-copy__title">口味与忌口</Text>
             <View className="d-setting-copy__sub">
               {summary?.diet_preference
-                ? `${summary.diet_preference.flavor_preference || '不限'} · ${SPICE[summary.diet_preference.spice_level] ?? ''}${
+                ? `${savedCategoryLabel ? `${savedCategoryLabel} · ` : ''}${summary.diet_preference.flavor_preference || '不限'} · ${SPICE[summary.diet_preference.spice_level] ?? ''}${
                     summary?.allergy_restriction?.allergens?.length
                       ? ` · 忌口 ${summary.allergy_restriction.allergens.slice(0, 2).join('、')}`
                       : ''
@@ -520,6 +540,16 @@ export default function ProfilePage() {
                 multiple={false}
                 selected={[diet.flavor_preference]}
                 onChange={(value) => setDiet((prev) => ({ ...prev, flavor_preference: value }))}
+              />
+              <ChipGroup
+                label="菜品类别"
+                hint="单选且互斥: 同一份方案里的菜(含主食)都同类, 中餐与西餐不会混在一起"
+                options={CATEGORY_OPTIONS}
+                multiple={false}
+                selected={[diet.dish_category ? DISH_CATEGORY_LABELS[diet.dish_category] : '不限']}
+                onChange={(value) =>
+                  setDiet((prev) => ({ ...prev, dish_category: CATEGORY_BY_LABEL.get(value) ?? null }))
+                }
               />
               <ChipGroup
                 label="主食偏好"

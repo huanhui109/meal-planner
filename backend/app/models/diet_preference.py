@@ -27,6 +27,11 @@ class DietPreference(Base, TimestampMixin):
     scene_tags: Mapped[Optional[str]] = mapped_column(
         String(500), nullable=True, comment="场景标签 JSON 数组"
     )
+    # 家人口味: 菜品大类单选(迁移 0027)。NULL = 不限, 但「同一方案类别一致」仍是硬规则,
+    # 不限只是不过滤候选, 不是允许混搭。值见 dish_category 字典表 / shared/dish-category.ts。
+    dish_category: Mapped[Optional[str]] = mapped_column(
+        String(32), nullable=True, comment="菜品大类(互斥单选), NULL=不限"
+    )
 
     # 关系
     user = relationship("User", back_populates="diet_preference")

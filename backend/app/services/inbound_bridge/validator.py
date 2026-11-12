@@ -1,4 +1,4 @@
-"""回执校验与唯一写入口。
+"""回执校验与兼容别名写入口。
 
 四元匹配 (令牌 + 事件类型 + task_id + phase)、服务端二次校验、两阶段幂等:
 - context 阶段: 条件补丁复核 (日期餐次不变 / 忌口不放宽 / None 不合法) ->
@@ -6,8 +6,12 @@
 - proposal 阶段: candidate_keys 必须属于 payload.candidate_keys -> 同事务调用
   MealService.propose() -> status=proposed。
 
-🔴 全模块只有 ReceiptValidator.commit() 可调用 MealService.propose(...)。
-任何异常分支 propose 调用次数为 0, 原方案不变; proposed 之后绝不自动 accept。
+兼容别名（deprecated）：统一模式的主链路是 ``/api/assistant/adjustments*``，
+由 ``AssistantAdjustmentService.commit()`` 直接发起模型请求并写入方案。本模块
+保留九端点的既有外契约，但方案写入已 **委托** 给统一核心的
+``AssistantAdjustmentService.propose_for_compat()``，全应用只有一处真正调用
+``MealService.propose()``。任何异常分支 propose 调用次数为 0，原方案不变；
+proposed 之后绝不自动 accept。
 """
 from __future__ import annotations
 
@@ -171,7 +175,14 @@ class ReceiptValidator:
         return {"status": "waking", "phase": "proposal", "wake": True}
 
     async def _commit_proposal(self, task: InboundTask, reply: ProposalReplyData) -> dict:
-        """阶段二: 二次校验通过后, 同事务调用 propose 并置 proposed。"""
+        """阶段二: 二次校验通过后, 委托统一核心写入方案并置 proposed。
+
+        兼容别名：九端点仍维护自己的 ``InboundTask`` 行，但真正的
+        ``MealService.propose()`` 只由 ``AssistantAdjustmentService`` 调用一次，
+        保证全应用单一方案写入口。
+        """
+        from app.services.assistant_adjustment_service import AssistantAdjustmentService
+
         allowed = set((task.payload or {}).get("candidate_keys") or [])
         if not set(reply.candidate_keys) <= allowed:
             # 0 次 propose, 原方案不变。
@@ -181,17 +192,12 @@ class ReceiptValidator:
             patch = MealContextPatch.model_validate((task.payload or {}).get("context") or {})
             # 第 3/4 步之间服务端二次校验最终由 propose() 的 check_revision() 兜底;
             # propose 结果与 status=proposed 同事务提交, 重复轮询不产生第二份方案。
-            async with self.db.begin_nested():
-                result = await self.meals.propose(
-                    task.user_id,
-                    patch,
-                    task.expected_revision,
-                    reply.candidate_keys,
-                    reply.reason,
-                )
-                task.proposal_id = result["proposal"]["id"]
-                task.status = "proposed"
-                await self.db.flush()
+            result = await AssistantAdjustmentService(self.db).propose_for_compat(
+                task.user_id, patch, task.expected_revision, reply.candidate_keys, reply.reason,
+            )
+            task.proposal_id = result["proposal"]["id"]
+            task.status = "proposed"
+            await self.db.flush()
         except HTTPException as exc:
             # 409 revision 冲突 / 422 校验失败: 原写入回滚, 0 次 propose, 原方案不变。
             task.status = "conflict" if exc.status_code == 409 else "failed"

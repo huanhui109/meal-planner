@@ -7,17 +7,38 @@ description: 为自己和家人安排这一餐。根据做饭或外卖、人数�
 
 通过本目录 `scripts/fandecide.py` 调用已授权的饭决服务，使用宿主助手的理解能力，不需要额外模型 Key。Python 3.11+，无第三方依赖。
 
-## 网页回执任务
+## 应用内部的候选菜品技能
+
+「交给 AI 调整」时，如果用户只给了**模糊描述**（口味、用餐场景、食材偏好等不完整信息），
+由饭决**服务端**调用独立的 `fandecide-candidates` 技能（本仓库
+`skills/fandecide-candidates/SKILL.md`，可执行契约在
+`backend/app/services/dish_candidate_skill.py`）：一次模型请求，返回默认 4 个（3–5）
+结构一致的真实候选菜品，字段可反向写入 `recipe` 表。触发条件、输入、输出字段、
+默认数量与低延迟约束全部写在那个目录的 `SKILL.md` 与 `contract.json`。
+
+- **作用域互斥**：本 Skill 只能从 candidates 选真实 key，**无权新增候选**；
+  候选技能可以提名新菜，但能否入池仍由服务端校验裁决。两者都不放宽「不得编造」。
+- 候选技能**只由应用内部调用**（`POST /api/assistant/candidates` 与候选池补全路径），
+  助手不要在对话里运行它，也不要替应用发起模型请求或保存方案。
+- `/api/assistant/skill.zip` 会附带 `candidates/SKILL.md` 与 `candidates/contract.json`，
+  供审计与联调。
+
+## 网页回执任务（兼容 / legacy）
+
+> **兼容说明**：统一模式现已由网页应用直接发起模型请求，助手**不再需要运行本节这类回执任务**；本节仅为旧版网页直发链路保留，下方 CLI 流程对 Skill 连接依然有效。
 
 收到 `task_type: fandecide_web_adjustment` 的任务时，使用任务内提供的上下文，不运行 CLI，也不读取本地连接凭据。按任务指定的 `request_id`、`phase` 返回一个 JSON 对象：
 
 - `context` 阶段只返回用户明确要求的条件补丁，未提及的条件不改，不变更日期与餐次。
 - `proposal` 阶段只从提供的候选中选择真实 key，返回 `candidate_keys` 和不超过 200 字的 `reason`。
+- 同一份方案里所有候选（含主食）的 `dish_category` 必须相同；中餐 `chinese` 与西餐 `western` 不能混搭。服务端会二次校验并拒绝跨类别方案。
 - 无法满足时返回同一 `request_id`、`phase` 和 `error`。不要为了返回方案而自行放宽条件。
 
 回执由饭决服务再次校验并保存；无需使用 CLI 重复保存，也不代表用户选定或吃过。普通对话继续使用下方 CLI 流程。
 
-## 双向唤醒回执任务
+## 双向唤醒回执任务（兼容 / legacy）
+
+> **兼容说明**：统一模式现已由网页应用直接发起模型请求，助手**不再需要运行本节这类回执任务**；`/api/inbound/bridge/*` 九端点仅保留为兼容别名，下方 CLI 流程对旧版 Skill／入站连接依然有效。
 
 收到 `task_type: fandecide_inbound_wake` 的任务时，这是「双向唤醒」链路（与上方网页回执任务并列，不替代）。由 `scripts/fandecide_inbound.py` 负责验签与回执，Python 3.11+，零第三方依赖。
 

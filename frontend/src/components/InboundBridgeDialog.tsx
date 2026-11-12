@@ -1,6 +1,8 @@
 /**
  * 双向唤醒触发弹窗 —— 与既有 MealAssistantDialog 并列, 互不修改。
  *
+ * 兼容资产（deprecated）：统一模式后本文件不再被挂载，保留供签名固定向量测试与旧调用方引用；不参与主流程。
+ *
  * 红线:
  *  - 网页侧令牌用密码框输入, 只存 React 内存态; 内存已有则显示「已就绪」;
  *  - 逐档状态用 aria-live="polite" + inboundBridgeLabel 如实告知, 不把异常说成成功;

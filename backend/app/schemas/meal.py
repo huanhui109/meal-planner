@@ -7,6 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 MealSlotName = Literal["breakfast", "lunch", "dinner", "late_night"]
 MealMode = Literal["auto", "cook", "takeout"]
+# 与 shared/dish-category.ts / dish_rules.DishCategory.ALL 一致, parity 测试会钉住
+DishCategoryCode = Literal["chinese", "western", "japanese_korean", "southeast_asian", "other"]
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 
 
@@ -25,6 +27,8 @@ class MealContext(BaseModel):
     light: bool = False
     use_fridge: bool = True
     avoid_recent: bool = True
+    # 长期口味里的互斥大类; None = 不限(不过滤候选), 但方案内类别一致仍是硬规则
+    dish_category: Optional[DishCategoryCode] = None
 
 
 class MealContextPatch(BaseModel):
@@ -42,6 +46,7 @@ class MealContextPatch(BaseModel):
     light: Optional[bool] = None
     use_fridge: Optional[bool] = None
     avoid_recent: Optional[bool] = None
+    dish_category: Optional[DishCategoryCode] = None
 
 
 class MealProposeRequest(BaseModel):

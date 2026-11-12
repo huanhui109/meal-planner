@@ -1,93 +1,58 @@
-# 饭决 FAN·DECIDE · 今天吃啥，交给饭决
+# 饭决 FAN·DECIDE
 
 [English](README_EN.md) | 简体中文
 
-> 围绕「这一餐」的家庭用餐助手：打开看到建议 → 接受或微调 → 做饭或点外卖 → 记录实际吃过。
-> 快速推荐不依赖模型 Key，也不要求先录入库存；饭决 Skill 借助宿主助手理解自然语言，
-> 与网页共用同一份用餐状态。
+> **今天吃啥，交给饭决。** 一个围绕「这一餐」的家用膳食助手：打开就看到建议 → 接受或微调 → 做饭或点外卖 → 记录真正吃了什么。
 >
-> **当前版本：2.9.0** · 最近更新 2026-11-06 · 变更见 [CHANGELOG.md](CHANGELOG.md)
+> 推荐由规则引擎驱动，**不需要模型 Key，也不要求先录入库存**；AI 只作为可选的调整手段，所有结论都由服务端按真实数据复核。
 >
-> 新工作台的领域结构、迁移与约束见 [docs/meal-workspace.md](docs/meal-workspace.md)；
-> 命名与信息架构的历史设计依据见 [docs/product-v2.md](docs/product-v2.md)（V2.0 时期文档）。
->
-> 网页一级导航为「这一餐 / 厨房 / 记录」。周菜单、采购、冰箱等旧能力作为兼容层保留，
-> 小程序端暂停新增功能。
+> **当前版本 2.9.0** · 更新于 2026-11-12 · 变更见 [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
-## 功能概览
+## 它能做什么
 
-### 2.9.0 · 这一餐工作台
+| 场景 | 饭决的做法 |
+| --- | --- |
+| 现在吃什么 | 按家庭人数、做饭/外卖、预算、参考用时、辣度和临时忌口，直接给出一份完整方案；条件冲突明确说明，不静默忽略 |
+| 不想被模型绑架 | 决策引擎是纯规则 + 分差带内软随机，断网或超时也能用内置菜池给出「本地答案」 |
+| 想用自然语言改 | 点「交给 AI 调整」说一句「想吃暖胃的、别太辣」，一次请求返回结构化建议，服务端复核后才生效 |
+| 想吃的菜池里没有 | 应用内的「候选菜品技能」按模糊描述补 3–5 道**真实存在**的菜，附现实依据与做法，校验通过才入池 |
+| 吃完之后 | `viewed / rejected / accepted / eaten` 四态分离，只有「吃过」进饮食历史；默认不扣库存，撤销可恢复 |
 
-- **自动给出完整一餐**：按家庭人数、做饭/外卖、预算目标、参考用时、辣度和临时忌口生成；
-  条件冲突明确说明，不静默忽略。空库存不阻止推荐。
-- **四态分离与可撤销**：`viewed / rejected / accepted / eaten` 分别记录，只有「吃过」才进饮食历史；
-  默认不扣库存，主动勾选才尝试精确扣减；扣库收据独立保留批次与保质期，撤销吃过可恢复。
-- **饭决 Skill**：`skills/fandecide/` 提供 Skill 说明与本机 CLI，可从 `/api/assistant/skill.zip` 下载；
-  助手只有 `meal:read` 与 `meal:propose` 作用域，凭据仅存 SHA256、可随时撤销，
-  且只从服务端返回的真实候选 key 组织方案。
-- **可选直连 WorkBuddy**：网页编辑要求后直接发送，自动等待并回显新方案；
-  支持刷新恢复、取消与离线复制；OAuth 凭据加密存储，不暴露给网页或模型。
-- **统一「助手连接」入口**：头像设置里同时管理网页直发与 Skill 凭据；
-  连接超时可恢复重试，未配置 WorkBuddy 时仍能单独创建 Skill 凭据。
-- **双向唤醒模块（独立特性，默认关闭）**：`/api/inbound/bridge/*` 九端点入站网关、
-  双向令牌对、事件白名单默认拒绝；L0（环境变量）与 L1（数据库）双层开关，关闭时端点返回 503。
-  **「补门不换桥」**：快速推荐、既有 `/api/assistant/adjustments` 旧桥与 Skill 连接完全不受影响。
-- **服务端校验不可被模型覆盖**：显式忌口、辣度、餐次、厨具条件与 `expected_revision` 乐观锁
-  均在 `MealService` / `MealCatalog` 二次校验；AI 只提建议，不覆盖基于真实数据生成的解释。
+对外菜品道数口径为 **342 道**（`is_dish=1`）。
 
-> ⚠ **联调状态**：真实 WorkBuddy 账号的平台级联调（真实 OAuth 授权、在线发送、宿主模型质量）
-> **尚未完成**。现有验收均为本地模拟与自动化测试，模拟通过不等于线上可用。
+## 核心设计
 
-### 兼容能力（历史版本，继续可用）
+- **规则优先、模型可选**：`shared/decide.ts` 与服务端 `decision_service.py` 离线同构；三条硬规则、理由 ≤20 字且纯规则生成，模型不参与打分排序。
+- **禁止杜撰**：候选池只有数据库 `recipe`、[`data/local_dish_pool.json`](data/local_dish_pool.json) 的 62 道本地菜与米饭。AI 不得编造菜名、配料或价格；唯一例外是按需求补全**现实中存在**的菜，且必须带依据、做法与来源标记，由 `write_dish()` 单一入口裁决入池。
+- **服务端最终裁决**：AI 只提建议；忌口、辣度、餐次、厨具、乐观锁与候选真实性都在 `MealService.propose()` 复查，不合规即失败，原方案不变。
+- **低延迟优先**：AI 调整与候选补全都是单跳请求、短超时、不重试、不追问；信息不足也直接给合理候选，失败即降级为规则推荐，不让用户干等。
+- **双端同源**：H5（React + Vite）与小程序（Taro + React）共用 `shared/` 的类型、格式化、决策规则、端点与设计令牌。
 
-- **登录与隔离**：飞书扫码（httpOnly Cookie，access 2h / refresh 30d）、微信小程序一键登录、
-  本地开发登录；三种账号并存且互相隔离，所有查询按用户过滤，越权返回 404。
-- **决策引擎**：`shared/decide.ts` 与服务端 `decision_service.py` 离线同构；
-  三条硬规则、分差带内软随机抽签、≤20 字纯规则理由；断网/超时时用内置菜池给出「本地答案」。
-  对外菜品道数口径为 **342 道**（`is_dish=1`）。
-- **周菜单**：异步任务（`202 + task_id`，可关页面轮询）、本地菜谱库优先（凑齐即零模型调用）、
-  换一道、锁定/解锁、标记已做；生成配额分首次 3 次/日与重新生成 10 次/日两档，互不占用。
-- **营养 / 预算 / 多样性 / 过敏源**：按日汇总热量与三大营养素供能比；
-  按 `ingredient.reference_price` 计价、超支告警而不阻断；近 4 周菜名 Jaccard 去重；
-  命中过敏源的菜品落库前剔除并在响应中告警。
-- **采购与库存闭环**：菜单需求 vs 冰箱库存差集、缺口数量与单位换算、一键复制；
-  临期优先扣减并写 `consumption_record`，缺料不阻断并返回明细。
-- **今日页 / 补单 / 自做 vs 外卖**：`GET /api/today` 一次请求拿全，任一模块失败不拖垮整页；
-  缺口按参考价凑起送价并给 deeplink；结论分 `homemade / takeout / either` 三档。
-- **拍照识别入库**、**可撤销**（换一道、标记已做）、**机器人状态卡**如实显示连接与调度状态。
-- **飞书 Bot**：事件回调（签名校验 + AES 解密 + `event_id` 去重 + 1 秒内响应），
-  指令直接查库回复；定时推送默认关闭，多 worker 用 MySQL `GET_LOCK` 抢锁保证只推一次。
-- **多端与设计系统**：H5 响应式（<1024px 悬浮胶囊 TabBar，≥1024px 左侧导航）；
-  小程序（Taro 4.2 + React）保留 4 Tab 兼容界面；两端共用 `shared/` 类型、格式化、
-  决策规则与设计令牌，见 [docs/design-system.md](docs/design-system.md)。
+## 应用内技能（Skills）
 
-### 二期（未启用，不影响使用）
+| Skill | 作用域 | 说明 |
+| --- | --- | --- |
+| [`skills/fandecide/`](skills/fandecide/SKILL.md) | 选菜 | 只能从服务端给的真实候选 key 组织一餐，无权新增候选；提供本机 CLI，运行时由 `/api/assistant/skill.zip` 分发 |
+| [`skills/fandecide-candidates/`](skills/fandecide-candidates/SKILL.md) | 补候选 | 接收模糊的口味／场景／食材描述，返回默认 4 道（范围 3–5 道）结构一致的真实菜品，字段可反向落到 `recipe` 表 |
 
-- 小象超市采集（Playwright 登录态、商品库、价格快照、食材-商品匹配）。
-  补单链路已用「参考价 + deeplink」打通，采集只用于把估算换成实价；
-  **当前版本不包含任何采集行为**。
-
----
+两个技能作用域互斥，且都不放宽「禁止杜撰」底线。候选技能的触发条件、输入、输出字段与默认数量见 [SKILL.md](skills/fandecide-candidates/SKILL.md) 与 [contract.json](skills/fandecide-candidates/contract.json)；工作台的领域结构、迁移与约束见 [docs/meal-workspace.md](docs/meal-workspace.md)。
 
 ## 技术栈
 
 | 层 | 技术 |
-|----|------|
-| 后端 | Python 3.11+（开发用 3.12） / FastAPI / SQLAlchemy 2.0 async / aiomysql |
-| 数据库 | MySQL 8.0 (utf8mb4) / Alembic 迁移（当前 head `0026`；39 张 ORM 业务表） |
-| 接口 | `backend/app/api/` 下 17 个业务路由模块 + 飞书 webhook，统一挂 `/api` |
-| 任务 | DB 表 + 进程内 worker (`SELECT ... FOR UPDATE SKIP LOCKED`) |
-| 定时 | APScheduler（默认关闭，跨 worker 用 MySQL `GET_LOCK`） |
+| --- | --- |
+| 后端 | Python 3.11+（开发用 3.12）/ FastAPI / SQLAlchemy 2.0 async / aiomysql |
+| 数据库 | MySQL 8.0（utf8mb4）/ Alembic 迁移 `0001 → 0028` |
+| 接口 | `backend/app/api/` 下业务路由 + 飞书 webhook，统一挂 `/api` |
+| 任务 / 定时 | 数据库任务表 + 进程内 worker（`SELECT ... FOR UPDATE SKIP LOCKED`）；APScheduler 默认关闭 |
 | 认证 | 飞书扫码 / 微信小程序 + 自签 JWT；助手作用域凭据独立 |
-| LLM | GLM-4 → Qwen-Max → DeepSeek（本地模型可选降级）；快速推荐不调用模型 |
+| 推荐 | 纯规则（默认，不调用模型）；可选 GLM-4 / Qwen / DeepSeek，或本机已授权的助手连接 |
 | H5 | React 18 / Vite 7 / TypeScript / Ant Design 5 / Vitest 3 |
 | 小程序 | Taro 4.2 / React 18 / TypeScript / SCSS（自研轻组件，不引 UI 库） |
-| 共享层 | `shared/` 纯 TS（类型 / 格式化 / 决策规则 / 端点 / 设计令牌） |
+| 共享层 | `shared/` 纯 TS：类型 / 格式化 / 决策规则 / 端点 / 设计令牌 |
 | 部署 | nginx + systemd + certbot（见 [deploy/README.md](deploy/README.md)） |
-
----
 
 ## 快速启动
 
@@ -148,6 +113,8 @@ make test                   # 需先 export TEST_DATABASE_URL
 
 > ⚠ 不设 `TEST_DATABASE_URL` 时集成用例是 **skip 不是 pass**，看到「全绿」先确认它真的跑了。
 
+真实配置只放在 `.env`（已忽略），仓库内只保留 `.env.example` 与 `config/default.yaml` 这类占位模板。
+
 ---
 
 ## 项目结构
@@ -156,16 +123,18 @@ make test                   # 需先 export TEST_DATABASE_URL
 meal-planner/
 ├── backend/
 │   ├── app/
-│   │   ├── api/          # 17 个业务路由模块 (auth / decide / menus / meals / assistant / inbound_bridge / ...)
-│   │   ├── models/       # 39 张 ORM 业务表
+│   │   ├── api/          # 业务路由（auth / decide / menus / meals / assistant / ...）
+│   │   ├── models/       # SQLAlchemy ORM 模型
 │   │   ├── schemas/      # Pydantic 请求/响应模型与序列化
-│   │   └── services/     # 决策、菜单、库存、这一餐工作台、助手桥接、双向唤醒
-│   ├── alembic/          # 迁移 0001 → 0026
+│   │   └── services/     # 决策、菜单、库存、这一餐工作台、助手桥接、候选补全
+│   ├── alembic/          # 迁移 0001 → 0028
 │   └── tests/            # unit / integration
 ├── frontend/             # React + Vite 的 H5 端（这一餐 / 厨房 / 记录）
 ├── miniapp/              # 微信小程序（Taro 4.2 + React），保留兼容界面
 ├── shared/               # 双端唯一真源：类型 / 格式化 / 决策规则 / 端点 / 设计令牌
-├── skills/fandecide/     # 饭决 Skill 说明与本机 CLI（/api/assistant/skill.zip 分发）
+├── skills/
+│   ├── fandecide/            # 选菜 Skill 说明与本机 CLI
+│   └── fandecide-candidates/ # 候选菜品 Skill 规格与输出契约
 ├── data/                 # 开源菜谱种子与语料
 ├── config/               # default.yaml 与 Prompt 模板
 ├── deploy/               # nginx / systemd / MySQL 初始化 / 上线手册
@@ -179,6 +148,7 @@ meal-planner/
 ## 文档
 
 - [这一餐工作台设计](docs/meal-workspace.md) —— 领域结构、数据边界、迁移与约束
+- [候选菜品技能规格](skills/fandecide-candidates/SKILL.md) · [输出契约](skills/fandecide-candidates/contract.json)
 - [架构设计](docs/architecture.md) · [数据库配置](docs/database-config.md) · [数据库说明（生成物快照）](docs/database.md)
 - [菜品数据设计](docs/dish-data-design.md) · [System One 接入](docs/system-one-integration.md)
 - [设计系统](docs/design-system.md) · [小程序品牌资产](docs/miniapp-brand-assets.md)
@@ -191,10 +161,19 @@ meal-planner/
 > `docs/database.md` 由 `make db-doc` 从某一时刻的本地库结构生成，其中的表数量是**快照值**；
 > 当前设计值以 `backend/app/models/` 与 alembic 迁移为准。
 
+## 兼容能力与边界
+
+- 飞书扫码 / 微信小程序 / 本地开发登录三种账号并存且互相隔离，所有查询按用户过滤，越权返回 404。
+- 周菜单、采购清单、冰箱库存、营养／预算／多样性／过敏源、拍照识别入库、飞书机器人等早期能力
+  作为兼容层继续可用；网页一级导航为「这一餐 / 厨房 / 记录」，小程序端暂停新增功能。
+- 「交给 AI 调整」依赖本机已授权的助手连接，**不是官方公开 API**，可能随上游调整而失效；连接缺失或
+  过期时应用如实报告不可用并降级为规则推荐，主流程不受影响。该链路目前只经过本地模拟与自动化测试，
+  真实账号的端到端效果尚未验证。
+- 二期规划中的比价采集能力**未启用**，当前版本不包含任何采集行为。
+
 ## 免责声明
 
-本工具仅供个人学习与家庭使用。二期涉及的小象超市数据采集为非官方实现，可能违反平台服务条款，
-使用者需自行承担相关风险；本期功能不包含任何采集行为。
+本工具面向个人学习与家庭使用，不提供医疗或营养建议。使用者需自行承担部署与第三方服务接入的相关风险。
 
 ## 许可证与分发
 
@@ -209,4 +188,4 @@ HowToCook（[Anduin2017/HowToCook](https://github.com/Anduin2017/HowToCook)，Un
 
 ---
 
-最后更新：2026-11-06
+最后更新：2026-11-12

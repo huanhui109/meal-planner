@@ -5,7 +5,7 @@ else
   PYTHON := $(CURDIR)/.venv/bin/python
 endif
 
-.PHONY: help ops up down restart status logs dev dev-backend dev-frontend install-backend install-frontend install-miniapp test test-cov test-frontend lint lint-frontend gen-tokens gen-logo ci build-frontend build-miniapp migrate migration seed db-doc fetch-recipes build-recipes-sql import-recipes backfill-nutrition backfill-decide-fields backfill-dish-scene backfill-is-dish backup tunnel playwright-install setup setup-local db-start db-stop db-status db-logs db-shell db-destroy
+.PHONY: help ops up down restart status logs dev dev-backend dev-frontend install-backend install-frontend install-miniapp test test-cov test-frontend lint lint-frontend gen-tokens gen-logo ci build-frontend build-miniapp migrate migration seed db-doc fetch-recipes build-recipes-sql import-recipes backfill-nutrition backfill-decide-fields backfill-dish-scene backfill-is-dish backfill-dish-category backup tunnel playwright-install setup setup-local db-start db-stop db-status db-logs db-shell db-destroy
 
 help:
 	@echo "make setup-local      - 一键装好本地环境 (MySQL/Python/依赖/迁移/种子/测试)"
@@ -19,6 +19,7 @@ help:
 	@echo "make backfill-nutrition - 用 LLM 为缺营养的菜谱批量补全热量与三大营养素"
 	@echo "make backfill-decide-fields - 回填决策字段(品类/主料/标签/极简做法), 纯规则; ARGS=\"--dry-run\" 可预览"
 	@echo "make backfill-dish-scene   - 回填场景字段(耗时/餐次/荤型/厨具/时令), 纯规则; ARGS=\"--dry-run\" 可预览"
+	@echo "make backfill-dish-category - 回填菜品互斥大类并维护字典表; ARGS=\"--dry-run --preview 30\" 可预览"
 	@echo "make ops              - 打开交互式运维台 (启动/停止/重启/日志/自检)"
 	@echo "make up               - 后台启动 数据库 + 后端 + 前端"
 	@echo "make down             - 停止 后端 + 前端"
@@ -113,8 +114,14 @@ build-recipes-sql:
 	$(PYTHON) scripts/import_recipes/cli.py build-sql
 
 # 幂等落库 (等价于执行生成的 SQL)
-import-recipes:
+# 菜谱落库后立刻按规则打上互斥大类, 否则全新部署的菜全是 other, 中西筛选形同虚设
+import-recipes: import-recipes-only backfill-dish-category
+
+import-recipes-only:
 	$(PYTHON) scripts/import_recipes/cli.py load
+
+backfill-dish-category:
+	$(PYTHON) scripts/backfill_dish_category.py $(ARGS)
 
 # 用 LLM 补全缺失的卡路里与三大营养素
 backfill-nutrition:

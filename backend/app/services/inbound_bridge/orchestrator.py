@@ -110,7 +110,7 @@ class WakeOrchestrator:
     # ---------------------------------------------------------------- 唤醒
 
     async def wake(self, task: InboundTask) -> InboundTask:
-        """M1: 只读在线判断 -> 用助手侧令牌签唤醒消息 -> send。M2: 只持久化待 /poll 拉取。"""
+        """兼容资产：统一模式不调用本方法。M1: 只读在线判断 -> 用助手侧令牌签唤醒消息 -> send。M2: 只持久化待 /poll 拉取。"""
         settings = self.settings.inbound_bridge
         now = meal_now()
 
@@ -169,7 +169,7 @@ class WakeOrchestrator:
 
     @staticmethod
     def reply(messages: list[dict], task: InboundTask) -> dict | None:
-        """从助手对话里挑出与 request_id + phase 匹配的 text JSON 回执。
+        """兼容资产：统一模式不调用本方法。从助手对话里挑出与 request_id + phase 匹配的 text JSON 回执。
 
         剥 ```json 围栏、<= 20000 上限; 无关对话 / 格式不对一律忽略。
         """
@@ -196,7 +196,7 @@ class WakeOrchestrator:
         return None
 
     async def poll(self, task: InboundTask) -> InboundTask:
-        """读 client.messages() 找匹配回执; 指数退避; 审批类只提示不代答。绝不 propose。"""
+        """兼容资产：统一模式不调用本方法。读 client.messages() 找匹配回执; 指数退避; 审批类只提示不代答。绝不 propose。"""
         now = meal_now()
         if task.next_poll_at > now:
             return task
@@ -293,4 +293,55 @@ class WakeOrchestrator:
             "next_poll_at": _iso(task.next_poll_at),
             "poll_failures": task.poll_failures,
             "created_at": _iso(task.created_at),
+        }
+
+    @classmethod
+    def from_unified(
+        cls,
+        unified_view: dict,
+        *,
+        pair_id: str = "",
+        session_id: str = "",
+        assistant_instance_id: str = "",
+        instruction: str = "",
+        expected_revision: int = 0,
+        event_type: str = "meal.adjust.requested",
+    ) -> dict:
+        """Map a unified ``AssistantAdjustmentService.view(job)`` into the exact
+        ``WakeOrchestrator.view(task)`` shape used by the nine compat endpoints.
+
+        ``instruction`` / ``expected_revision`` / ``pair_id`` / session binding are
+        explicit because the unified view does not carry the inbound island's
+        binding fields. Status translation keeps the inbound island's vocabulary
+        while the canonical state machine lives in the unified orchestrator:
+        ``sending|calling|waiting -> awaiting_assistant``, ``completed -> proposed``,
+        ``failed -> failed``, ``cancelled -> cancelled``.
+        """
+        status = unified_view.get("status", "")
+        translated = {
+            "sending": "awaiting_assistant",
+            "calling": "awaiting_assistant",
+            "waiting": "awaiting_assistant",
+            "completed": "proposed",
+            "failed": "failed",
+            "cancelled": "cancelled",
+        }.get(status, status or "failed")
+        return {
+            "task_id": unified_view.get("id", ""),
+            "user_id": 0,
+            "pair_id": pair_id,
+            "session_id": session_id,
+            "assistant_instance_id": assistant_instance_id,
+            "event_type": event_type,
+            "phase": "proposal",
+            "status": translated,
+            "instruction": instruction or unified_view.get("instruction", ""),
+            "expected_revision": expected_revision,
+            "message_id": None,
+            "error": unified_view.get("error"),
+            "proposal_id": unified_view.get("proposal_id"),
+            "expires_at": unified_view.get("expires_at"),
+            "next_poll_at": None,
+            "poll_failures": 0,
+            "created_at": None,
         }

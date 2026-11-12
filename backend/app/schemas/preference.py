@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.meal import DishCategoryCode
 from app.schemas.serializers import json_list
 
 # === Household ===
@@ -44,6 +45,14 @@ class DietPreferenceUpdate(BaseModel):
     staple_preference: Optional[str] = Field(default=None, description="主食偏好")
     # 「饭决」场景标签: 快手 / 常点外卖 / 愿意炖一小时 / 在家做 (引导第 3 问写入)
     scene_tags: List[str] = Field(default_factory=list, max_length=5, description="场景标签")
+    # 互斥大类(单选); None / 空 = 不限。Literal 在 schema 层就挡住非法值,
+    # 不让它流到 recipe.dish_category_code 上变成一条无归属的菜。
+    dish_category: Optional[DishCategoryCode] = Field(default=None, description="菜品大类: 中餐/西餐/日韩/东南亚·南亚/其他")
+
+    @field_validator("dish_category", mode="before")
+    @classmethod
+    def _blank_is_unset(cls, value):
+        return value or None
 
 
 class DietPreferenceResponse(BaseModel):
@@ -54,11 +63,18 @@ class DietPreferenceResponse(BaseModel):
     flavor_preference: Optional[str] = None
     staple_preference: Optional[str] = None
     scene_tags: List[str] = Field(default_factory=list)
+    dish_category: Optional[DishCategoryCode] = None
 
     @field_validator("cuisines", "scene_tags", mode="before")
     @classmethod
     def _parse_cuisines(cls, value):
         return json_list(value)
+
+    @field_validator("dish_category", mode="before")
+    @classmethod
+    def _blank_is_unset(cls, value):
+        # 老数据/老客户端可能写空串, 空串和 None 都是「不限」
+        return value or None
 
 
 # === Allergy Restriction ===

@@ -1,3 +1,12 @@
+"""Unified in-app direct model request — endpoint-level integration (real MySQL).
+
+The old two-phase "web direct" bridge (send prompt into the WorkBuddy
+conversation, poll /localassistant/message twice) has been replaced by ONE
+direct model call made by the backend during ``GET /adjustments/{id}``. A fake
+``WorkBuddyModelClient`` stands in for the locally signed-in upstream; the
+legacy official-OAuth ``WorkBuddyClient`` fake is kept because the OAuth
+callback/compat endpoints are still exercised here.
+"""
 from __future__ import annotations
 
 import asyncio
@@ -12,7 +21,12 @@ from app.models.allergy_restriction import AllergyRestriction
 from app.models.assistant_bridge import AssistantAdjustment, WorkBuddyConnection
 from app.models.meal import MealEvent, MealProposal, MealStockMovement
 from app.services.meal_service import meal_now
-from app.services.workbuddy_client import SCOPES, WorkBuddyClient, WorkBuddyError, get_workbuddy_client
+from app.services.workbuddy_client import SCOPES, WorkBuddyClient, get_workbuddy_client
+from app.services.workbuddy_model_client import (
+    ChatEnvelope,
+    WorkBuddyModelClient,
+    get_workbuddy_model_client,
+)
 from sqlalchemy import select
 
 from tests.conftest import requires_mysql
@@ -21,7 +35,63 @@ from tests.factories import make_user
 pytestmark = requires_mysql
 
 
+class FakeWorkBuddyModel(WorkBuddyModelClient):
+    """Returns a canned model reply with REAL candidate keys from the prompt."""
+
+    def __init__(self):
+        super().__init__(Settings(workbuddy=WorkBuddySettings(model_timeout_seconds=10)))
+        self.calls: list[dict] = []
+        self.reply_override = None
+        self.failure = None
+        self.blocking: tuple[asyncio.Event, asyncio.Event] | None = None
+
+    async def status(self):
+        return {"available": True, "region": "cn", "model": "hy4free", "message": "本机 WorkBuddy 已登录"}
+
+    async def chat(self, prompt: str, *, model: str = "") -> ChatEnvelope:
+        payload = json.loads(prompt.splitlines()[-1])
+        self.calls.append(payload)
+        if self.blocking:
+            entered, resume = self.blocking
+            entered.set()
+            await asyncio.wait_for(resume.wait(), timeout=5)
+        if self.failure is not None:
+            return ChatEnvelope.failure(502, "server", self.failure)
+        if self.reply_override is not None:
+            reply = self.reply_override(payload)
+        else:
+            candidates = payload.get("candidates") or []
+            by_role: dict[str, list[dict]] = {}
+            for dish in candidates:
+                by_role.setdefault(dish.get("role", ""), []).append(dish)
+            servings = (payload.get("context") or {}).get("servings", 1)
+            keys: list[str]
+            if servings <= 1 and by_role.get("complete"):
+                keys = [by_role["complete"][0]["key"]]
+            elif by_role.get("main") and by_role.get("side") and by_role.get("staple"):
+                keys = [
+                    by_role["main"][0]["key"],
+                    by_role["side"][0]["key"],
+                    by_role["staple"][0]["key"],
+                ]
+            elif by_role.get("complete") and by_role.get("side"):
+                keys = [by_role["complete"][0]["key"], by_role["side"][0]["key"]]
+            else:
+                keys = [dish["key"] for dish in candidates[:3]]
+            reply = {
+                "request_id": payload["request_id"], "phase": "proposal",
+                "candidate_keys": keys, "reason": "按两人、不开火、不辣的要求搭配",
+            }
+            # A returned condition patch is re-validated server-side. It must not
+            # change the composition family the keys were chosen for.
+            reply["context"] = {"mode": "takeout", "max_spice": 0}
+        text = json.dumps(reply, ensure_ascii=False)
+        return ChatEnvelope.success(text, model="hy4free", region="cn")
+
+
 class FakeWorkBuddy(WorkBuddyClient):
+    """Legacy official-OAuth client; kept for the still-supported OAuth endpoints."""
+
     def __init__(self):
         super().__init__(Settings(
             workbuddy=WorkBuddySettings(
@@ -30,13 +100,8 @@ class FakeWorkBuddy(WorkBuddyClient):
             ),
             auth={"jwt_secret": "test-credential-encryption-key-32-characters"},
         ))
-        self.sent = []
         self.token_calls = []
         self.is_online = True
-        self.patch = {"mode": "takeout", "servings": 2, "max_spice": 0}
-        self.reply_override = None
-        self.send_error = None
-        self.poll_error = None
 
     async def token(self, **kwargs):
         self.token_calls.append(kwargs)
@@ -49,42 +114,18 @@ class FakeWorkBuddy(WorkBuddyClient):
         assert token == "private-access-token"
         return self.is_online
 
-    async def send(self, token, content):
-        if self.send_error:
-            raise self.send_error
-        self.sent.append(json.loads(content.splitlines()[-1]))
-        assert "private-access-token" not in content and "fd_skill_" not in content
-        return f"message-{len(self.sent)}"
-
-    async def messages(self, token, message_id):
-        if self.poll_error:
-            raise self.poll_error
-        prompt = self.sent[int(message_id.split("-")[-1]) - 1]
-        if self.reply_override:
-            reply = self.reply_override(prompt)
-        elif prompt["phase"] == "context":
-            reply = {"request_id": prompt["request_id"], "phase": "context", "context": self.patch}
-        else:
-            complete = next(d for d in prompt["candidates"] if d["role"] == "complete")
-            side = next(d for d in prompt["candidates"] if d["role"] == "side")
-            reply = {
-                "request_id": prompt["request_id"], "phase": "proposal",
-                "candidate_keys": [complete["key"], side["key"]], "reason": "按两人、不辣和外卖要求搭配",
-            }
-        return [
-            {"role": "assistant", "msg_type": "text", "content": ['{"private":"unrelated host conversation"}']},
-            {"role": "assistant", "msg_type": "text", "content": [json.dumps(reply, ensure_ascii=False)]},
-        ]
-
 
 @pytest.fixture
 def host():
     from app.main import app
 
     fake = FakeWorkBuddy()
+    model = FakeWorkBuddyModel()
     app.dependency_overrides[get_workbuddy_client] = lambda: fake
-    yield fake
+    app.dependency_overrides[get_workbuddy_model_client] = lambda: model
+    yield model, fake
     app.dependency_overrides.pop(get_workbuddy_client, None)
+    app.dependency_overrides.pop(get_workbuddy_model_client, None)
 
 
 async def connect(api_client, headers):
@@ -137,9 +178,75 @@ async def poll_due(db_session, api_client, headers, job_id):
     return response.json()["data"]
 
 
+# ------------------------------------------------------------------ status
+
+async def test_model_status_is_readonly_and_lists_the_catalog(
+    db_session, api_client, auth_headers, host,
+):
+    model, _ = host
+    user = await make_user(db_session)
+    await db_session.commit()
+    headers = auth_headers(user.id)
+    response = await api_client.get("/api/assistant/model", headers=headers)
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["available"] is True and data["region"] == "cn"
+    # No explicit choice -> auto, resolved from the catalog's free tier.
+    assert data["auto"] is True and data["selected"] == ""
+    assert data["model"] == "hy4free"
+    assert isinstance(data["catalog"], list)
+    assert model.calls == []  # status must never call chat
+
+
+async def test_model_choice_is_user_scoped_and_persisted(
+    db_session, api_client, auth_headers, host,
+):
+    model, _ = host
+    user = await make_user(db_session)
+    other = await make_user(db_session, open_id="other-model-user")
+    await db_session.commit()
+    headers = auth_headers(user.id)
+
+    rejected = await api_client.post(
+        "/api/assistant/model", headers=headers, json={"model": "not-a-real-model"},
+    )
+    assert rejected.status_code == 422
+
+    chosen = await api_client.post(
+        "/api/assistant/model", headers=headers, json={"model": "kimi-k3-1", "region": "cn"},
+    )
+    assert chosen.status_code == 200, chosen.text
+    assert chosen.json()["data"]["effective"] == "kimi-k3-1"
+
+    mine = (await api_client.get("/api/assistant/model", headers=headers)).json()["data"]
+    assert mine["selected"] == "kimi-k3-1" and mine["auto"] is False
+    theirs = (await api_client.get(
+        "/api/assistant/model", headers=auth_headers(other.id),
+    )).json()["data"]
+    assert theirs["selected"] == "" and theirs["auto"] is True
+
+    reset = await api_client.post("/api/assistant/model", headers=headers, json={"model": ""})
+    assert reset.json()["data"]["auto"] is True
+
+
+async def test_login_endpoints_are_user_agnostic_but_never_return_tokens(
+    api_client,
+):
+    started = await api_client.post("/api/assistant/login", json={"region": "cn"})
+    # An unreachable upstream is reported, not raised; the shape is stable.
+    assert started.status_code == 200
+    data = started.json()["data"]
+    assert "ok" in data
+    assert "private-" not in started.text and "fd_skill_" not in started.text
+    missing = await api_client.get("/api/assistant/login/wbo_missing")
+    assert missing.status_code == 200
+    assert missing.json()["data"]["done"] is True
+
+
 async def test_oauth_state_is_single_use_bound_to_user_and_tokens_stay_encrypted(
     db_session, api_client, auth_headers, host,
 ):
+    _, legacy = host
     user = await make_user(db_session)
     other = await make_user(db_session, open_id="other-workbuddy-user")
     await db_session.commit()
@@ -155,7 +262,7 @@ async def test_oauth_state_is_single_use_bound_to_user_and_tokens_stay_encrypted
         "state": state, "code": "test-code",
     })
     assert "failed" in crossed.headers["location"]
-    assert len(host.token_calls) == 1
+    assert len(legacy.token_calls) == 1
     status = await api_client.get("/api/assistant/workbuddy", headers=headers)
     assert status.json()["data"]["state"] == "online"
     assert status.headers["cache-control"] == "no-store"
@@ -167,47 +274,57 @@ async def test_oauth_state_is_single_use_bound_to_user_and_tokens_stay_encrypted
     connection.expires_at = meal_now() - timedelta(seconds=1)
     await db_session.commit()
     assert (await api_client.get("/api/assistant/workbuddy", headers=headers)).json()["data"]["state"] == "online"
-    assert host.token_calls[-1] == {"refresh_token": "private-refresh-token"}
+    assert legacy.token_calls[-1] == {"refresh_token": "private-refresh-token"}
 
 
-async def test_two_turn_roundtrip_is_idempotent_shared_and_does_not_confirm_or_deduct(
+# ------------------------------------------------------------------ unified roundtrip
+
+async def test_single_direct_call_is_idempotent_shared_and_does_not_confirm_or_deduct(
     db_session, api_client, auth_headers, host,
 ):
+    model, _ = host
     _, headers, meal = await setup_meal(db_session, api_client, auth_headers)
     job, body = await start(api_client, headers, meal)
-    assert job["status"] == "waiting" and job["phase"] == "context"
+    assert job["status"] == "sending" and job["phase"] == "proposal"
+    assert job["source"] == "model"
+    assert model.calls == []  # start() is fast: no network
+
     repeated = await api_client.post("/api/assistant/adjustments", headers=headers, json=body)
     assert repeated.json()["data"]["id"] == job["id"]
-    assert len(host.sent) == 1
+    assert model.calls == []
+
     restored = await api_client.get("/api/assistant/adjustments/current", headers=headers, params={
         "meal_slot": meal["context"]["meal_slot"], "meal_date": meal["context"]["meal_date"],
     })
     assert restored.json()["data"]["id"] == job["id"]
-    stage2 = await poll_due(db_session, api_client, headers, job["id"])
-    assert stage2["phase"] == "proposal" and stage2["status"] == "waiting"
-    assert len(host.sent[-1]["candidates"]) <= 120
-    assert all("steps" not in candidate for candidate in host.sent[-1]["candidates"])
+
     done = await poll_due(db_session, api_client, headers, job["id"])
     assert done["status"] == "completed" and done["proposal_id"]
-    repeated = await api_client.get(f"/api/assistant/adjustments/{job['id']}", headers=headers)
-    assert repeated.json()["data"]["proposal_id"] == done["proposal_id"]
+    assert len(model.calls) == 1  # exactly ONE direct model request
+    assert len(model.calls[0]["candidates"]) <= 120
+    assert all("steps" not in candidate for candidate in model.calls[0]["candidates"])
+
+    repeated_poll = await api_client.get(f"/api/assistant/adjustments/{job['id']}", headers=headers)
+    assert repeated_poll.json()["data"]["proposal_id"] == done["proposal_id"]
+    assert len(model.calls) == 1  # repeated poll never calls the model again
+
     current = (await api_client.get("/api/meals/current?meal_slot=dinner", headers=headers)).json()["data"]
     assert current["revision"] == meal["revision"] + 1
     assert current["proposal"]["id"] == done["proposal_id"]
     assert current["proposal"]["status"] == "proposed"
     assert current["proposal"]["source"] == "assistant"
-    assert current["context"]["mode"] == "takeout" and current["context"]["servings"] == 2
-    assert current["context"]["max_spice"] == 0
+    # The model's returned condition patch was applied SERVER-SIDE after re-validation.
+    assert current["context"]["mode"] == "takeout" and current["context"]["max_spice"] == 0
     assert (await db_session.execute(select(MealStockMovement))).scalars().all() == []
     kinds = (await db_session.execute(select(MealEvent.kind))).scalars().all()
     assert "accepted" not in kinds and "eaten" not in kinds
     assert "unrelated host conversation" not in json.dumps(done)
-    assert len(host.sent) == 2
 
 
-async def test_cross_user_grant_and_request_ids_cannot_invoke_or_read_other_users(
+async def test_cross_user_and_skill_grant_cannot_invoke_or_read_other_users(
     db_session, api_client, auth_headers, host,
 ):
+    model, _ = host
     _, headers, meal = await setup_meal(db_session, api_client, auth_headers)
     job, body = await start(api_client, headers, meal)
     other = await make_user(db_session, open_id="other-workbuddy-user")
@@ -220,11 +337,12 @@ async def test_cross_user_grant_and_request_ids_cannot_invoke_or_read_other_user
     grant = (await api_client.post("/api/assistant/grants", headers=headers, json={})).json()["data"]
     token = {"Authorization": f"Bearer {grant['token']}"}
     assert (await api_client.post("/api/assistant/adjustments", headers=token, json=body)).status_code == 401
-    assert len(host.sent) == 1
+    assert model.calls == []
 
 
 @pytest.mark.parametrize("operation", ["cancel", "disconnect"])
 async def test_cancel_and_disconnect_prevent_late_results(db_session, api_client, auth_headers, host, operation):
+    model, _ = host
     _, headers, meal = await setup_meal(db_session, api_client, auth_headers)
     job, _ = await start(api_client, headers, meal)
     if operation == "cancel":
@@ -236,38 +354,38 @@ async def test_cancel_and_disconnect_prevent_late_results(db_session, api_client
     assert receipt["status"] == "cancelled"
     current = (await api_client.get("/api/meals/current?meal_slot=dinner", headers=headers)).json()["data"]
     assert current["proposal"]["id"] == meal["proposal"]["id"]
-    assert len(host.sent) == 1
+    assert model.calls == []
     if operation == "disconnect":
         assert (await db_session.execute(select(WorkBuddyConnection))).scalar_one_or_none() is None
 
 
-@pytest.mark.parametrize("failure", ["missing_authorization", "offline", "ambiguous_send"])
-async def test_unavailable_assistant_preserves_original_meal_and_never_blindly_resends(
+@pytest.mark.parametrize("failure", ["vault_unavailable", "ambiguous_call"])
+async def test_unavailable_model_preserves_original_meal_and_never_blindly_resends(
     db_session, api_client, auth_headers, host, failure,
 ):
-    _, headers, meal = await setup_meal(
-        db_session, api_client, auth_headers, connected=failure != "missing_authorization",
-    )
-    host.is_online = failure != "offline"
-    if failure == "ambiguous_send":
-        host.send_error = WorkBuddyError("发送状态不明", transient=True)
+    model, _ = host
+    _, headers, meal = await setup_meal(db_session, api_client, auth_headers)
+    if failure == "vault_unavailable":
+        model.failure = "本机 WorkBuddy 登录态不可用"
+    elif failure == "ambiguous_call":
+        model.failure = "WorkBuddy 模型请求超时"
     job, body = await start(api_client, headers, meal)
-    assert job["status"] == "failed"
-    assert job["error"]
+    receipt = await poll_due(db_session, api_client, headers, job["id"])
+    assert receipt["status"] == "failed" and receipt["error"]
     for _ in range(2):
-        repeated = await api_client.post("/api/assistant/adjustments", headers=headers, json=body)
-        assert repeated.json()["data"]["status"] == "failed"
+        repeated = await poll_due(db_session, api_client, headers, job["id"])
+        assert repeated["status"] == "failed"
     current = (await api_client.get("/api/meals/current?meal_slot=dinner", headers=headers)).json()["data"]
     assert current["proposal"]["id"] == meal["proposal"]["id"]
-    assert host.sent == []
+    # A failed call is NEVER auto-resent: at most one attempt got made.
+    assert len(model.calls) <= 1
 
 
-async def test_external_revision_change_and_invalid_reply_never_overwrite(
+async def test_external_revision_change_is_not_overwritten(
     db_session, api_client, auth_headers, host,
 ):
     _, headers, meal = await setup_meal(db_session, api_client, auth_headers)
     job, _ = await start(api_client, headers, meal)
-    await poll_due(db_session, api_client, headers, job["id"])
     updated = await api_client.post("/api/meals/propose", headers=headers, json={
         "context": meal["context"], "expected_revision": meal["revision"],
     })
@@ -283,10 +401,10 @@ async def test_external_revision_change_and_invalid_reply_never_overwrite(
 async def test_invalid_ai_results_are_explained_and_never_saved(
     db_session, api_client, auth_headers, host, kind,
 ):
+    model, _ = host
     _, headers, meal = await setup_meal(db_session, api_client, auth_headers)
     job, _ = await start(api_client, headers, meal)
     if kind == "unknown_key":
-        await poll_due(db_session, api_client, headers, job["id"])
         extra = {"candidate_keys": ["invented-key"], "reason": "不要校验"}
     elif kind == "invalid_schema":
         extra = {"context": {"servings": 200}}
@@ -296,35 +414,29 @@ async def test_invalid_ai_results_are_explained_and_never_saved(
         extra = {"context": {"meal_slot": "breakfast"}}
     else:
         extra = {"context": {"servings": None}}
-    host.reply_override = lambda prompt: {"request_id": prompt["request_id"], "phase": prompt["phase"], **extra}
+    model.reply_override = lambda payload: {"request_id": payload["request_id"], "phase": "proposal", **extra}
     receipt = await poll_due(db_session, api_client, headers, job["id"])
     assert receipt["status"] == "failed" and receipt["error"]
     proposals = (await db_session.execute(select(MealProposal))).scalars().all()
     assert len(proposals) == 1 and proposals[0].id == meal["proposal"]["id"]
 
 
-async def test_wrong_request_reply_is_ignored_timeout_is_terminal_and_poll_errors_back_off(
+async def test_wrong_request_reply_is_ignored_and_timeout_is_terminal(
     db_session, api_client, auth_headers, host,
 ):
+    model, _ = host
     _, headers, meal = await setup_meal(db_session, api_client, auth_headers)
     job, _ = await start(api_client, headers, meal)
-    host.reply_override = lambda prompt: {"request_id": str(uuid4()), "phase": "context", "context": {"servings": 20}}
-    waiting = await poll_due(db_session, api_client, headers, job["id"])
-    assert waiting["status"] == "waiting"
-    host.poll_error = WorkBuddyError("请求较多", transient=True)
-    receipt = await poll_due(db_session, api_client, headers, job["id"])
-    assert receipt["status"] == "waiting" and receipt["poll_after_ms"] >= 5000
-    row = (await db_session.execute(select(AssistantAdjustment))).scalar_one()
-    row.expires_at = meal_now() - timedelta(seconds=1)
-    await db_session.commit()
-    expired = await api_client.get(f"/api/assistant/adjustments/{job['id']}", headers=headers)
-    assert expired.json()["data"]["status"] == "failed"
-    assert len(host.sent) == 1
+    model.reply_override = lambda payload: {"request_id": str(uuid4()), "phase": "proposal", "candidate_keys": [], "reason": "x"}
+    failed = await poll_due(db_session, api_client, headers, job["id"])
+    assert failed["status"] == "failed"
+    assert len(model.calls) == 1
 
 
-async def test_concurrent_start_and_poll_do_not_duplicate_messages_or_proposals(
+async def test_concurrent_polls_do_not_duplicate_model_calls_or_proposals(
     db_session, api_client, auth_headers, host,
 ):
+    model, _ = host
     _, headers, meal = await setup_meal(db_session, api_client, auth_headers)
     body = {
         "request_id": str(uuid4()), "instruction": "两个人，不开火，不辣",
@@ -334,45 +446,36 @@ async def test_concurrent_start_and_poll_do_not_duplicate_messages_or_proposals(
         api_client.post("/api/assistant/adjustments", headers=headers, json=body) for _ in range(3)
     ])
     assert all(response.status_code == 200 for response in responses)
-    assert len(host.sent) == 1
+    assert model.calls == []
     job_id = body["request_id"]
-    await poll_due(db_session, api_client, headers, job_id)
-    assert len(host.sent) == 2
     row = (await db_session.execute(
         select(AssistantAdjustment).execution_options(populate_existing=True),
     )).scalar_one()
     row.next_poll_at = meal_now() - timedelta(seconds=1)
     await db_session.commit()
-    responses = await asyncio.gather(*[
+    polled = await asyncio.gather(*[
         api_client.get(f"/api/assistant/adjustments/{job_id}", headers=headers) for _ in range(3)
     ])
-    assert all(response.status_code == 200 for response in responses)
+    assert all(response.status_code == 200 for response in polled)
     final = (await api_client.get(f"/api/assistant/adjustments/{job_id}", headers=headers)).json()["data"]
     assert final["status"] == "completed"
+    assert len(model.calls) == 1, "concurrent polls must not duplicate the paid model call"
     assert len((await db_session.execute(select(MealProposal))).scalars().all()) == 2
-    assert len(host.sent) == 2
 
 
-async def test_disconnect_during_remote_reply_wins_over_late_result(
+async def test_disconnect_during_model_call_wins_over_late_result(
     db_session, api_client, auth_headers, host,
 ):
+    model, _ = host
     _, headers, meal = await setup_meal(db_session, api_client, auth_headers)
     job, _ = await start(api_client, headers, meal)
-    await poll_due(db_session, api_client, headers, job["id"])
+    entered, resume = asyncio.Event(), asyncio.Event()
+    model.blocking = (entered, resume)
     row = (await db_session.execute(
         select(AssistantAdjustment).execution_options(populate_existing=True),
     )).scalar_one()
     row.next_poll_at = meal_now() - timedelta(seconds=1)
     await db_session.commit()
-    entered, resume = asyncio.Event(), asyncio.Event()
-    original = host.messages
-
-    async def delayed(*args):
-        entered.set()
-        await asyncio.wait_for(resume.wait(), timeout=5)
-        return await original(*args)
-
-    host.messages = delayed
     poll = asyncio.create_task(api_client.get(f"/api/assistant/adjustments/{job['id']}", headers=headers))
     await asyncio.wait_for(entered.wait(), timeout=5)
     try:
@@ -388,20 +491,21 @@ async def test_disconnect_during_remote_reply_wins_over_late_result(
 async def test_disconnect_during_oauth_exchange_does_not_reconnect(
     db_session, api_client, auth_headers, host,
 ):
+    _, legacy = host
     user = await make_user(db_session)
     await db_session.commit()
     headers = auth_headers(user.id)
     response = await api_client.post("/api/assistant/workbuddy/authorize", headers=headers)
     state = parse_qs(urlsplit(response.json()["data"]["url"]).query)["state"][0]
     entered, resume = asyncio.Event(), asyncio.Event()
-    original = host.token
+    original = legacy.token
 
     async def delayed(**kwargs):
         entered.set()
         await asyncio.wait_for(resume.wait(), timeout=5)
         return await original(**kwargs)
 
-    host.token = delayed
+    legacy.token = delayed
     callback = asyncio.create_task(api_client.get(
         "/api/assistant/workbuddy/callback", headers=headers, params={"state": state, "code": "code"},
     ))
@@ -418,10 +522,19 @@ async def test_disconnect_during_oauth_exchange_does_not_reconnect(
 async def test_new_allergy_during_waiting_invalidates_previously_offered_candidates(
     db_session, api_client, auth_headers, host,
 ):
+    """An allergy added AFTER the task was created must still block the write.
+
+    The unified path recomputes/validates candidates inside propose(), so a
+    server-side restriction added while the task waits cannot be overridden by
+    the model's earlier candidate list.
+    """
+    model, _ = host
     user, headers, meal = await setup_meal(db_session, api_client, auth_headers)
     job, _ = await start(api_client, headers, meal)
-    await poll_due(db_session, api_client, headers, job["id"])
-    offered = next(dish for dish in host.sent[-1]["candidates"] if dish["role"] == "complete")
+    candidates = (await db_session.execute(
+        select(AssistantAdjustment).execution_options(populate_existing=True),
+    )).scalar_one().payload["candidates"]
+    offered = next(dish for dish in candidates if dish["role"] == "complete")
     db_session.add(AllergyRestriction(
         user_id=user.id, allergens=json.dumps(offered["ingredients"], ensure_ascii=False),
     ))

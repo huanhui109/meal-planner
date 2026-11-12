@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AssistantAdjustment, AssistantAdjustmentRequest, MealView, WorkBuddyStatus } from '@shared/meal'
+import type {
+  AssistantAdjustment, AssistantAdjustmentRequest, MealView, ModelConnectionStatus, WorkBuddyStatus,
+} from '@shared/meal'
 import { adjustmentPending } from '@shared/meal'
 import {
   cancelAssistantAdjustment, getAssistantAdjustment, getCurrentAdjustment,
-  getWorkBuddyStatus, startAssistantAdjustment,
+  getModelStatus, getWorkBuddyStatus, startAssistantAdjustment,
 } from '../api/meals'
 
 export function useMealAssistant(view: MealView | null, onUpdated: () => Promise<void>) {
   const [job, setJob] = useState<AssistantAdjustment | null>(null)
   const [draft, setDraft] = useState('')
   const [status, setStatus] = useState<WorkBuddyStatus | null>(null)
+  const [modelStatus, setModelStatus] = useState<ModelConnectionStatus | null>(null)
   const [checking, setChecking] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -18,6 +21,7 @@ export function useMealAssistant(view: MealView | null, onUpdated: () => Promise
   const epoch = useRef(0)
   const lock = useRef(false)
   const statusRequest = useRef(0)
+  const modelStatusRequest = useRef(0)
   const request = useRef<AssistantAdjustmentRequest | null>(null)
   const applied = useRef('')
   const date = view?.context.meal_date
@@ -42,9 +46,21 @@ export function useMealAssistant(view: MealView | null, onUpdated: () => Promise
     return () => { epoch.current += 1 }
   }, [date, slot])
 
+  // 模型状态用独立 ticket，避免较慢的 /assistant/model 请求覆盖 WorkBuddy 状态或彼此错乱。
+  const checkModelStatus = useCallback(async () => {
+    const ticket = ++modelStatusRequest.current
+    try {
+      const next = await getModelStatus()
+      if (ticket === modelStatusRequest.current) setModelStatus(next)
+    } catch {
+      if (ticket === modelStatusRequest.current) setModelStatus(null)
+    }
+  }, [])
+
   const checkStatus = useCallback(async () => {
     const ticket = ++statusRequest.current
     setChecking(true)
+    void checkModelStatus()
     try {
       const next = await getWorkBuddyStatus()
       if (ticket === statusRequest.current) setStatus(next)
@@ -56,7 +72,7 @@ export function useMealAssistant(view: MealView | null, onUpdated: () => Promise
     } finally {
       if (ticket === statusRequest.current) setChecking(false)
     }
-  }, [])
+  }, [checkModelStatus])
 
   useEffect(() => {
     if (!job || !adjustmentPending(job)) return
@@ -135,7 +151,8 @@ export function useMealAssistant(view: MealView | null, onUpdated: () => Promise
   }
 
   return {
-    job, draft, setDraft, status, checking, checkStatus, submitting, error, uncertain, restoring,
+    job, draft, setDraft, status, modelStatus, checking, checkStatus, checkModelStatus,
+    submitting, error, uncertain, restoring,
     pending: submitting || uncertain || adjustmentPending(job),
     send, cancel,
   }

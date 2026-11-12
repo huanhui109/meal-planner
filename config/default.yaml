@@ -273,6 +273,21 @@ llm:
   # 本地演示: 开启后不调用任何外部模型, 返回固定的一周菜单 (生产必须 false)
   demo: false
 
+# 统一模式: 应用内直接发起 WorkBuddy 模型请求。这里只放非敏感的默认值,
+# 密钥 / vault 路径一律由 APP__WORKBUDDY__* 环境变量注入 (见 .env.example), 绝不写进本文件。
+# 本机 dsh-connect-workbuddy 插件落盘的 vault 目录只能由后端只读, 不在本文件里配置真实路径。
+workbuddy:
+  model: ""                      # 留空则从 catalog 免费档 hy4free / hy3 取, 或由 APP__WORKBUDDY__MODEL 指定
+  model_timeout_seconds: 90      # 单次模型请求超时秒数
+  chat_base_cn: ""               # 留空用内置 CN 上游地址, 或由 APP__WORKBUDDY__CHAT_BASE_CN 覆盖
+  chat_base_global: ""           # 留空用内置 global 上游地址, 或由 APP__WORKBUDDY__CHAT_BASE_GLOBAL 覆盖
+  vault_dir: ""                  # 留空用默认 $DSH_HOME/workbuddy-vault; vault 目录只读, 由环境变量注入
+  catalog_file: ""               # 留空用默认 $DSH_HOME/.workbuddy-catalog.json; 由环境变量注入
+  # 低延迟优先: 每次应用内模型请求都受约束 (候选菜品 / 选菜两条链路共用)
+  chat_max_tokens: 1200          # 回复长度上限, 0 = 不下发该字段 (上游不兼容时)
+  chat_temperature: 0.0          # 低温确定性, 留空 = 不下发该字段
+  candidate_timeout_seconds: 20  # 同步候选端点 /assistant/candidates 的硬超时秒数
+
 feishu:
   app_id: ""
   app_secret: ""

@@ -15,7 +15,9 @@ from app.models.assistant_bridge import AssistantAdjustment, WorkBuddyConnection
 from app.services.meal_service import MealService, meal_now, problem
 from app.services.workbuddy_client import WorkBuddyClient, WorkBuddyError
 
-ACTIVE_ADJUSTMENTS = ("sending", "waiting")
+# Unified mode adds "calling" (the single direct model request is in flight).
+# "waiting" is retained for legacy rows created before the unification.
+ACTIVE_ADJUSTMENTS = ("sending", "calling", "waiting")
 
 
 class WorkBuddyService:

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """饭决「双向唤醒」本机助手侧客户端 —— connect / status / poll / receipt。
+兼容资产：仅服务旧版 Skill／入站链路，已不属于统一模式的应用内直接模型请求路径。
 
 Python 3.11+, 零第三方依赖, 与 skills/fandecide/scripts/fandecide.py 同构:
   origin() 只放行 HTTPS 或 localhost/回环 HTTP; NoRedirect 拒绝 3xx;

@@ -6,7 +6,6 @@ import { logout } from '../../api/auth'
 import { useThemeStore } from '../../stores/useThemeStore'
 import type { CurrentUser } from '../../types'
 import AssistantConnection from '../../components/AssistantConnection'
-import InboundBridgeCard from '../../components/InboundBridgeCard'
 
 export default function Settings({ user }: { user: CurrentUser }) {
   const navigate = useNavigate()
@@ -31,7 +30,6 @@ export default function Settings({ user }: { user: CurrentUser }) {
         </select></div>
     </section>
     <AssistantConnection />
-    <InboundBridgeCard />
     <section className="meal-settings-section">
       <h2>保留的菜单</h2><Link to="/menus" className="meal-setting-link"><span>周菜单</span><ArrowRightOutlined /></Link>
       <Link to="/shopping" className="meal-setting-link"><span>旧菜单采购清单</span><ArrowRightOutlined /></Link>

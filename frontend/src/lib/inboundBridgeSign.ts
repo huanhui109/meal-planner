@@ -1,6 +1,8 @@
 /**
  * 双向唤醒信封签名 —— 浏览器原生 WebCrypto，零新增 npm 包。
  *
+ * 兼容资产（deprecated）：统一模式后本文件不再被挂载，保留供签名固定向量测试与旧调用方引用；不参与主流程。
+ *
  * 签名算法唯一权威实现是后端 `backend/app/services/inbound_bridge/tokens.py`:
  *   TokenService.canonical  (第 74-105 行, 构造签名串)
  *   TokenService.derive_key (第 69-72 行, 第一步 HMAC)

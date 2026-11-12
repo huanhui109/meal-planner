@@ -8,6 +8,7 @@ from app.models.budget import Budget
 from app.models.build_info import BuildInfo
 from app.models.decision import DecisionFeedback, DecisionLog, DecisionSource, MealSlot
 from app.models.diet_preference import DietPreference
+from app.models.dish_category import DishCategory
 from app.models.event import Event
 from app.models.feedback import Feedback
 from app.models.fridge_inventory import ConsumptionRecord, FridgeInventory
@@ -37,6 +38,7 @@ __all__ = [
     "SubscribeMessage",
     "Household",
     "DietPreference",
+    "DishCategory",
     "AllergyRestriction",
     "HealthGoal",
     "Budget",

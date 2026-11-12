@@ -2,6 +2,8 @@
  * 双向唤醒模块 API 层 —— 路径全部取自 shared/endpoints.ts 的 ENDPOINTS 常量,
  * 不在前端硬编码任何字符串。完整路径 = apiClient 的 baseURL('/api') + 常量。
  *
+ * 兼容资产（deprecated）：统一模式后本文件不再被挂载，保留供签名固定向量测试与旧调用方引用；不参与主流程。
+ *
  * 成功响应统一 { code:0, message:'success', data: ... }, 用 unwrap<T>() 解包;
  * 错误由后端 problem() 抛 HTTPException, 沿用既有 apiClient 拦截器 / normalizeError。
  * 全部端点 Cache-Control: no-store（后端 no_store 依赖注入）。

@@ -82,5 +82,6 @@ deploy/.env.*
 backup/
 output/*.html
 output/playwright/
+output/ppos-lab/
 deliverables/
 *.log

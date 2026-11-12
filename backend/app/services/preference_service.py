@@ -73,6 +73,12 @@ class PreferenceService:
             existing.flavor_preference = data.flavor_preference
             existing.staple_preference = data.staple_preference
             existing.scene_tags = dumps_list(data.scene_tags)
+            # dish_category 是后加的字段, 老客户端(引导流程/旧版小程序)的请求体里根本没有它。
+            # 这个接口本身是整对象覆盖, 但"没送"和"显式送 null"必须区分开:
+            # 不区分的话, 用户先设了「中餐」, 再走一遍引导就被静默清成不限。
+            # 所以只在请求体里真的出现该字段时才写(出现 null 表示用户主动选了「不限」)。
+            if "dish_category" in data.model_fields_set:
+                existing.dish_category = data.dish_category or None
             return existing
         pref = DietPreference(
             user_id=user_id,
@@ -81,6 +87,7 @@ class PreferenceService:
             flavor_preference=data.flavor_preference,
             staple_preference=data.staple_preference,
             scene_tags=dumps_list(data.scene_tags),
+            dish_category=data.dish_category or None,
         )
         self.db.add(pref)
         await self.db.flush()

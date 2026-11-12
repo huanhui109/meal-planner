@@ -1,7 +1,9 @@
 import apiClient, { unwrap } from './client'
+import ENDPOINTS from '@shared/endpoints'
 import type {
-  AssistantAdjustment, AssistantAdjustmentRequest, AssistantGrant,
-  MealContext, MealHistoryItem, MealSlotName, MealView, WorkBuddyStatus,
+  AssistantAdjustment, AssistantAdjustmentRequest, AssistantGrant, DishCandidateRequest,
+  DishCandidateResult, LoginSession, MealContext, MealHistoryItem, MealSlotName, MealView,
+  ModelConnectionStatus, WorkBuddyStatus,
 } from '@shared/meal'
 
 export const getCurrentMeal = (slot?: MealSlotName, date?: string, signal?: AbortSignal) =>
@@ -48,6 +50,26 @@ export const authorizeWorkBuddy = () =>
     apiClient.post('/assistant/workbuddy/authorize', undefined, { signal })))
 export const disconnectWorkBuddy = () => connectionRequest((signal) =>
   apiClient.delete('/assistant/workbuddy', { signal }))
+export const getModelStatus = () => connectionRequest((signal) =>
+  unwrap<ModelConnectionStatus>(apiClient.get('/assistant/model', { signal })))
+/**
+ * 保存模型选择（空串 = 自动，优先免费）。
+ *
+ * 普通写入操作，不走 connectionRequest：15s 上限只用于探测本机助手连接，
+ * 而 422 的文案后端已经写成可读中文，界面要原样展示。
+ */
+export const chooseModel = (model: string, region = '') =>
+  unwrap<{ selected: string; effective: string; auto: boolean }>(
+    apiClient.post('/assistant/model', { model, region }))
+export const startWorkBuddyLogin = (region: 'cn' | 'global') =>
+  connectionRequest((signal) => unwrap<LoginSession>(
+    apiClient.post('/assistant/login', { region }, { signal })))
+export const pollWorkBuddyLogin = (loginId: string, region: 'cn' | 'global') =>
+  connectionRequest((signal) => unwrap<LoginSession>(
+    apiClient.get(`/assistant/login/${encodeURIComponent(loginId)}`, { params: { region }, signal })))
+export const logoutWorkBuddyAccount = (region: 'cn' | 'global') =>
+  connectionRequest((signal) => unwrap<{ removed: number }>(
+    apiClient.delete('/assistant/login', { params: { region }, signal })))
 export const startAssistantAdjustment = (request: AssistantAdjustmentRequest) =>
   unwrap<AssistantAdjustment>(apiClient.post('/assistant/adjustments', request))
 export const getAssistantAdjustment = (id: string) =>
@@ -58,3 +80,10 @@ export const getCurrentAdjustment = (date: string, slot: MealSlotName) =>
   }))
 export const cancelAssistantAdjustment = (id: string) =>
   unwrap<AssistantAdjustment>(apiClient.post(`/assistant/adjustments/${encodeURIComponent(id)}/cancel`))
+
+/**
+ * 应用内候选菜品技能：单跳低延迟，一次模型请求返回默认 4 个（3-5）结构化候选。
+ * 与「交给 AI 调整」互补：那条链路负责组合一餐，这里只拿候选、不建任务、不轮询。
+ */
+export const requestDishCandidates = (request: DishCandidateRequest) =>
+  unwrap<DishCandidateResult>(apiClient.post(ENDPOINTS.assistantCandidates, request))

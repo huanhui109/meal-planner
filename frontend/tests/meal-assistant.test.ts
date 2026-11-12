@@ -43,6 +43,11 @@ describe('助手调整状态', () => {
     }
   })
 
+  it('treats an in-flight model request as pending and labels it truthfully', () => {
+    expect(adjustmentPending({ ...job, status: 'calling' })).toBe(true)
+    expect(adjustmentLabel({ ...job, status: 'calling' })).toContain('模型')
+  })
+
   it('distinguishes understanding from choosing and success from acceptance', () => {
     expect(adjustmentLabel(job)).toContain('理解')
     expect(adjustmentLabel({ ...job, phase: 'proposal' })).toContain('搭配')

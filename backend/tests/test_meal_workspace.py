@@ -310,7 +310,14 @@ async def test_skill_user_isolation_and_download(workspace):
     from zipfile import ZipFile
 
     with ZipFile(BytesIO(package.content)) as archive:
-        assert sorted(archive.namelist()) == ["fandecide/SKILL.md", "fandecide/scripts/fandecide.py"]
+        # 精确清单：既有选菜 Skill 两件 + 应用内候选菜品 Skill 的规格与输出契约。
+        # 保持「恰好这些文件」的断言力度，避免悄悄夹带其它内容进安装包。
+        assert sorted(archive.namelist()) == [
+            "fandecide/SKILL.md",
+            "fandecide/candidates/SKILL.md",
+            "fandecide/candidates/contract.json",
+            "fandecide/scripts/fandecide.py",
+        ]
 
 
 async def test_serving_labels_misimported_as_ingredients_are_not_recommended(workspace):
@@ -403,3 +410,141 @@ async def test_zero_spice_excludes_chili_sauce_even_with_wrong_legacy_spice(work
         user_id, MealContextPatch(meal_slot="dinner", mode="takeout", max_spice=0),
     )
     assert not any(dish["key"] == f"recipe:{recipe.id}" for dish in context["candidates"])
+
+
+# ---- 菜品类别互斥大类 (迁移 0027) ----
+
+
+async def _grant_headers(client):
+    grant = (await client.post("/api/assistant/grants", json={})).json()["data"]
+    return {"Authorization": f"Bearer {grant['token']}"}
+
+
+def _key(candidates, category, role):
+    return next(d["key"] for d in candidates if d["dish_category"] == category and d["role"] == role)
+
+
+async def test_single_category_proposals_pass_and_cross_category_ones_are_blocked(workspace):
+    """核心验证场景: 单一类别(含纯西餐)通过; 跨类别、尤其中西混排被 422 拦截"""
+    _, client, _, _ = workspace
+    headers = await _grant_headers(client)
+    context = (await client.post("/api/assistant/context", headers=headers, json={
+        "meal_slot": "dinner", "servings": 3, "max_minutes": 180,
+    })).json()["data"]
+    candidates = context["candidates"]
+
+    async def post(keys, revision):
+        return await client.post("/api/assistant/proposals", headers=headers, json={
+            "context": {**context["context"], "servings": 3, "max_minutes": 180},
+            "candidate_keys": keys, "expected_revision": revision,
+        })
+
+    # 1) 单一类别: 中餐三道 —— 通过
+    cn = [_key(candidates, "chinese", role) for role in ("main", "side", "staple")]
+    ok_cn = await post(cn, 0)
+    assert ok_cn.status_code == 200, ok_cn.text
+    assert {d["dish_category"] for d in ok_cn.json()["data"]["proposal"]["dishes"]} == {"chinese"}
+    revision = ok_cn.json()["data"]["revision"]
+
+    # 2) 跨类别: 中餐主菜+配菜 配 西餐主食 —— 中西专门文案
+    mixed_west = [_key(candidates, "chinese", "main"), _key(candidates, "chinese", "side"),
+                  _key(candidates, "western", "staple")]
+    bad = await post(mixed_west, revision)
+    assert bad.status_code == 422, bad.text
+    assert "中餐与西餐" in bad.json()["detail"]
+    # 被拦后原方案不变, 不会静默成功
+    current = (await client.get("/api/meals/current?meal_slot=dinner")).json()["data"]
+    assert current["revision"] == revision
+    assert current["proposal"]["id"] == ok_cn.json()["data"]["proposal"]["id"]
+
+    # 3) 非中西跨类别也被拦(所有菜品类别必须一致)
+    mixed_jk = [_key(candidates, "chinese", "main"), _key(candidates, "japanese_korean", "side"),
+                _key(candidates, "chinese", "staple")]
+    bad2 = await post(mixed_jk, revision)
+    assert bad2.status_code == 422, bad2.text
+    assert "类别必须一致" in bad2.json()["detail"]
+
+    # 4) 纯西餐单一类别也能通过 —— 严格口径没有把西餐饿死
+    west = [_key(candidates, "western", role) for role in ("main", "side", "staple")]
+    ok_west = await post(west, revision)
+    assert ok_west.status_code == 200, ok_west.text
+    assert {d["dish_category"] for d in ok_west.json()["data"]["proposal"]["dishes"]} == {"western"}
+
+
+async def test_dish_category_preference_filters_candidates_and_keeps_other_preferences(workspace):
+    """偏好单选生效; 忌口/辣度等原有偏好不受影响; 自动组装也只出同类别方案"""
+    from app.models.diet_preference import DietPreference
+
+    db, client, user_id, _ = workspace
+    db.add(DietPreference(
+        user_id=user_id, cuisines='["家常"]', spice_level=1, dish_category="western",
+    ))
+    db.add(AllergyRestriction(
+        user_id=user_id, allergens="[]", avoid_ingredients='["花生"]', dietary_restrictions="",
+    ))
+    await db.commit()
+
+    view = (await client.get("/api/meals/current?meal_slot=dinner")).json()["data"]
+    assert view["context"]["dish_category"] == "western"
+    assert view["context"]["max_spice"] == 1  # 原有辣度偏好仍在
+
+    auto = await propose(client, servings=3, max_minutes=180)
+    assert auto.status_code == 200, auto.text
+    dishes = auto.json()["data"]["proposal"]["dishes"]
+    assert dishes and {d["dish_category"] for d in dishes} == {"western"}
+
+    headers = await _grant_headers(client)
+    ctx = (await client.post("/api/assistant/context", headers=headers, json={
+        "meal_slot": "dinner", "max_minutes": 180,
+    })).json()["data"]
+    assert ctx["candidates"]
+    assert {d["dish_category"] for d in ctx["candidates"]} == {"western"}
+    assert not any("花生" in " ".join(d["ingredients"]) for d in ctx["candidates"])
+
+
+async def test_invalid_dish_category_value_is_rejected_at_schema_layer(workspace):
+    _, client, _, _ = workspace
+    response = await client.put("/api/preferences/diet", json={
+        "cuisines": ["家常"], "spice_level": 2, "dish_category": "川菜",
+    })
+    assert response.status_code == 422
+    # 合法值 + 空串(不限)都要能保存
+    for value in ("western", ""):
+        ok = await client.put("/api/preferences/diet", json={
+            "cuisines": ["家常"], "spice_level": 2, "dish_category": value,
+        })
+        assert ok.status_code == 200, ok.text
+
+
+async def test_changed_category_preference_is_not_overridden_by_old_session(workspace):
+    """设置页改了类别之后, 旧的 session.context 不能把它盖回去"""
+    from app.models.diet_preference import DietPreference
+
+    db, client, user_id, _ = workspace
+    first = await propose(client, servings=3, max_minutes=180)
+    assert first.status_code == 200
+    db.add(DietPreference(
+        user_id=user_id, cuisines='["家常"]', spice_level=2, dish_category="western",
+    ))
+    await db.commit()
+    view = (await client.get("/api/meals/current?meal_slot=dinner")).json()["data"]
+    assert view["context"]["dish_category"] == "western"
+
+
+async def test_diet_update_without_category_field_keeps_stored_category(workspace):
+    """老客户端(引导流程)请求体里没有 dish_category 时, 不能把已选类别清掉
+
+    /preferences/diet 是整对象覆盖, 但「没送这个字段」和「显式送 null」语义不同:
+    前者是老客户端不认这个字段, 后者才是用户主动选了「不限」。
+    """
+    _, client, _, _ = workspace
+    base = {"cuisines": ["家常"], "spice_level": 2}
+    await client.put("/api/preferences/diet", json={**base, "dish_category": "chinese"})
+
+    kept = await client.put("/api/preferences/diet", json=base)
+    assert kept.status_code == 200, kept.text
+    assert kept.json()["data"]["dish_category"] == "chinese"
+
+    cleared = await client.put("/api/preferences/diet", json={**base, "dish_category": None})
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["data"]["dish_category"] is None

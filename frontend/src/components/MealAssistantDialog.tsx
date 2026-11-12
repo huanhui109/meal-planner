@@ -16,9 +16,15 @@ export default function MealAssistantDialog({ open, onClose, view, assistant, on
   assistant: ReturnType<typeof useMealAssistant>
   onCopy: (text: string) => Promise<void>
 }) {
-  const { draft, setDraft, status, checking, checkStatus, job, pending, submitting, error, uncertain, restoring } = assistant
-  useEffect(() => { if (open) void checkStatus() }, [open, checkStatus])
-  const canSend = uncertain || (status?.state === 'online' && !pending && !restoring && Boolean(draft.trim()))
+  const {
+    draft, setDraft, status, modelStatus, checking, checkStatus, checkModelStatus,
+    job, pending, submitting, error, uncertain, restoring,
+  } = assistant
+  useEffect(() => {
+    if (open) { void checkStatus(); void checkModelStatus() }
+  }, [open, checkStatus, checkModelStatus])
+  const canSend = uncertain || ((modelStatus?.available === true || status?.state === 'online')
+    && !pending && !restoring && Boolean(draft.trim()))
 
   return <Modal open={open} title="交给 AI 调整" footer={null} onCancel={onClose} width={560}>
     <div className="meal-assistant-dialog">
@@ -31,9 +37,12 @@ export default function MealAssistantDialog({ open, onClose, view, assistant, on
         disabled={pending} onChange={(event) => setDraft(event.target.value)} rows={4}
         placeholder="例如：今晚两个人，不想开火，清淡一点，别推荐昨天吃过的" />
       <div className="meal-assistant-connection">
-        <span>{checking ? <><LoadingOutlined />正在检查助手连接</> : status?.message ?? '暂时无法确认助手状态'}</span>
+        <span>{checking ? <><LoadingOutlined />正在检查助手连接</>
+          : modelStatus?.available ? modelStatus.message
+            : status?.message ?? '暂时无法确认助手状态'}</span>
         <button type="button" className="meal-icon" aria-label="重新检查助手状态" title="重新检查"
-          disabled={checking || submitting} onClick={() => { void checkStatus() }}><ReloadOutlined /></button>
+          disabled={checking || submitting} onClick={() => { void checkStatus(); void checkModelStatus() }}>
+          <ReloadOutlined /></button>
       </div>
       {pending && <div className="meal-assistant-progress" role="status" aria-live="polite">
         <LoadingOutlined /><span>{uncertain ? '发送状态待确认' : adjustmentLabel(job)}</span>

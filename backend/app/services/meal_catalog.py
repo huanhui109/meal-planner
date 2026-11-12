@@ -15,11 +15,37 @@ from app.data.local_pool import LOCAL_DISHES
 from app.models.recipe import Recipe
 from app.schemas.meal import MealContext
 from app.services.decision_service import Candidate, DecisionService, normalize_dish_name
-from app.services.dish_rules import dish_only
+from app.services.dish_rules import (
+    DishCategory,
+    category_conflict,
+    category_from_pool_cuisine,
+    dish_only,
+    guess_dish_category,
+    normalize_dish_category,
+)
 from app.services.intent_service import _looks_like_meat
 from app.services.pricing_service import PricedRow, PricingService
 
 STAPLES = {"盐", "食盐", "水", "食用油", "油", "生抽", "老抽", "白糖", "糖", "料酒", "酱油"}
+
+# 严格口径下主食也要按类别归属, 所以 rice 之外的每个大类各配一份通用主食,
+# 否则纯西餐/日韩/东南亚方案永远缺 staple、只能靠 complete 硬凑。
+# (类别 code, 名称, 主料, 用量行食材, 参考分钟)
+NON_CHINESE_STAPLES = (
+    (DishCategory.WESTERN, "欧式餐包", "面包", "面包粉", 10),
+    (DishCategory.JAPANESE_KOREAN, "日式白饭", "大米", "大米", 25),
+    (DishCategory.SOUTHEAST_ASIAN, "香米饭", "香米", "香米", 25),
+    (DishCategory.OTHER, "杂粮饭", "杂粮米", "杂粮米", 30),
+)
+
+# 实测 342 道菜的 role 分布: western 的 side=0, japanese_korean 只有 complete。
+# 严格口径下这两类会「凑不出一餐」。补两道最常见的通用配菜, 让每个大类都能
+# 组成 main+side+staple 或 complete+side, 而不是靠放宽规则换通过率。
+# (类别 code, 名称, 主料, 食材列表, 参考分钟)
+NON_CHINESE_SIDES = (
+    (DishCategory.WESTERN, "田园蔬菜沙拉", "生菜", ("生菜", "番茄", "黄瓜", "橄榄油"), 8),
+    (DishCategory.JAPANESE_KOREAN, "日式凉拌菠菜", "菠菜", ("菠菜", "白芝麻", "酱油"), 8),
+)
 INVALID_INGREDIENTS = {
     "主料", "辅料", "调料", "配料", "材料", "调味料", "香料包",
     "蒸架", "炒锅", "平底锅", "电饭煲", "烤箱", "锅", "碗",
@@ -71,6 +97,8 @@ class MealCandidate:
     role: str
     base_servings: Optional[int] = None
     requirements: list[dict] = field(default_factory=list)
+    # 互斥大类, 单值。同一份方案里所有菜品(含主食)必须同类, 尤其禁止中西混排。
+    dish_category: str = DishCategory.OTHER
 
     def view(self, servings: int = 1) -> dict:
         scale = servings / self.base_servings if self.base_servings else None
@@ -86,6 +114,8 @@ class MealCandidate:
             if self.dish.cost is not None and scale is not None else None,
             "spice": self.dish.spice,
             "base_servings": self.base_servings,
+            "dish_category": self.dish_category,
+            "dish_category_label": DishCategory.LABELS.get(self.dish_category, "未分类"),
             "requirements": [
                 {**line, "quantity": round(line["quantity"] * scale, 3)
                  if line["quantity"] is not None and scale is not None else None}
@@ -130,6 +160,11 @@ async def load_meal_catalog(db: AsyncSession) -> list[MealCandidate]:
     known = set()
     for recipe in rows:
         dish = DecisionService._from_recipe(recipe)
+        # other 是列的默认值(新菜/未回填), 不是人工归类结论: 这里无副作用地按规则
+        # 重判一次, 保证全新部署即使没跑回填脚本, 中西筛选也不会集体失效。不写库。
+        category_code = normalize_dish_category(recipe.dish_category_code)
+        if category_code == DishCategory.OTHER:
+            category_code = guess_dish_category(recipe)
         if not dish.steps or not dish.ingredients or any(
             name in INVALID_INGREDIENTS
             or re.fullmatch(r"(?:单人|双人|\d+人)(?:份)?|人数|份数", name)
@@ -149,7 +184,7 @@ async def load_meal_catalog(db: AsyncSession) -> list[MealCandidate]:
         dish.cost = priced.total if priced.priced_items == len(recipe.recipe_ingredients) and priced.priced_items else None
         result.append(MealCandidate(
             key=f"recipe:{recipe.id}", dish=dish, role=role,
-            base_servings=recipe.base_servings,
+            base_servings=recipe.base_servings, dish_category=category_code,
             requirements=[
                 {"ingredient_id": ri.ingredient_id, "name": ri.ingredient.name,
                  "quantity": ri.quantity, "unit": ri.unit}
@@ -164,7 +199,10 @@ async def load_meal_catalog(db: AsyncSession) -> list[MealCandidate]:
         if role is None:
             continue
         key = hashlib.sha256(dish.name.encode()).hexdigest()[:16]
-        result.append(MealCandidate(key=f"local:{key}", dish=dish, role=role))
+        result.append(MealCandidate(
+            key=f"local:{key}", dish=dish, role=role,
+            dish_category=category_from_pool_cuisine(item.get("cuisine")),
+        ))
     rice = Candidate(
         id=None, name="米饭", cuisine="家常", category="主食", main="大米",
         minutes=25, calories=0, difficulty=1, spice=0, light=True, cover="",
@@ -174,7 +212,34 @@ async def load_meal_catalog(db: AsyncSession) -> list[MealCandidate]:
     result.append(MealCandidate(
         key="staple:rice", dish=rice, role="staple", base_servings=1,
         requirements=[{"ingredient_id": None, "name": "大米", "quantity": 75, "unit": "g"}],
+        dish_category=DishCategory.CHINESE,
     ))
+    # 用户选了「主食也按类别归属」的严格口径, 所以每个类别都得有自己的主食,
+    # 否则纯西餐/日韩/东南亚方案凑不出 main+side+staple 三道餐。
+    for code, name, main, ingredient, minutes in NON_CHINESE_STAPLES:
+        dish = Candidate(
+            id=None, name=name, cuisine=DishCategory.LABELS[code], category="主食", main=main,
+            minutes=minutes, calories=0, difficulty=1, spice=0, light=True, cover="",
+            tags=[], flavors=[], ingredients=[ingredient, "水"],
+            steps=[f"按份量准备{ingredient}", f"按包装说明加热或煮熟，做成{name}"],
+        )
+        result.append(MealCandidate(
+            key=f"staple:{code}", dish=dish, role="staple", base_servings=1,
+            requirements=[{"ingredient_id": None, "name": ingredient, "quantity": 75, "unit": "g"}],
+            dish_category=code,
+        ))
+    for code, name, main, ingredients, minutes in NON_CHINESE_SIDES:
+        dish = Candidate(
+            id=None, name=name, cuisine=DishCategory.LABELS[code], category="素菜", main=main,
+            minutes=minutes, calories=0, difficulty=1, spice=0, light=True, cover="",
+            tags=[], flavors=[], ingredients=list(ingredients),
+            steps=[f"把{'、'.join(ingredients[:3])}洗净切好", "拌匀调味即可上桌"],
+        )
+        result.append(MealCandidate(
+            key=f"side:{code}", dish=dish, role="side", base_servings=1,
+            requirements=[{"ingredient_id": None, "name": main, "quantity": 100, "unit": "g"}],
+            dish_category=code,
+        ))
     return result
 
 
@@ -186,6 +251,10 @@ def filter_catalog(
     result = []
     for candidate in catalog:
         dish = candidate.dish
+        # 家人口味里的类别是硬筛选(不是打分): 选了西餐就不该再看见中餐候选。
+        # 空值 = 不限, 只跳过这一闸; 方案内类别一致仍由 composition_error 兜住。
+        if context.dish_category and candidate.dish_category != context.dish_category:
+            continue
         if dish.meal_slots and context.meal_slot not in dish.meal_slots:
             continue
         if any(word in dish.haystack for word in avoids):
@@ -220,6 +289,11 @@ def meal_minutes(candidates: list[MealCandidate]) -> int:
 
 
 def composition_error(candidates: list[MealCandidate], context: MealContext) -> Optional[str]:
+    # 类别一致是硬规则, 且包含主食: 显式 key(Skill/统一模式/兼容别名)与自动组装
+    # 都会经过这里, 一条闸覆盖四条写入链路。忌口之外它是最先判的一条。
+    conflict = category_conflict([c.dish_category for c in candidates])
+    if conflict:
+        return conflict
     if len({normalize_dish_name(c.dish.name) for c in candidates}) != len(candidates):
         return "同一餐不能重复选择同一道菜"
     if any(c.role == "complete" for c in candidates):
@@ -258,17 +332,23 @@ def compose_meal(
         return stock * 2 + variety - candidate.dish.minutes / 180
 
     ranked = sorted(catalog, key=score, reverse=True)
-    groups = {role: [c for c in ranked if c.role == role][:16]
-              for role in ("complete", "main", "side", "staple")}
+    # 先按类别分池再组合: 否则会先生成一大堆跨类别组合再被 validate_composition
+    # 全部否掉, 既浪费又容易让「暂时凑不出一餐」变成常见结果。
+    by_category: dict[str, list[MealCandidate]] = {}
+    for candidate in ranked:
+        by_category.setdefault(candidate.dish_category, []).append(candidate)
     choices: list[list[MealCandidate]] = []
-    for complete in groups["complete"]:
-        if context.servings == 1:
-            choices.append([complete])
-        else:
-            choices.extend([[complete, side] for side in groups["side"]])
-    choices.extend(
-        [list(parts) for parts in itertools.product(groups["main"], groups["side"], groups["staple"])]
-    )
+    for pool in by_category.values():
+        groups = {role: [c for c in pool if c.role == role][:16]
+                  for role in ("complete", "main", "side", "staple")}
+        for complete in groups["complete"]:
+            if context.servings == 1:
+                choices.append([complete])
+            else:
+                choices.extend([[complete, side] for side in groups["side"]])
+        choices.extend(
+            [list(parts) for parts in itertools.product(groups["main"], groups["side"], groups["staple"])]
+        )
     valid = [parts for parts in choices if validate_composition(parts, context) is None]
     if not valid:
         return None
